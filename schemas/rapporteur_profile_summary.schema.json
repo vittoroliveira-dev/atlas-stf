@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/rapporteur_profile_summary.schema.json",
+  "title": "RapporteurProfileSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "total_profiles",
+    "deviation_count",
+    "min_group_size"
+  ],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "total_profiles": { "type": "integer", "minimum": 0 },
+    "deviation_count": { "type": "integer", "minimum": 0 },
+    "min_group_size": { "type": "integer", "minimum": 0 }
+  }
+}

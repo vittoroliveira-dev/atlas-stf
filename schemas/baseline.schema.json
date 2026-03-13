@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/baseline.schema.json",
+  "title": "Baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "baseline_id",
+    "comparison_group_id",
+    "rule_version",
+    "event_count",
+    "process_count",
+    "expected_decision_progress_distribution",
+    "expected_rapporteur_distribution",
+    "expected_judging_body_distribution",
+    "generated_at"
+  ],
+  "properties": {
+    "baseline_id": {"type": "string"},
+    "comparison_group_id": {"type": "string"},
+    "rule_version": {"type": "string"},
+    "event_count": {"type": "integer"},
+    "process_count": {"type": "integer"},
+    "favorable_rate": {"type": ["number", "null"]},
+    "low_confidence": {"type": "boolean"},
+    "expected_decision_progress_distribution": {"type": "object"},
+    "expected_rapporteur_distribution": {"type": "object"},
+    "expected_judging_body_distribution": {"type": "object"},
+    "expected_progress_by_class": {"type": "object"},
+    "observed_period_start": {"type": ["string", "null"], "format": "date"},
+    "observed_period_end": {"type": ["string", "null"], "format": "date"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "notes": {"type": ["string", "null"]},
+    "loo_rapporteur_distributions": {"type": ["object", "null"]}
+  }
+}

@@ -1,0 +1,222 @@
+"""Query functions for compound risk endpoints."""
+
+from __future__ import annotations
+
+import json
+import logging
+from typing import Any, cast
+
+from pydantic import ValidationError
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from ..serving.models import ServingCompoundRisk
+from ._filters import _normalized_like
+from .schemas import (
+    CompoundRiskCompanyItem,
+    CompoundRiskHeatmapCell,
+    CompoundRiskHeatmapEntity,
+    CompoundRiskHeatmapResponse,
+    CompoundRiskItem,
+    CompoundRiskRedFlagsResponse,
+    PaginatedCompoundRiskResponse,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def _parse_company_items(raw: str | None) -> list[CompoundRiskCompanyItem]:
+    items: list[CompoundRiskCompanyItem] = []
+    for company in _parse_json_list(raw):
+        if not isinstance(company, dict):
+            continue
+        try:
+            items.append(CompoundRiskCompanyItem.model_validate(company))
+        except ValidationError:
+            logger.debug("Skipping invalid company item: %s", company)
+    return items
+
+
+def _parse_json_list(raw: str | None) -> list[Any]:
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
+    except TypeError, json.JSONDecodeError:
+        return []
+
+
+def _row_to_item(row: ServingCompoundRisk) -> CompoundRiskItem:
+    return CompoundRiskItem(
+        pair_id=row.pair_id,
+        minister_name=row.minister_name,
+        entity_type=row.entity_type,
+        entity_id=row.entity_id,
+        entity_name=row.entity_name,
+        signal_count=row.signal_count,
+        signals=[str(value) for value in _parse_json_list(row.signals_json)],
+        red_flag=row.red_flag,
+        shared_process_count=row.shared_process_count,
+        shared_process_ids=[str(value) for value in _parse_json_list(row.shared_process_ids_json)],
+        alert_count=row.alert_count,
+        alert_ids=[str(value) for value in _parse_json_list(row.alert_ids_json)],
+        max_alert_score=row.max_alert_score,
+        max_rate_delta=row.max_rate_delta,
+        sanction_match_count=row.sanction_match_count,
+        sanction_sources=[str(value) for value in _parse_json_list(row.sanction_sources_json)],
+        donation_match_count=row.donation_match_count,
+        donation_total_brl=row.donation_total_brl,
+        corporate_conflict_count=row.corporate_conflict_count,
+        corporate_conflict_ids=[str(value) for value in _parse_json_list(row.corporate_conflict_ids_json)],
+        corporate_companies=_parse_company_items(row.corporate_companies_json),
+        affinity_count=row.affinity_count,
+        affinity_ids=[str(value) for value in _parse_json_list(row.affinity_ids_json)],
+        top_process_classes=[str(value) for value in _parse_json_list(row.top_process_classes_json)],
+        supporting_party_ids=[str(value) for value in _parse_json_list(row.supporting_party_ids_json)],
+        supporting_party_names=[str(value) for value in _parse_json_list(row.supporting_party_names_json)],
+    )
+
+
+def _filtered_stmt(
+    *,
+    minister: str | None = None,
+    entity_type: str | None = None,
+    red_flag_only: bool = False,
+):
+    stmt = select(ServingCompoundRisk)
+    if minister:
+        stmt = stmt.where(_normalized_like(ServingCompoundRisk.minister_name, minister))
+    if entity_type:
+        stmt = stmt.where(ServingCompoundRisk.entity_type == entity_type)
+    if red_flag_only:
+        stmt = stmt.where(ServingCompoundRisk.red_flag.is_(True))
+    return stmt
+
+
+def get_compound_risks(
+    session: Session,
+    page: int,
+    page_size: int,
+    *,
+    minister: str | None = None,
+    entity_type: str | None = None,
+    red_flag_only: bool = False,
+) -> PaginatedCompoundRiskResponse:
+    stmt = _filtered_stmt(minister=minister, entity_type=entity_type, red_flag_only=red_flag_only)
+    total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = cast(
+        list[ServingCompoundRisk],
+        session.scalars(
+            stmt.order_by(
+                ServingCompoundRisk.signal_count.desc(),
+                ServingCompoundRisk.max_alert_score.desc(),
+                ServingCompoundRisk.max_rate_delta.desc(),
+                ServingCompoundRisk.pair_id.asc(),
+            )
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all(),
+    )
+    return PaginatedCompoundRiskResponse(
+        total=total,
+        page=page,
+        page_size=page_size,
+        items=[_row_to_item(row) for row in rows],
+    )
+
+
+def get_compound_risk_red_flags(
+    session: Session,
+    *,
+    minister: str | None = None,
+    entity_type: str | None = None,
+    limit: int = 100,
+) -> CompoundRiskRedFlagsResponse:
+    total = (
+        session.scalar(
+            select(func.count()).select_from(
+                _filtered_stmt(minister=minister, entity_type=entity_type, red_flag_only=True).subquery()
+            )
+        )
+        or 0
+    )
+    rows = cast(
+        list[ServingCompoundRisk],
+        session.scalars(
+            _filtered_stmt(minister=minister, entity_type=entity_type, red_flag_only=True)
+            .order_by(
+                ServingCompoundRisk.signal_count.desc(),
+                ServingCompoundRisk.max_alert_score.desc(),
+                ServingCompoundRisk.max_rate_delta.desc(),
+                ServingCompoundRisk.pair_id.asc(),
+            )
+            .limit(limit)
+        ).all(),
+    )
+    return CompoundRiskRedFlagsResponse(items=[_row_to_item(row) for row in rows], total=total)
+
+
+def get_compound_risk_heatmap(
+    session: Session,
+    *,
+    limit: int = 20,
+    minister: str | None = None,
+    entity_type: str | None = None,
+    red_flag_only: bool = False,
+) -> CompoundRiskHeatmapResponse:
+    stmt = _filtered_stmt(minister=minister, entity_type=entity_type, red_flag_only=red_flag_only)
+    total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = cast(
+        list[ServingCompoundRisk],
+        session.scalars(
+            stmt.order_by(
+                ServingCompoundRisk.signal_count.desc(),
+                ServingCompoundRisk.max_alert_score.desc(),
+                ServingCompoundRisk.max_rate_delta.desc(),
+                ServingCompoundRisk.pair_id.asc(),
+            ).limit(limit)
+        ).all(),
+    )
+    items = [_row_to_item(row) for row in rows]
+
+    ministers: list[str] = []
+    seen_ministers: set[str] = set()
+    entities: list[CompoundRiskHeatmapEntity] = []
+    seen_entities: set[tuple[str, str]] = set()
+    cells: list[CompoundRiskHeatmapCell] = []
+
+    for item in items:
+        if item.minister_name not in seen_ministers:
+            seen_ministers.add(item.minister_name)
+            ministers.append(item.minister_name)
+        entity_key = (item.entity_type, item.entity_id)
+        if entity_key not in seen_entities:
+            seen_entities.add(entity_key)
+            entities.append(
+                CompoundRiskHeatmapEntity(
+                    entity_type=item.entity_type,
+                    entity_id=item.entity_id,
+                    entity_name=item.entity_name,
+                )
+            )
+        cells.append(
+            CompoundRiskHeatmapCell(
+                pair_id=item.pair_id,
+                minister_name=item.minister_name,
+                entity_type=item.entity_type,
+                entity_id=item.entity_id,
+                signal_count=item.signal_count,
+                signals=item.signals,
+                red_flag=item.red_flag,
+                max_alert_score=item.max_alert_score,
+                max_rate_delta=item.max_rate_delta,
+            )
+        )
+
+    return CompoundRiskHeatmapResponse(
+        pair_count=total,
+        display_limit=limit,
+        ministers=ministers,
+        entities=entities,
+        cells=cells,
+    )

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/sequential_analysis_summary.schema.json",
+  "title": "SequentialAnalysisSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "total_analyses",
+    "bias_flagged_count",
+    "min_decisions"
+  ],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "total_analyses": { "type": "integer", "minimum": 0 },
+    "bias_flagged_count": { "type": "integer", "minimum": 0 },
+    "min_decisions": { "type": "integer", "minimum": 0 }
+  }
+}

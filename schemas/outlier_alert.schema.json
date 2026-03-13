@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/outlier_alert.schema.json",
+  "title": "OutlierAlert",
+  "description": "Entidade canônica que representa um alerta de atipicidade ou desvio de padrão decisório.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "alert_id",
+    "process_id",
+    "decision_event_id",
+    "alert_type",
+    "status"
+  ],
+  "properties": {
+    "alert_id": {
+      "type": "string",
+      "description": "Identificador interno do alerta."
+    },
+    "process_id": {
+      "type": "string",
+      "description": "Processo associado ao alerta."
+    },
+    "decision_event_id": {
+      "type": "string",
+      "description": "Fato decisório associado ao alerta."
+    },
+    "comparison_group_id": {
+      "type": ["string", "null"],
+      "description": "Grupo comparável utilizado para gerar o alerta."
+    },
+    "alert_type": {
+      "type": "string",
+      "enum": [
+        "atipicidade",
+        "mudanca_de_padrao",
+        "concentracao",
+        "divergencia_aparente",
+        "inconclusivo"
+      ],
+      "description": "Tipo controlado do alerta."
+    },
+    "alert_score": {
+      "type": ["number", "null"],
+      "description": "Score sintético de relevância ou desvio."
+    },
+    "expected_pattern": {
+      "type": ["string", "null"],
+      "description": "Descrição do padrão esperado."
+    },
+    "observed_pattern": {
+      "type": ["string", "null"],
+      "description": "Descrição do padrão observado."
+    },
+    "evidence_summary": {
+      "type": ["string", "null"],
+      "description": "Resumo auditável da razão do alerta."
+    },
+    "uncertainty_note": {
+      "type": ["string", "null"],
+      "description": "Nota de incerteza metodológica, quando necessária."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "novo",
+        "inconclusivo",
+        "arquivado"
+      ],
+      "description": "Estado operacional determinístico do alerta."
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "risk_signal_count": {
+      "type": ["integer", "null"],
+      "description": "Quantidade de sinais de risco convergentes (sanção, doação, vínculo, afinidade)."
+    },
+    "risk_signals": {
+      "type": ["array", "null"],
+      "items": {"type": "string"},
+      "description": "Lista de sinais de risco identificados para o processo."
+    }
+  }
+}

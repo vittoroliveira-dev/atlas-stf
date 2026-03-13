@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "origin_context",
+  "title": "Origin Context",
+  "description": "Contexto agregado de tribunal de origem via DataJud.",
+  "type": "object",
+  "required": [
+    "origin_index",
+    "tribunal_label",
+    "state",
+    "datajud_total_processes",
+    "stf_process_count"
+  ],
+  "properties": {
+    "origin_index": {
+      "type": "string",
+      "description": "Nome do indice DataJud (ex: api_publica_tjsp)."
+    },
+    "tribunal_label": {
+      "type": "string",
+      "description": "Label legivel do tribunal (ex: TJSP)."
+    },
+    "state": {
+      "type": "string",
+      "description": "UF do tribunal (ex: SP).",
+      "maxLength": 2
+    },
+    "datajud_total_processes": {
+      "type": "integer",
+      "description": "Total de processos no indice DataJud.",
+      "minimum": 0
+    },
+    "stf_process_count": {
+      "type": "integer",
+      "description": "Processos do STF com origem neste tribunal.",
+      "minimum": 0
+    },
+    "stf_share_pct": {
+      "type": "number",
+      "description": "Percentual de processos STF sobre total DataJud."
+    },
+    "top_assuntos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nome": { "type": "string" },
+          "count": { "type": "integer" }
+        },
+        "required": ["nome", "count"]
+      }
+    },
+    "top_orgaos_julgadores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nome": { "type": "string" },
+          "count": { "type": "integer" }
+        },
+        "required": ["nome", "count"]
+      }
+    },
+    "class_distribution": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nome": { "type": "string" },
+          "count": { "type": "integer" }
+        },
+        "required": ["nome", "count"]
+      }
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

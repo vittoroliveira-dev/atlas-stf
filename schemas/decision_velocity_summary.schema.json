@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/decision_velocity_summary.schema.json",
+  "title": "DecisionVelocitySummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "total_records",
+    "flagged_count",
+    "queue_jump_count",
+    "stalled_count",
+    "min_group_size",
+    "groups_analyzed"
+  ],
+  "properties": {
+    "generated_at": {"type": "string", "format": "date-time"},
+    "total_records": {"type": "integer"},
+    "flagged_count": {"type": "integer"},
+    "queue_jump_count": {"type": "integer"},
+    "stalled_count": {"type": "integer"},
+    "min_group_size": {"type": "integer"},
+    "groups_analyzed": {"type": "integer"}
+  }
+}

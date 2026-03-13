@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/rapporteur_change_summary.schema.json",
+  "title": "RapporteurChangeSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "total_changes",
+    "red_flag_count",
+    "processes_with_changes"
+  ],
+  "properties": {
+    "generated_at": {"type": "string", "format": "date-time"},
+    "total_changes": {"type": "integer"},
+    "red_flag_count": {"type": "integer"},
+    "processes_with_changes": {"type": "integer"}
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/rapporteur_change.schema.json",
+  "title": "RapporteurChange",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "change_id",
+    "process_id",
+    "previous_rapporteur",
+    "new_rapporteur",
+    "decision_event_id",
+    "post_change_decision_count",
+    "red_flag",
+    "generated_at"
+  ],
+  "properties": {
+    "change_id": {"type": "string"},
+    "process_id": {"type": "string"},
+    "process_class": {"type": ["string", "null"]},
+    "previous_rapporteur": {"type": "string"},
+    "new_rapporteur": {"type": "string"},
+    "change_date": {"type": ["string", "null"]},
+    "decision_event_id": {"type": "string"},
+    "post_change_decision_count": {"type": "integer"},
+    "post_change_favorable_rate": {"type": ["number", "null"]},
+    "new_rapporteur_baseline_rate": {"type": ["number", "null"]},
+    "delta_vs_baseline": {"type": ["number", "null"]},
+    "red_flag": {"type": "boolean"},
+    "generated_at": {"type": "string", "format": "date-time"}
+  }
+}

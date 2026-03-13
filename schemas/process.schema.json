@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/process.schema.json",
+  "title": "Process",
+  "description": "Entidade canônica que representa um processo no Atlas de Padrões Decisórios do STF.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "process_id",
+    "process_number",
+    "source_id",
+    "source_record_hash"
+  ],
+  "properties": {
+    "process_id": {
+      "type": "string",
+      "description": "Identificador interno estável do processo no projeto."
+    },
+    "process_number": {
+      "type": "string",
+      "description": "Identificador do processo conforme a fonte de origem."
+    },
+    "process_class": {
+      "type": ["string", "null"],
+      "description": "Classe processual inferida ou fornecida pela origem."
+    },
+    "filing_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Data de autuação do processo, quando disponível."
+    },
+    "closing_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Data de baixa do processo, quando disponível."
+    },
+    "origin_description": {
+      "type": ["string", "null"],
+      "description": "Descrição da procedência do processo."
+    },
+    "origin_court_or_body": {
+      "type": ["string", "null"],
+      "description": "Descrição do órgão de origem."
+    },
+    "branch_of_law": {
+      "type": ["string", "null"],
+      "description": "Ramo do direito associado ao processo."
+    },
+    "subjects_raw": {
+      "type": ["array", "null"],
+      "description": "Lista bruta de assuntos do processo.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "subjects_normalized": {
+      "type": ["array", "null"],
+      "description": "Lista normalizada de assuntos do processo.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "case_environment": {
+      "type": ["string", "null"],
+      "description": "Ambiente de julgamento ou tramitação, conforme a fonte."
+    },
+    "procedural_status": {
+      "type": ["string", "null"],
+      "description": "Indicador de tramitação ou estado procedimental, quando houver."
+    },
+    "raw_fields": {
+      "type": ["object", "null"],
+      "description": "Campos brutos adicionais preservados sem transformação."
+    },
+    "normalization_version": {
+      "type": ["string", "null"],
+      "description": "Versão da regra de normalização aplicada."
+    },
+    "source_id": {
+      "type": "string",
+      "description": "Identificador da fonte no source registry."
+    },
+    "source_record_hash": {
+      "type": "string",
+      "description": "Hash técnico ou identificador do registro bruto de origem."
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Data/hora de criação do registro canônico."
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Data/hora de atualização do registro canônico."
+    },
+    "juris_inteiro_teor_url": {
+      "type": ["string", "null"],
+      "description": "URL do inteiro teor, enriquecido da jurisprudencia."
+    },
+    "juris_partes": {
+      "type": ["string", "null"],
+      "description": "Lista de partes do processo, enriquecido da jurisprudencia."
+    },
+    "juris_legislacao_citada": {
+      "type": ["string", "null"],
+      "description": "Legislacao citada na fundamentacao, enriquecido da jurisprudencia."
+    },
+    "juris_procedencia": {
+      "type": ["string", "null"],
+      "description": "Procedencia geografica completa, enriquecido da jurisprudencia."
+    },
+    "juris_classe_extenso": {
+      "type": ["string", "null"],
+      "description": "Nome da classe processual por extenso, enriquecido da jurisprudencia."
+    },
+    "juris_doc_count": {
+      "type": ["integer", "null"],
+      "description": "Quantidade de documentos encontrados na jurisprudencia para este processo."
+    },
+    "juris_has_acordao": {
+      "type": ["boolean", "null"],
+      "description": "Se existe pelo menos um acordao na jurisprudencia para este processo."
+    },
+    "juris_has_decisao_monocratica": {
+      "type": ["boolean", "null"],
+      "description": "Se existe pelo menos uma decisao monocratica na jurisprudencia."
+    }
+  }
+}

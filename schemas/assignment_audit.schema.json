@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/assignment_audit.schema.json",
+  "title": "AssignmentAudit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "process_class",
+    "decision_year",
+    "rapporteur_count",
+    "event_count",
+    "rapporteur_distribution",
+    "chi2_statistic",
+    "p_value_approx",
+    "uniformity_flag"
+  ],
+  "properties": {
+    "process_class": {"type": "string"},
+    "decision_year": {"type": "integer"},
+    "rapporteur_count": {"type": "integer"},
+    "event_count": {"type": "integer"},
+    "rapporteur_distribution": {"type": "object"},
+    "chi2_statistic": {"type": "number"},
+    "p_value_approx": {"type": "number"},
+    "uniformity_flag": {"type": "boolean"},
+    "most_overrepresented_rapporteur": {"type": ["string", "null"]},
+    "most_underrepresented_rapporteur": {"type": ["string", "null"]}
+  }
+}

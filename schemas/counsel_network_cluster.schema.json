@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/counsel_network_cluster.schema.json",
+  "title": "CounselNetworkCluster",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cluster_id",
+    "counsel_ids",
+    "cluster_size",
+    "shared_client_count",
+    "shared_process_count",
+    "red_flag",
+    "generated_at"
+  ],
+  "properties": {
+    "cluster_id": {"type": "string"},
+    "counsel_ids": {"type": "array", "items": {"type": "string"}},
+    "counsel_names": {"type": "array", "items": {"type": "string"}},
+    "cluster_size": {"type": "integer"},
+    "shared_client_count": {"type": "integer"},
+    "shared_process_count": {"type": "integer"},
+    "minister_names": {"type": "array", "items": {"type": "string"}},
+    "cluster_favorable_rate": {"type": ["number", "null"]},
+    "cluster_case_count": {"type": "integer"},
+    "red_flag": {"type": "boolean"},
+    "generated_at": {"type": "string", "format": "date-time"}
+  }
+}

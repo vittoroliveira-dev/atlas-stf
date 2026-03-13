@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/ml_outlier_score.schema.json",
+  "title": "MlOutlierScore",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_event_id",
+    "comparison_group_id",
+    "ml_anomaly_score",
+    "ml_rarity_score",
+    "n_features",
+    "n_samples",
+    "generated_at"
+  ],
+  "properties": {
+    "decision_event_id": {"type": "string"},
+    "comparison_group_id": {"type": "string"},
+    "ml_anomaly_score": {"type": "number"},
+    "ml_rarity_score": {"type": "number"},
+    "ensemble_score": {"type": ["number", "null"]},
+    "n_features": {"type": "integer"},
+    "n_samples": {"type": "integer"},
+    "generated_at": {"type": "string", "format": "date-time"}
+  }
+}

@@ -1,0 +1,156 @@
+import { fetchApiJson, isApiFetchError } from "@/lib/api-client";
+
+export type SanctionMatch = {
+  match_id: string;
+  entity_type: string;
+  party_id: string;
+  counsel_id: string | null;
+  party_name_normalized: string;
+  sanction_source: string;
+  sanction_id: string;
+  sanctioning_body: string | null;
+  sanction_type: string | null;
+  sanction_start_date: string | null;
+  sanction_end_date: string | null;
+  sanction_description: string | null;
+  stf_case_count: number;
+  favorable_rate: number | null;
+  baseline_favorable_rate: number | null;
+  favorable_rate_delta: number | null;
+  red_flag: boolean;
+};
+
+export type CounselSanctionProfile = {
+  counsel_id: string;
+  counsel_name_normalized: string;
+  sanctioned_client_count: number;
+  total_client_count: number;
+  sanctioned_client_rate: number;
+  sanctioned_favorable_rate: number | null;
+  overall_favorable_rate: number | null;
+  red_flag: boolean;
+};
+
+type PaginatedSanctionsResponse = {
+  total: number;
+  page: number;
+  page_size: number;
+  items: SanctionMatch[];
+};
+
+type SanctionRedFlagsResponse = {
+  party_flags: SanctionMatch[];
+  counsel_flags: CounselSanctionProfile[];
+  total_party_flags: number;
+  total_counsel_flags: number;
+};
+
+export type SanctionsPageData = {
+  sanctions: SanctionMatch[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type SanctionRedFlags = {
+  partyFlags: SanctionMatch[];
+  counselFlags: CounselSanctionProfile[];
+  totalPartyFlags: number;
+  totalCounselFlags: number;
+};
+
+async function fetchSanctions(params: {
+  page?: number;
+  pageSize?: number;
+  source?: string;
+  redFlagOnly?: boolean;
+  entityType?: string;
+}): Promise<SanctionsPageData> {
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 24;
+  const payload = await fetchApiJson<PaginatedSanctionsResponse>("/sanctions", {
+    page,
+    page_size: pageSize,
+    source: params.source,
+    red_flag_only: params.redFlagOnly,
+    entity_type: params.entityType,
+  });
+  const totalPages = Math.max(1, Math.ceil(payload.total / payload.page_size));
+  const normalizedPayload = payload.total > 0 && page > totalPages
+    ? await fetchApiJson<PaginatedSanctionsResponse>("/sanctions", {
+        page: totalPages,
+        page_size: pageSize,
+        source: params.source,
+        red_flag_only: params.redFlagOnly,
+        entity_type: params.entityType,
+      })
+    : payload;
+
+  return {
+    sanctions: normalizedPayload.items,
+    total: normalizedPayload.total,
+    page: normalizedPayload.page,
+    pageSize: normalizedPayload.page_size,
+  };
+}
+
+export async function getSanctionsPageData(params: {
+  page?: number;
+  pageSize?: number;
+  source?: string;
+  redFlagOnly?: boolean;
+} = {}): Promise<SanctionsPageData> {
+  return fetchSanctions(params);
+}
+
+export async function getPartySanctionsPageData(params: {
+  page?: number;
+  pageSize?: number;
+  source?: string;
+  redFlagOnly?: boolean;
+} = {}): Promise<SanctionsPageData> {
+  return fetchSanctions({ ...params, entityType: "party" });
+}
+
+export async function getCounselSanctionsPageData(params: {
+  page?: number;
+  pageSize?: number;
+  source?: string;
+  redFlagOnly?: boolean;
+} = {}): Promise<SanctionsPageData> {
+  return fetchSanctions({ ...params, entityType: "counsel" });
+}
+
+export async function getSanctionRedFlags(): Promise<SanctionRedFlags> {
+  const payload = await fetchApiJson<SanctionRedFlagsResponse>("/sanctions/red-flags");
+  return {
+    partyFlags: payload.party_flags,
+    counselFlags: payload.counsel_flags,
+    totalPartyFlags: payload.total_party_flags,
+    totalCounselFlags: payload.total_counsel_flags,
+  };
+}
+
+export async function getPartySanctions(partyId: string): Promise<SanctionMatch[]> {
+  try {
+    return await fetchApiJson<SanctionMatch[]>(`/parties/${encodeURIComponent(partyId)}/sanctions`);
+  } catch (error) {
+    if (isApiFetchError(error)) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+export async function getCounselSanctionProfile(counselId: string): Promise<CounselSanctionProfile | null> {
+  try {
+    return await fetchApiJson<CounselSanctionProfile>(
+      `/counsels/${encodeURIComponent(counselId)}/sanction-profile`,
+    );
+  } catch (error) {
+    if (isApiFetchError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}

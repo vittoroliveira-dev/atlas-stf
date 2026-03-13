@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/ml_outlier_score_summary.schema.json",
+  "title": "MlOutlierScoreSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "record_count",
+    "groups_processed",
+    "ensemble_count"
+  ],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "record_count": { "type": "integer", "minimum": 0 },
+    "groups_processed": { "type": "integer", "minimum": 0 },
+    "ensemble_count": { "type": "integer", "minimum": 0 }
+  }
+}

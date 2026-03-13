@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/decision_velocity.schema.json",
+  "title": "DecisionVelocity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "velocity_id",
+    "decision_event_id",
+    "process_id",
+    "days_to_decision",
+    "process_class",
+    "thematic_key",
+    "decision_year",
+    "group_size",
+    "generated_at"
+  ],
+  "properties": {
+    "velocity_id": {"type": "string"},
+    "decision_event_id": {"type": "string"},
+    "process_id": {"type": "string"},
+    "current_rapporteur": {"type": ["string", "null"]},
+    "decision_date": {"type": "string"},
+    "filing_date": {"type": "string"},
+    "days_to_decision": {"type": "integer"},
+    "process_class": {"type": "string"},
+    "thematic_key": {"type": "string"},
+    "decision_year": {"type": "integer"},
+    "group_size": {"type": "integer"},
+    "p5_days": {"type": "number"},
+    "p10_days": {"type": "number"},
+    "median_days": {"type": "number"},
+    "p90_days": {"type": "number"},
+    "p95_days": {"type": "number"},
+    "velocity_flag": {"type": ["string", "null"]},
+    "velocity_z_score": {"type": "number"},
+    "generated_at": {"type": "string", "format": "date-time"}
+  }
+}

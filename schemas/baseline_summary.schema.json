@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/baseline_summary.schema.json",
+  "title": "BaselineSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "baseline_count",
+    "group_count_considered",
+    "event_count_linked"
+  ],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "baseline_count": { "type": "integer", "minimum": 0 },
+    "group_count_considered": { "type": "integer", "minimum": 0 },
+    "event_count_linked": { "type": "integer", "minimum": 0 }
+  }
+}

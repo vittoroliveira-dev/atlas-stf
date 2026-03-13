@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/entity_identifier_reconciliation.schema.json",
+  "title": "EntityIdentifierReconciliation",
+  "description": "Proposta canônica de vínculo entre ocorrência de CPF/CNPJ extraída do STF e party/counsel do mesmo processo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reconciliation_id",
+    "identifier_occurrence_id",
+    "candidate_count",
+    "proposal_status",
+    "created_at"
+  ],
+  "properties": {
+    "reconciliation_id": {
+      "type": "string"
+    },
+    "identifier_occurrence_id": {
+      "type": ["string", "null"]
+    },
+    "process_id": {
+      "type": ["string", "null"]
+    },
+    "process_number": {
+      "type": ["string", "null"]
+    },
+    "identifier_kind": {
+      "type": ["string", "null"],
+      "enum": ["cpf", "cnpj", null]
+    },
+    "identifier_value_normalized": {
+      "type": ["string", "null"]
+    },
+    "entity_kind": {
+      "type": ["string", "null"],
+      "enum": ["party", "counsel", null]
+    },
+    "entity_id": {
+      "type": ["string", "null"]
+    },
+    "entity_name_normalized": {
+      "type": ["string", "null"]
+    },
+    "proposal_strategy": {
+      "type": ["string", "null"]
+    },
+    "proposal_score": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "candidate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "proposal_status": {
+      "type": "string",
+      "enum": ["proposed", "ambiguous", "unresolved"]
+    },
+    "uncertainty_note": {
+      "type": ["string", "null"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info/
+
+# Virtual environments
+.venv/
+
+# Node / Web
+node_modules/
+.next/
+*.tsbuildinfo
+
+# Data — arquivos brutos e derivados são grandes demais para o repo.
+# Apenas READMEs e schemas dentro de data/ devem ser versionados.
+data/raw/**/*.csv
+data/raw/**/*.jsonl
+data/raw/**/*.json
+data/raw/**/*.log
+data/raw/rfb/
+data/staging/
+data/curated/
+data/analytics/
+data/evidence/
+data/serving/
+
+# Reports e logs de pipeline
+reports/
+data/pipeline.log
+data/.pipeline_done_*
+
+# Secrets e configs locais
+.env
+.env.*
+*.secret
+credentials*.json
+*.pem
+*.key
+
+# AI tooling — configs locais, estado e metadados de agentes
+.claude/
+.claude-flow/
+.swarm/
+CLAUDE.md
+AGENTS.md
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testes e cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Playwright
+playwright-report/
+test-results/
+.playwright-mcp/
+
+# OS
+Thumbs.db

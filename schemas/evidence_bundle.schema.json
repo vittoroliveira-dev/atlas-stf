@@ -1,0 +1,455 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/evidence_bundle.schema.json",
+  "title": "EvidenceBundle",
+  "description": "Artefato técnico consolidado para análise derivada de um alerta analítico.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_version",
+    "generated_at",
+    "alert",
+    "decision_event",
+    "process",
+    "baseline",
+    "comparison_group",
+    "score_details",
+    "gate_status",
+    "analysis_context",
+    "analysis_prompts"
+  ],
+  "properties": {
+      "bundle_version": {
+        "type": "string",
+        "enum": [
+          "evidence-bundle-v3"
+        ]
+      },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "alert": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "alert_id",
+        "process_id",
+        "decision_event_id",
+        "comparison_group_id",
+        "alert_type",
+        "status"
+      ],
+      "properties": {
+        "alert_id": {
+          "type": "string"
+        },
+        "process_id": {
+          "type": "string"
+        },
+        "decision_event_id": {
+          "type": "string"
+        },
+        "comparison_group_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "alert_type": {
+          "type": "string"
+        },
+        "alert_score": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "expected_pattern": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed_pattern": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_summary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "uncertainty_note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "decision_event": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "decision_event_id",
+        "process_id",
+        "source_id"
+      ],
+      "properties": {
+        "decision_event_id": {
+          "type": "string"
+        },
+        "process_id": {
+          "type": "string"
+        },
+        "source_id": {
+          "type": "string"
+        },
+        "decision_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "decision_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "current_rapporteur": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "judging_body": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "process_id",
+        "process_number",
+        "source_id",
+        "source_record_hash"
+      ],
+      "properties": {
+        "process_id": {
+          "type": "string"
+        },
+        "process_number": {
+          "type": "string"
+        },
+        "source_id": {
+          "type": "string"
+        },
+        "source_record_hash": {
+          "type": "string"
+        }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "baseline_id",
+        "comparison_group_id",
+        "rule_version",
+        "event_count",
+        "process_count"
+      ],
+      "properties": {
+        "baseline_id": {
+          "type": "string"
+        },
+        "comparison_group_id": {
+          "type": "string"
+        },
+        "rule_version": {
+          "type": "string"
+        },
+        "event_count": {
+          "type": "integer"
+        },
+        "process_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "comparison_group": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "comparison_group_id",
+        "rule_version",
+        "selection_criteria",
+        "time_window",
+        "case_count",
+        "status"
+      ],
+      "properties": {
+        "comparison_group_id": {
+          "type": "string"
+        },
+        "rule_version": {
+          "type": "string"
+        },
+        "selection_criteria": {
+          "type": "object"
+        },
+        "time_window": {
+          "type": "string"
+        },
+        "case_count": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "analysis_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "process_number",
+        "minister",
+        "decision_date",
+        "decision_type",
+        "group_rule_version",
+        "baseline_event_count"
+      ],
+      "properties": {
+        "process_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "minister": {
+          "type": "string"
+        },
+        "decision_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "decision_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "group_rule_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "baseline_event_count": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "analysis_prompts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "advanced_analytics": {
+      "type": "object"
+    },
+    "score_details": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alert_score",
+        "alert_type",
+        "expected_pattern",
+        "observed_pattern",
+        "evidence_summary",
+        "uncertainty_note",
+        "components"
+      ],
+      "properties": {
+        "alert_score": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "alert_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected_pattern": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed_pattern": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_summary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "uncertainty_note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "observed_value",
+              "expected_value",
+              "expected_probability",
+              "rarity_score"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "observed_value": {
+                "type": "string"
+              },
+              "expected_value": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "expected_probability": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0
+              },
+              "rarity_score": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0
+              }
+            }
+          }
+        }
+      }
+    },
+    "gate_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "has_alert_id",
+        "has_process_id",
+        "has_decision_event_id",
+        "has_comparison_group_id",
+        "has_baseline",
+        "has_expected_pattern",
+        "has_observed_pattern",
+        "has_evidence_summary",
+        "has_alert_type",
+        "has_alert_score",
+        "uncertainty_note_required",
+        "has_uncertainty_note",
+        "uses_neutral_language",
+        "makes_automatic_accusation",
+        "passes_for_analysis"
+      ],
+      "properties": {
+        "has_alert_id": {
+          "type": "boolean"
+        },
+        "has_process_id": {
+          "type": "boolean"
+        },
+        "has_decision_event_id": {
+          "type": "boolean"
+        },
+        "has_comparison_group_id": {
+          "type": "boolean"
+        },
+        "has_baseline": {
+          "type": "boolean"
+        },
+        "has_expected_pattern": {
+          "type": "boolean"
+        },
+        "has_observed_pattern": {
+          "type": "boolean"
+        },
+        "has_evidence_summary": {
+          "type": "boolean"
+        },
+        "has_alert_type": {
+          "type": "boolean"
+        },
+        "has_alert_score": {
+          "type": "boolean"
+        },
+        "uncertainty_note_required": {
+          "type": "boolean"
+        },
+        "has_uncertainty_note": {
+          "type": "boolean"
+        },
+        "uses_neutral_language": {
+          "type": "boolean"
+        },
+        "makes_automatic_accusation": {
+          "type": "boolean"
+        },
+        "passes_for_analysis": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

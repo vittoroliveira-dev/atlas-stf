@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/decision_event_group_link.schema.json",
+  "title": "DecisionEventGroupLink",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_event_id",
+    "comparison_group_id",
+    "process_id",
+    "linked_at"
+  ],
+  "properties": {
+    "decision_event_id": {"type": "string"},
+    "comparison_group_id": {"type": "string"},
+    "process_id": {"type": "string"},
+    "linked_at": {"type": "string", "format": "date-time"}
+  }
+}

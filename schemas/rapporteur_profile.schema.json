@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/rapporteur_profile.schema.json",
+  "title": "RapporteurProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rapporteur",
+    "process_class",
+    "thematic_key",
+    "decision_year",
+    "event_count",
+    "progress_distribution",
+    "group_progress_distribution",
+    "group_event_count",
+    "deviation_flag",
+    "deviation_direction"
+  ],
+  "properties": {
+    "rapporteur": {"type": "string"},
+    "process_class": {"type": "string"},
+    "thematic_key": {"type": "string"},
+    "decision_year": {"type": "integer"},
+    "event_count": {"type": "integer"},
+    "progress_distribution": {"type": "object"},
+    "group_progress_distribution": {"type": "object"},
+    "group_event_count": {"type": "integer"},
+    "chi2_statistic": {"type": ["number", "null"]},
+    "p_value_approx": {"type": ["number", "null"]},
+    "deviation_flag": {"type": "boolean"},
+    "deviation_direction": {"type": "string"},
+    "monocratic_event_count": {"type": "integer"},
+    "monocratic_favorable_count": {"type": "integer"},
+    "monocratic_unfavorable_count": {"type": "integer"},
+    "collegiate_event_count": {"type": "integer"},
+    "collegiate_favorable_count": {"type": "integer"},
+    "collegiate_unfavorable_count": {"type": "integer"},
+    "monocratic_favorable_rate": {"type": ["number", "null"]},
+    "collegiate_favorable_rate": {"type": ["number", "null"]},
+    "monocratic_blocking_flag": {"type": "boolean"}
+  }
+}

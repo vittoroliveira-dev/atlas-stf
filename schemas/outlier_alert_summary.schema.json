@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/outlier_alert_summary.schema.json",
+  "title": "OutlierAlertSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "alert_count",
+    "alert_type_counts",
+    "status_counts",
+    "threshold",
+    "min_score",
+    "max_score",
+    "avg_score",
+    "skipped_missing_baseline",
+    "skipped_missing_event",
+    "skipped_below_threshold",
+    "skipped_without_explanation"
+  ],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "alert_count": { "type": "integer", "minimum": 0 },
+    "alert_type_counts": { "type": "object" },
+    "status_counts": { "type": "object" },
+    "threshold": { "type": "number" },
+    "min_score": { "type": ["number", "null"] },
+    "max_score": { "type": ["number", "null"] },
+    "avg_score": { "type": ["number", "null"] },
+    "skipped_missing_baseline": { "type": "integer", "minimum": 0 },
+    "skipped_missing_event": { "type": "integer", "minimum": 0 },
+    "skipped_below_threshold": { "type": "integer", "minimum": 0 },
+    "skipped_without_explanation": { "type": "integer", "minimum": 0 }
+  }
+}

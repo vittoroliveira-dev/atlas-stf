@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/subject.schema.json",
+  "title": "Subject",
+  "description": "Entidade canônica que representa assunto ou tema processual.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["subject_id", "subject_raw"],
+  "properties": {
+    "subject_id": {"type": "string"},
+    "subject_raw": {"type": "string"},
+    "subject_normalized": {"type": ["string", "null"]},
+    "subject_group": {"type": ["string", "null"]},
+    "branch_of_law": {"type": ["string", "null"]},
+    "normalization_version": {"type": ["string", "null"]},
+    "created_at": {"type": ["string", "null"], "format": "date-time"},
+    "updated_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}

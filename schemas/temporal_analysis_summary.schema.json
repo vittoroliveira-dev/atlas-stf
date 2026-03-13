@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/temporal_analysis_summary.schema.json",
+  "title": "TemporalAnalysisSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "total_records",
+    "counts_by_kind",
+    "ministers_covered",
+    "events_covered",
+    "rolling_window_months",
+    "event_window_days"
+  ],
+  "properties": {
+    "generated_at": {"type": "string", "format": "date-time"},
+    "total_records": {"type": "integer", "minimum": 0},
+    "counts_by_kind": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "ministers_covered": {"type": "integer", "minimum": 0},
+    "events_covered": {"type": "integer", "minimum": 0},
+    "rolling_window_months": {"type": "integer", "minimum": 1},
+    "event_window_days": {"type": "integer", "minimum": 1}
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/comparison_group_summary.schema.json",
+  "title": "ComparisonGroupSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "rule_version",
+    "group_count",
+    "valid_group_count",
+    "linked_event_count",
+    "skipped_event_count"
+  ],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "rule_version": { "type": "string" },
+    "group_count": { "type": "integer", "minimum": 0 },
+    "valid_group_count": { "type": "integer", "minimum": 0 },
+    "linked_event_count": { "type": "integer", "minimum": 0 },
+    "skipped_event_count": { "type": "integer", "minimum": 0 }
+  }
+}

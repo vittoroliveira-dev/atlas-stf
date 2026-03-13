@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/counsel_network_cluster_summary.schema.json",
+  "title": "CounselNetworkClusterSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "total_clusters",
+    "red_flag_count",
+    "total_counsel_in_clusters",
+    "min_shared_clients"
+  ],
+  "properties": {
+    "generated_at": {"type": "string", "format": "date-time"},
+    "total_clusters": {"type": "integer"},
+    "red_flag_count": {"type": "integer"},
+    "total_counsel_in_clusters": {"type": "integer"},
+    "min_shared_clients": {"type": "integer"}
+  }
+}

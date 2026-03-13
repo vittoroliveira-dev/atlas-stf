@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/sequential_analysis.schema.json",
+  "title": "SequentialAnalysis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rapporteur",
+    "decision_year",
+    "n_decisions",
+    "n_favorable",
+    "n_unfavorable",
+    "autocorrelation_lag1",
+    "base_favorable_rate",
+    "sequential_bias_flag"
+  ],
+  "properties": {
+    "rapporteur": {"type": "string"},
+    "decision_year": {"type": "integer"},
+    "n_decisions": {"type": "integer"},
+    "n_favorable": {"type": "integer"},
+    "n_unfavorable": {"type": "integer"},
+    "autocorrelation_lag1": {"type": "number"},
+    "streak_effect_3": {"type": ["number", "null"]},
+    "streak_effect_5": {"type": ["number", "null"]},
+    "base_favorable_rate": {"type": "number"},
+    "post_streak_favorable_rate_3": {"type": ["number", "null"]},
+    "post_streak_favorable_rate_5": {"type": ["number", "null"]},
+    "sequential_bias_flag": {"type": "boolean"}
+  }
+}

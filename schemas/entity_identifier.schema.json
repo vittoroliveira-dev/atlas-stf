@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/entity_identifier.schema.json",
+  "title": "EntityIdentifier",
+  "description": "Ocorrência experimental de CPF/CNPJ extraída de texto bruto de jurisprudência do STF.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "identifier_occurrence_id",
+    "source_doc_type",
+    "source_file",
+    "source_field",
+    "identifier_kind",
+    "identifier_value_raw",
+    "identifier_value_normalized",
+    "context_snippet",
+    "extraction_confidence",
+    "extraction_method",
+    "created_at"
+  ],
+  "properties": {
+    "identifier_occurrence_id": {
+      "type": "string"
+    },
+    "process_id": {
+      "type": ["string", "null"]
+    },
+    "process_number": {
+      "type": ["string", "null"]
+    },
+    "juris_doc_id": {
+      "type": ["string", "null"]
+    },
+    "source_doc_type": {
+      "type": "string"
+    },
+    "source_file": {
+      "type": "string"
+    },
+    "source_field": {
+      "type": "string"
+    },
+    "source_url": {
+      "type": ["string", "null"]
+    },
+    "identifier_kind": {
+      "type": "string",
+      "enum": ["cpf", "cnpj"]
+    },
+    "identifier_value_raw": {
+      "type": "string"
+    },
+    "identifier_value_normalized": {
+      "type": "string"
+    },
+    "context_snippet": {
+      "type": "string"
+    },
+    "entity_name_hint": {
+      "type": ["string", "null"]
+    },
+    "extraction_confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "extraction_method": {
+      "type": "string"
+    },
+    "uncertainty_note": {
+      "type": ["string", "null"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

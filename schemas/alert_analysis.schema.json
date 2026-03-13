@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/alert_analysis.schema.json",
+  "title": "AlertAnalysis",
+  "description": "Artefato derivado, opcional e não determinístico de síntese ou refino assistido por IA sobre um alerta analítico já materializado.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "analysis_id",
+    "alert_id",
+    "analysis_type",
+    "recommended_next_step",
+    "summary_text",
+    "analysis_model",
+    "analysis_version",
+    "prompt_version",
+    "source_bundle_version",
+    "source_artifact_hash",
+    "created_at"
+  ],
+  "properties": {
+    "analysis_id": {
+      "type": "string",
+      "description": "Identificador único da análise derivada."
+    },
+    "alert_id": {
+      "type": "string",
+      "description": "Identificador do outlier_alert que originou esta análise."
+    },
+    "analysis_type": {
+      "type": "string",
+      "enum": [
+        "summary_descriptive",
+        "summary_comparative",
+        "uncertainty_assessment",
+        "documentary_guidance"
+      ],
+      "description": "Tipo controlado da análise derivada."
+    },
+    "recommended_next_step": {
+      "type": "string",
+      "enum": [
+        "none",
+        "inspect_evidence_bundle",
+        "check_group_comparability",
+        "check_baseline_stability",
+        "check_official_document",
+        "mark_inconclusive"
+      ],
+      "description": "Próximo passo sugerido pela análise derivada, sem alterar o alerta original."
+    },
+    "summary_text": {
+      "type": "string",
+      "description": "Síntese principal da análise derivada."
+    },
+    "summary_descriptive": {
+      "type": ["string", "null"],
+      "description": "Resumo descritivo opcional do alerta e seus artefatos de origem."
+    },
+    "summary_comparative": {
+      "type": ["string", "null"],
+      "description": "Resumo comparativo opcional entre observado, esperado e baseline."
+    },
+    "uncertainty_note": {
+      "type": ["string", "null"],
+      "description": "Nota de incerteza adicional da camada derivada, quando aplicável."
+    },
+    "analysis_model": {
+      "type": "string",
+      "description": "Modelo utilizado para produzir a análise derivada."
+    },
+    "analysis_version": {
+      "type": "string",
+      "description": "Versão do formato ou rotina da análise derivada."
+    },
+    "prompt_version": {
+      "type": "string",
+      "description": "Versão do prompt usado para produzir a análise derivada."
+    },
+    "source_bundle_version": {
+      "type": "string",
+      "description": "Versão do evidence bundle ou artefato técnico usado como base."
+    },
+    "source_artifact_hash": {
+      "type": "string",
+      "description": "Hash obrigatório do artefato de origem usado para produzir a análise derivada."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data e hora de geração da análise derivada."
+    }
+  }
+}

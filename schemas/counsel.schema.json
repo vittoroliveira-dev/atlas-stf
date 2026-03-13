@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/counsel.schema.json",
+  "title": "Counsel",
+  "description": "Entidade canônica que representa advogado ou representante vinculado ao processo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "counsel_id",
+    "counsel_name_raw"
+  ],
+  "properties": {
+    "counsel_id": {
+      "type": "string",
+      "description": "Identificador interno estável do advogado."
+    },
+    "counsel_name_raw": {
+      "type": "string",
+      "description": "Nome bruto do advogado conforme a fonte."
+    },
+    "counsel_name_normalized": {
+      "type": ["string", "null"],
+      "description": "Nome normalizado do advogado."
+    },
+    "canonical_name_normalized": {
+      "type": ["string", "null"],
+      "description": "Nome canônico usado para matching e deduplicação."
+    },
+    "entity_tax_id": {
+      "type": ["string", "null"],
+      "description": "CPF/CNPJ normalizado quando houver evidência para o advogado."
+    },
+    "identity_key": {
+      "type": ["string", "null"],
+      "description": "Chave canônica determinística da identidade."
+    },
+    "identity_strategy": {
+      "type": ["string", "null"],
+      "description": "Estratégia usada para definir a identidade canônica."
+    },
+    "normalization_confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Nível de confiança na consolidação do nome."
+    },
+    "normalization_version": {
+      "type": ["string", "null"],
+      "description": "Versão da regra de normalização aplicada."
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "description": "Observações sobre ambiguidade, homonímia ou incerteza."
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  }
+}

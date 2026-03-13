@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/external_event.schema.json",
+  "title": "ExternalEvent",
+  "description": "Entidade canônica que representa um fato externo documentado, usado apenas como contexto temporal ou analítico complementar.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "external_event_id",
+    "event_date",
+    "event_title",
+    "event_source"
+  ],
+  "properties": {
+    "external_event_id": {
+      "type": "string",
+      "description": "Identificador interno do evento externo."
+    },
+    "event_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data do evento."
+    },
+    "event_title": {
+      "type": "string",
+      "description": "Título curto do evento."
+    },
+    "event_description": {
+      "type": ["string", "null"],
+      "description": "Descrição resumida do fato."
+    },
+    "event_source": {
+      "type": "string",
+      "description": "Fonte pública documentada do evento."
+    },
+    "confidence_level": {
+      "type": ["string", "null"],
+      "enum": [
+        "alto",
+        "medio",
+        "baixo",
+        "incerto"
+      ],
+      "description": "Grau de confiança editorial atribuído ao evento."
+    },
+    "usage_scope": {
+      "type": ["string", "null"],
+      "description": "Escopo analítico permitido, como contexto temporal ou hipótese comparativa."
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "description": "Observações metodológicas ou restrições de uso."
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  }
+}

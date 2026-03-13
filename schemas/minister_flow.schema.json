@@ -1,0 +1,268 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/minister_flow.schema.json",
+  "title": "MinisterFlow",
+  "description": "Resumo mensal do fluxo de eventos decisórios por ministro em um recorte temporal explícito.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "minister_query",
+    "minister_match_mode",
+    "minister_reference",
+    "period",
+    "collegiate_filter",
+    "status",
+    "event_count",
+    "process_count",
+    "active_day_count",
+    "first_decision_date",
+    "last_decision_date",
+    "historical_reference_period_start",
+    "historical_reference_period_end",
+    "historical_event_count",
+    "historical_active_day_count",
+    "historical_average_events_per_active_day",
+    "linked_alert_count",
+    "thematic_key_rule",
+    "thematic_source_distribution",
+    "historical_thematic_source_distribution",
+    "thematic_flow_interpretation_status",
+    "thematic_flow_interpretation_reasons",
+    "decision_type_distribution",
+    "decision_progress_distribution",
+    "judging_body_distribution",
+    "process_class_distribution",
+    "thematic_distribution",
+    "collegiate_distribution",
+    "daily_counts",
+    "decision_type_flow",
+    "decision_progress_flow",
+    "judging_body_flow",
+    "process_class_flow",
+    "thematic_flow"
+  ],
+  "properties": {
+    "minister_query": { "type": "string" },
+    "minister_match_mode": {
+      "type": "string",
+      "enum": ["contains_casefold"]
+    },
+    "minister_reference": { "type": "string" },
+    "period": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}$"
+    },
+    "collegiate_filter": {
+      "type": "string",
+      "enum": ["all", "colegiado", "monocratico"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "empty"]
+    },
+    "event_count": { "type": "integer", "minimum": 0 },
+    "process_count": { "type": "integer", "minimum": 0 },
+    "active_day_count": { "type": "integer", "minimum": 0 },
+    "first_decision_date": {
+      "type": ["string", "null"],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "last_decision_date": {
+      "type": ["string", "null"],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "historical_reference_period_start": {
+      "type": ["string", "null"],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "historical_reference_period_end": {
+      "type": ["string", "null"],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "historical_event_count": { "type": "integer", "minimum": 0 },
+    "historical_active_day_count": { "type": "integer", "minimum": 0 },
+    "historical_average_events_per_active_day": {
+      "type": ["number", "null"]
+    },
+    "linked_alert_count": { "type": "integer", "minimum": 0 },
+    "thematic_key_rule": {
+      "type": "string",
+      "enum": ["first_subject_normalized_else_branch_of_law"]
+    },
+    "thematic_source_distribution": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "historical_thematic_source_distribution": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "thematic_flow_interpretation_status": {
+      "type": "string",
+      "enum": ["comparativo", "inconclusivo"]
+    },
+    "thematic_flow_interpretation_reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "decision_type_distribution": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "decision_progress_distribution": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "judging_body_distribution": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "process_class_distribution": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "thematic_distribution": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "collegiate_distribution": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "daily_counts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision_date",
+          "event_count",
+          "delta_vs_historical_average",
+          "ratio_vs_historical_average"
+        ],
+        "properties": {
+          "decision_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "event_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "delta_vs_historical_average": {
+            "type": ["number", "null"]
+          },
+          "ratio_vs_historical_average": {
+            "type": ["number", "null"]
+          }
+        }
+      }
+    },
+    "decision_type_flow": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/segmentFlow"
+      }
+    },
+    "decision_progress_flow": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/segmentFlow"
+      }
+    },
+    "judging_body_flow": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/segmentFlow"
+      }
+    },
+    "process_class_flow": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/segmentFlow"
+      }
+    },
+    "thematic_flow": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/segmentFlow"
+      }
+    }
+  },
+  "$defs": {
+    "dailyCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_date",
+        "event_count",
+        "delta_vs_historical_average",
+        "ratio_vs_historical_average"
+      ],
+      "properties": {
+        "decision_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delta_vs_historical_average": {
+          "type": ["number", "null"]
+        },
+        "ratio_vs_historical_average": {
+          "type": ["number", "null"]
+        }
+      }
+    },
+    "segmentFlow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segment_value",
+        "event_count",
+        "process_count",
+        "active_day_count",
+        "historical_event_count",
+        "historical_active_day_count",
+        "historical_average_events_per_active_day",
+        "daily_counts"
+      ],
+      "properties": {
+        "segment_value": {
+          "type": "string"
+        },
+        "event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "process_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active_day_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "historical_event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "historical_active_day_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "historical_average_events_per_active_day": {
+          "type": ["number", "null"]
+        },
+        "daily_counts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dailyCount"
+          }
+        }
+      }
+    }
+  }
+}

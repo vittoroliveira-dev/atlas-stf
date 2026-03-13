@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/process_party_link.schema.json",
+  "title": "ProcessPartyLink",
+  "description": "Relação canônica entre processo e parte.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["link_id", "process_id", "party_id", "source_id"],
+  "properties": {
+    "link_id": {"type": "string"},
+    "process_id": {"type": "string"},
+    "party_id": {"type": "string"},
+    "role_in_case": {"type": ["string", "null"]},
+    "source_id": {"type": "string"},
+    "created_at": {"type": ["string", "null"], "format": "date-time"},
+    "updated_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}

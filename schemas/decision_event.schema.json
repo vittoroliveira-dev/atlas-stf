@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/decision_event.schema.json",
+  "title": "DecisionEvent",
+  "description": "Entidade canônica que representa um fato decisório vinculado a um processo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_event_id",
+    "process_id",
+    "source_id"
+  ],
+  "properties": {
+    "decision_event_id": {
+      "type": "string",
+      "description": "Identificador interno estável do fato decisório."
+    },
+    "source_row_id": {
+      "type": ["string", "null"],
+      "description": "Identificador da linha de origem, como idFatoDecisao."
+    },
+    "process_id": {
+      "type": "string",
+      "description": "Referência ao processo canônico."
+    },
+    "decision_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Data do fato decisório."
+    },
+    "decision_year": {
+      "type": ["integer", "null"],
+      "description": "Ano do fato decisório."
+    },
+    "current_rapporteur": {
+      "type": ["string", "null"],
+      "description": "Relator atual associado ao registro."
+    },
+    "decision_origin": {
+      "type": ["string", "null"],
+      "description": "Origem da decisão conforme a fonte."
+    },
+    "decision_type": {
+      "type": ["string", "null"],
+      "description": "Tipo de decisão."
+    },
+    "decision_progress": {
+      "type": ["string", "null"],
+      "description": "Andamento da decisão ou resultado operacional."
+    },
+    "decision_note": {
+      "type": ["string", "null"],
+      "description": "Observação do andamento, quando disponível."
+    },
+    "panel_indicator_raw": {
+      "type": ["string", "null"],
+      "description": "Valor bruto do indicador de colegiado."
+    },
+    "is_collegiate": {
+      "type": ["boolean", "null"],
+      "description": "Flag derivada de colegialidade, quando inferível."
+    },
+    "judging_body": {
+      "type": ["string", "null"],
+      "description": "Órgão julgador."
+    },
+    "time_bucket": {
+      "type": ["string", "null"],
+      "description": "Janela temporal derivada, como AAAA-MM."
+    },
+    "raw_fields": {
+      "type": ["object", "null"],
+      "description": "Campos brutos adicionais preservados sem transformação."
+    },
+    "normalization_version": {
+      "type": ["string", "null"],
+      "description": "Versão da regra de normalização aplicada."
+    },
+    "source_id": {
+      "type": "string",
+      "description": "Identificador da fonte no source registry."
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "juris_doc_id": {
+      "type": ["string", "null"],
+      "description": "ID do documento na API de jurisprudencia (_id)."
+    },
+    "juris_decisao_texto": {
+      "type": ["string", "null"],
+      "description": "Texto completo da decisao monocratica, enriquecido da jurisprudencia."
+    },
+    "juris_ementa_texto": {
+      "type": ["string", "null"],
+      "description": "Ementa do acordao, enriquecido da jurisprudencia."
+    },
+    "juris_inteiro_teor_url": {
+      "type": ["string", "null"],
+      "description": "URL do inteiro teor, enriquecido da jurisprudencia."
+    }
+  }
+}

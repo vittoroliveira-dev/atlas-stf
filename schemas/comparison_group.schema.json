@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/comparison_group.schema.json",
+  "title": "ComparisonGroup",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "comparison_group_id",
+    "rule_version",
+    "selection_criteria",
+    "time_window",
+    "case_count",
+    "status"
+  ],
+  "properties": {
+    "comparison_group_id": {"type": "string"},
+    "rule_version": {"type": "string"},
+    "selection_criteria": {"type": "object"},
+    "time_window": {"type": "string"},
+    "case_count": {"type": "integer"},
+    "baseline_notes": {"type": ["string", "null"]},
+    "status": {
+      "type": "string",
+      "enum": ["valid", "insufficient_cases", "too_broad"]
+    },
+    "blocked_reason": {"type": ["string", "null"]},
+    "created_at": {"type": ["string", "null"], "format": "date-time"},
+    "updated_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}

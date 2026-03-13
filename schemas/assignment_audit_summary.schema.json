@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/assignment_audit_summary.schema.json",
+  "title": "AssignmentAuditSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "total_audits",
+    "uniform_count",
+    "non_uniform_count",
+    "min_events"
+  ],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "total_audits": { "type": "integer", "minimum": 0 },
+    "uniform_count": { "type": "integer", "minimum": 0 },
+    "non_uniform_count": { "type": "integer", "minimum": 0 },
+    "min_events": { "type": "integer", "minimum": 0 }
+  }
+}
