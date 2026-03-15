@@ -10,9 +10,6 @@ from ._builder_loaders_analytics import (
     load_compound_risks as load_compound_risks,
 )
 from ._builder_loaders_analytics import (
-    load_corporate_conflicts as load_corporate_conflicts,
-)
-from ._builder_loaders_analytics import (
     load_counsel_affinities as load_counsel_affinities,
 )
 from ._builder_loaders_analytics import (
@@ -47,6 +44,12 @@ from ._builder_loaders_analytics import (
 )
 from ._builder_loaders_analytics import (
     load_temporal_analyses as load_temporal_analyses,
+)
+from ._builder_loaders_corporate import (
+    load_corporate_conflicts as load_corporate_conflicts,
+)
+from ._builder_loaders_corporate import (
+    load_economic_groups as load_economic_groups,
 )
 from ._builder_loaders_timeline import (
     load_movements as load_movements,

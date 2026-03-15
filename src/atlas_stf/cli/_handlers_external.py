@@ -152,6 +152,15 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
         )
         return 0
 
+    if args.command == "rfb" and args.rfb_target == "build-groups":
+        from ..analytics.economic_group import build_economic_groups
+
+        build_economic_groups(
+            rfb_dir=args.rfb_dir,
+            output_dir=args.output_dir,
+        )
+        return 0
+
     if args.command == "stf-portal" and args.stf_portal_target == "fetch":
         from ..stf_portal._config import StfPortalConfig
         from ..stf_portal._runner import run_extraction

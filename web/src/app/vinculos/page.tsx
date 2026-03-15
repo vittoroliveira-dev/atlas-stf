@@ -199,6 +199,32 @@ export default async function VinculosPage({
                     rateLabel="Taxa favoravel"
                     baselineLabel="media"
                   />
+
+                  {/* Provenance badges */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {c.evidence_type && (
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                        {c.evidence_type.replace(/_/g, " ")}
+                      </span>
+                    )}
+                    {c.evidence_strength && (
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        c.evidence_strength === "direct"
+                          ? "bg-verde-50 text-verde-700"
+                          : c.evidence_strength === "indirect"
+                            ? "bg-amber-50 text-amber-700"
+                            : "bg-slate-100 text-slate-600"
+                      }`}>
+                        {c.evidence_strength}
+                      </span>
+                    )}
+                    {c.economic_group_id && (
+                      <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                        Grupo economico ({c.economic_group_member_count ?? 0} membros)
+                      </span>
+                    )}
+                  </div>
+
                   <dl className="grid gap-2 text-sm sm:grid-cols-2">
                     <div>
                       <dt className="text-slate-500">CNPJ</dt>
@@ -212,12 +238,28 @@ export default async function VinculosPage({
                     </div>
                     <div>
                       <dt className="text-slate-500">Qualificacao ministro</dt>
-                      <dd className="font-medium text-slate-900">{c.minister_qualification ?? "---"}</dd>
+                      <dd className="font-medium text-slate-900">
+                        {c.minister_qualification_label || c.minister_qualification || "---"}
+                      </dd>
                     </div>
                     <div>
                       <dt className="text-slate-500">Qualificacao entidade</dt>
-                      <dd className="font-medium text-slate-900">{c.entity_qualification ?? "---"}</dd>
+                      <dd className="font-medium text-slate-900">
+                        {c.entity_qualification_label || c.entity_qualification || "---"}
+                      </dd>
                     </div>
+                    {c.company_natureza_juridica_label && (
+                      <div>
+                        <dt className="text-slate-500">Natureza juridica</dt>
+                        <dd className="font-medium text-slate-900">{c.company_natureza_juridica_label}</dd>
+                      </div>
+                    )}
+                    {c.headquarters_cnae_label && (
+                      <div>
+                        <dt className="text-slate-500">CNAE (sede)</dt>
+                        <dd className="font-medium text-slate-900">{c.headquarters_cnae_label}</dd>
+                      </div>
+                    )}
                     <div>
                       <dt className="text-slate-500">Casos compartilhados</dt>
                       <dd className="font-medium text-slate-900">{c.shared_process_count}</dd>
@@ -231,7 +273,60 @@ export default async function VinculosPage({
                         </dd>
                       </div>
                     )}
+                    {c.headquarters_uf && (
+                      <div>
+                        <dt className="text-slate-500">Sede</dt>
+                        <dd className="font-medium text-slate-900">
+                          {c.headquarters_municipio_label ? `${c.headquarters_municipio_label}/${c.headquarters_uf}` : c.headquarters_uf}
+                        </dd>
+                      </div>
+                    )}
+                    {c.establishment_count != null && c.establishment_count > 0 && (
+                      <div>
+                        <dt className="text-slate-500">Estabelecimentos</dt>
+                        <dd className="font-medium text-slate-900">
+                          {c.active_establishment_count ?? 0} ativos / {c.establishment_count} total
+                          {c.establishment_ufs.length > 0 && (
+                            <span className="ml-1 text-xs text-slate-500">({c.establishment_ufs.join(", ")})</span>
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                    {c.headquarters_situacao_cadastral && c.headquarters_situacao_cadastral !== "02" && (
+                      <div>
+                        <dt className="text-slate-500">Situacao sede</dt>
+                        <dd className="font-medium text-red-700">
+                          {c.headquarters_situacao_cadastral === "03" ? "Suspensa"
+                            : c.headquarters_situacao_cadastral === "04" ? "Inapta"
+                            : c.headquarters_situacao_cadastral === "08" ? "Baixada"
+                            : c.headquarters_situacao_cadastral}
+                          {c.headquarters_motivo_situacao_label && (
+                            <span className="ml-1 text-xs text-slate-500">({c.headquarters_motivo_situacao_label})</span>
+                          )}
+                        </dd>
+                      </div>
+                    )}
                   </dl>
+
+                  {/* Economic group details */}
+                  {c.economic_group_razoes_sociais && c.economic_group_razoes_sociais.length > 1 && (
+                    <div>
+                      <p className="mb-1.5 text-sm text-slate-500">Grupo economico</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {c.economic_group_razoes_sociais.slice(0, 5).map((name, i) => (
+                          <span key={i} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                            {name}
+                          </span>
+                        ))}
+                        {c.economic_group_razoes_sociais.length > 5 && (
+                          <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-500">
+                            +{c.economic_group_razoes_sociais.length - 5}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {c.link_chain && c.link_degree >= 2 && (
                     <div>
                       <p className="mb-1.5 text-sm text-slate-500">Cadeia de vinculo</p>

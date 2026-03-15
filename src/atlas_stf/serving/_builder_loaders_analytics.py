@@ -15,7 +15,6 @@ from ._builder_utils import (
 from .models import (
     ServingAssignmentAudit,
     ServingCompoundRisk,
-    ServingCorporateConflict,
     ServingCounselAffinity,
     ServingCounselDonationProfile,
     ServingCounselNetworkCluster,
@@ -342,44 +341,6 @@ def load_donation_matches(
                 )
             )
     return donation_matches, counsel_donation_profiles
-
-
-def load_corporate_conflicts(analytics_dir: Path) -> list[ServingCorporateConflict]:
-    cn_path = analytics_dir / "corporate_network.jsonl"
-    if not cn_path.exists():
-        return []
-    results: list[ServingCorporateConflict] = []
-    seen: set[str] = set()
-    for record in _read_jsonl(cn_path):
-        cid = str(record.get("conflict_id", ""))
-        if cid in seen:
-            continue
-        seen.add(cid)
-        results.append(
-            ServingCorporateConflict(
-                conflict_id=cid,
-                minister_name=str(record.get("minister_name", "")),
-                company_cnpj_basico=str(record.get("company_cnpj_basico", "")),
-                company_name=str(record.get("company_name", "")),
-                minister_qualification=record.get("minister_qualification"),
-                linked_entity_type=str(record.get("linked_entity_type", "")),
-                linked_entity_id=str(record.get("linked_entity_id", "")),
-                linked_entity_name=str(record.get("linked_entity_name", "")),
-                entity_qualification=record.get("entity_qualification"),
-                shared_process_ids_json=json.dumps(record.get("shared_process_ids", []), ensure_ascii=False),
-                shared_process_count=_coerce_int(record.get("shared_process_count")),
-                favorable_rate=record.get("favorable_rate"),
-                baseline_favorable_rate=record.get("baseline_favorable_rate"),
-                favorable_rate_delta=record.get("favorable_rate_delta"),
-                risk_score=record.get("risk_score"),
-                decay_factor=record.get("decay_factor"),
-                red_flag=_coerce_bool(record.get("red_flag")),
-                link_chain=record.get("link_chain"),
-                link_degree=_coerce_int(record.get("link_degree", 1)),
-                generated_at=_parse_datetime(record.get("generated_at")),
-            )
-        )
-    return results
 
 
 def load_counsel_affinities(analytics_dir: Path) -> list[ServingCounselAffinity]:

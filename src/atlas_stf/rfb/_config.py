@@ -18,6 +18,8 @@ RFB_WEBDAV_BASE = f"{RFB_NEXTCLOUD_BASE}/public.php/webdav"
 RFB_LEGACY_BASE_URL = "https://dadosabertos.rfb.gov.br/CNPJ"
 RFB_SOCIOS_FILE_COUNT = 10
 RFB_EMPRESAS_FILE_COUNT = 10
+RFB_ESTABELECIMENTOS_FILE_COUNT = 10
+RFB_REFERENCE_TABLES = ["Qualificacoes", "Naturezas", "Cnaes", "Municipios", "Motivos"]
 
 
 @dataclass(frozen=True)

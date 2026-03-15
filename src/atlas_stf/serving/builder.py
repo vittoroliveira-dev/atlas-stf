@@ -21,6 +21,7 @@ from ._builder_loaders import (
     load_counsels,
     load_decision_velocities,
     load_donation_matches,
+    load_economic_groups,
     load_metrics,
     load_minister_bios,
     load_ml_outlier_scores,
@@ -54,6 +55,7 @@ from .models import (
     ServingCounselSanctionProfile,
     ServingDecisionVelocity,
     ServingDonationMatch,
+    ServingEconomicGroup,
     ServingMetric,
     ServingMinisterBio,
     ServingMinisterFlow,
@@ -132,6 +134,7 @@ def build_serving_database(
                 "analytics",
                 analytics_dir / "counsel_network_cluster_summary.json",
             ),
+            SourceFile("economic_group", "analytics", analytics_dir / "economic_group.jsonl"),
         ]
         source_files.extend(source for source in optional_source_files if source.path.exists())
 
@@ -140,7 +143,7 @@ def build_serving_database(
             missing_text = ", ".join(str(path) for path in missing)
             raise FileNotFoundError(f"Serving build requires existing artifacts: {missing_text}")
 
-        _total = 28  # 23 loaders + 5 DB phases
+        _total = 29  # 24 loaders + 5 DB phases
         _step = 0
 
         def _tick(desc: str) -> None:
@@ -187,6 +190,8 @@ def build_serving_database(
         rapporteur_changes = load_rapporteur_changes(analytics_dir)
         _tick("Serving: Carregando clusters de advogados...")
         counsel_network_clusters = load_counsel_network_clusters(analytics_dir)
+        _tick("Serving: Carregando grupos economicos...")
+        economic_groups = load_economic_groups(analytics_dir)
         _tick("Serving: Carregando biografias ministros...")
         minister_bios = load_minister_bios(curated_dir)
         _tick("Serving: Carregando movimentações...")
@@ -205,6 +210,7 @@ def build_serving_database(
                     ServingSchemaMeta,
                     ServingSessionEvent,
                     ServingMovement,
+                    ServingEconomicGroup,
                     ServingCounselNetworkCluster,
                     ServingRapporteurChange,
                     ServingDecisionVelocity,
@@ -258,6 +264,7 @@ def build_serving_database(
                 session.add_all(decision_velocities)
                 session.add_all(rapporteur_changes)
                 session.add_all(counsel_network_clusters)
+                session.add_all(economic_groups)
                 session.add_all(minister_bios)
                 session.add_all(minister_flows)
                 session.add_all(movements)

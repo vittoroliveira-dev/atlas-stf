@@ -17,12 +17,14 @@ from .schemas import (
     DecisionVelocityRedFlagsResponse,
     DonationMatchItem,
     DonationRedFlagsResponse,
+    EconomicGroupItem,
     PaginatedCompoundRiskResponse,
     PaginatedCorporateConflictsResponse,
     PaginatedCounselAffinityResponse,
     PaginatedCounselNetworkResponse,
     PaginatedDecisionVelocityResponse,
     PaginatedDonationsResponse,
+    PaginatedEconomicGroupResponse,
     PaginatedRapporteurChangeResponse,
     PaginatedSanctionsResponse,
     RapporteurChangeRedFlagsResponse,
@@ -344,3 +346,43 @@ def register_risk_routes(
 
         with factory() as session:
             return get_counsel_network_red_flags(session, limit=limit)
+
+    # --- Economic Groups ---
+
+    @app.get(
+        "/economic-groups",
+        response_model=PaginatedEconomicGroupResponse,
+    )
+    def economic_groups(
+        page: PositiveInt = 1,
+        page_size: PageSize = 20,
+        minister_only: bool = Query(default=False),
+        party_only: bool = Query(default=False),
+        counsel_only: bool = Query(default=False),
+        law_firm_only: bool = Query(default=False),
+    ) -> PaginatedEconomicGroupResponse:
+        from ._economic_groups import get_economic_groups
+
+        with factory() as session:
+            return get_economic_groups(
+                session,
+                page,
+                page_size,
+                minister_only=minister_only,
+                party_only=party_only,
+                counsel_only=counsel_only,
+                law_firm_only=law_firm_only,
+            )
+
+    @app.get(
+        "/economic-groups/{group_id}",
+        response_model=EconomicGroupItem,
+    )
+    def economic_group_detail(group_id: str) -> EconomicGroupItem:
+        from ._economic_groups import get_economic_group_by_id
+
+        with factory() as session:
+            result = get_economic_group_by_id(session, group_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="economic_group_not_found")
+        return result

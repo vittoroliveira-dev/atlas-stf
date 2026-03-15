@@ -1,4 +1,4 @@
-"""RFB fetch runner: downloads Socios/Empresas ZIPs from RFB open data."""
+"""RFB fetch runner: downloads Socios/Empresas/Estabelecimentos ZIPs from RFB open data."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from ..core.identity import normalize_entity_name
 from ..core.zip_safety import enforce_max_uncompressed_size, is_safe_zip_member
 from ._config import (
     RFB_EMPRESAS_FILE_COUNT,
+    RFB_ESTABELECIMENTOS_FILE_COUNT,
     RFB_LEGACY_BASE_URL,
     RFB_NEXTCLOUD_BASE,
     RFB_NEXTCLOUD_SHARE_TOKEN,
@@ -24,9 +25,13 @@ from ._config import (
     RFB_WEBDAV_BASE,
     RfbFetchConfig,
 )
-from ._parser import (
-    parse_empresas_csv_filtered_text,
-    parse_socios_csv_filtered_text,
+from ._reference import fetch_reference_tables
+from ._runner_fetch import (
+    enrich_and_write_results,
+    run_pass1_socios,
+    run_pass2_socios,
+    run_pass3_empresas,
+    run_pass4_estabelecimentos,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,13 +51,7 @@ def _nextcloud_auth() -> tuple[str, str] | None:
 
 
 def _discover_share_token(timeout: int = 15) -> str | None:
-    """Auto-discover the NextCloud share token from the RFB portal page.
-
-    The RFB publishes CNPJ data via a NextCloud public share link like:
-        https://arquivos.receitafederal.gov.br/index.php/s/YggdBLfdninEJX9
-    The token (``YggdBLfdninEJX9``) may change without notice.
-    This function scrapes the portal page to find the current token.
-    """
+    """Auto-discover the NextCloud share token from the RFB portal page."""
     import re
 
     try:
@@ -113,7 +112,14 @@ def _load_checkpoint(output_dir: Path) -> dict[str, Any]:
     checkpoint_path = output_dir / "_rfb_checkpoint.json"
     if checkpoint_path.exists():
         return json.loads(checkpoint_path.read_text(encoding="utf-8"))
-    return {"completed_socios_pass1": [], "completed_socios_pass2": [], "completed_empresas": [], "cnpjs": []}
+    return {
+        "completed_socios_pass1": [],
+        "completed_socios_pass2": [],
+        "completed_empresas": [],
+        "completed_estabelecimentos": [],
+        "completed_reference": False,
+        "cnpjs": [],
+    }
 
 
 def _save_checkpoint(output_dir: Path, state: dict[str, Any]) -> None:
@@ -184,7 +190,6 @@ def _download_zip(url: str, destination: Path, timeout: int) -> Path | None:
     """Stream a ZIP file to disk to avoid buffering the full archive in memory."""
     logger.info("Downloading %s", url)
     auth = _nextcloud_auth() if url.startswith(RFB_WEBDAV_BASE) else None
-    # Separate connect timeout (10s) from read timeout — server may be down
     timeouts = httpx.Timeout(float(timeout), connect=10.0)
     try:
         with httpx.stream("GET", url, timeout=timeouts, follow_redirects=True, auth=auth) as response:
@@ -273,7 +278,7 @@ def fetch_rfb_data(
     *,
     on_progress: Callable[[int, int, str], None] | None = None,
 ) -> Path:
-    """Download + parse Socios and Empresas ZIPs from RFB with filtering."""
+    """Download + parse Socios, Empresas, and Estabelecimentos ZIPs from RFB."""
     config.output_dir.mkdir(parents=True, exist_ok=True)
 
     target_names = _build_target_names(config)
@@ -287,7 +292,6 @@ def fetch_rfb_data(
     else:
         base_url = RFB_LEGACY_BASE_URL
         logger.info("Falling back to legacy URL: %s", base_url)
-        # Quick reachability check — fail fast if server is down
         try:
             httpx.head(base_url, timeout=httpx.Timeout(10.0, connect=10.0), follow_redirects=True)
         except httpx.RequestError as exc:
@@ -297,110 +301,91 @@ def fetch_rfb_data(
 
     if config.dry_run:
         logger.info(
-            "[dry-run] Would download %d Socios ZIPs and %d Empresas ZIPs",
+            "[dry-run] Would download %d Socios, %d Empresas, %d Estabelecimentos ZIPs",
             RFB_SOCIOS_FILE_COUNT,
             RFB_EMPRESAS_FILE_COUNT,
+            RFB_ESTABELECIMENTOS_FILE_COUNT,
         )
-        for i in range(RFB_SOCIOS_FILE_COUNT):
-            logger.info("[dry-run] %s/Socios%d.zip", base_url, i)
-        for i in range(RFB_EMPRESAS_FILE_COUNT):
-            logger.info("[dry-run] %s/Empresas%d.zip", base_url, i)
         return config.output_dir
 
     checkpoint = _load_checkpoint(config.output_dir)
 
-    # If all passes completed and output files exist with content, skip re-processing
+    # Cache check: all passes complete and output files exist
     partners_path = config.output_dir / "partners_raw.jsonl"
     companies_path = config.output_dir / "companies_raw.jsonl"
+    establishments_path = config.output_dir / "establishments_raw.jsonl"
     all_socios_p1 = set(checkpoint.get("completed_socios_pass1", []))
     all_socios_p2 = set(checkpoint.get("completed_socios_pass2", []))
     all_empresas = set(checkpoint.get("completed_empresas", []))
+    all_estabelecimentos = set(checkpoint.get("completed_estabelecimentos", []))
     if (
         len(all_socios_p1) == RFB_SOCIOS_FILE_COUNT
         and len(all_socios_p2) == RFB_SOCIOS_FILE_COUNT
         and len(all_empresas) == RFB_EMPRESAS_FILE_COUNT
+        and len(all_estabelecimentos) == RFB_ESTABELECIMENTOS_FILE_COUNT
         and partners_path.exists()
         and partners_path.stat().st_size > 0
         and companies_path.exists()
         and companies_path.stat().st_size > 0
+        and establishments_path.exists()
+        and establishments_path.stat().st_size > 0
     ):
         logger.info("RFB fetch already complete — output files exist with content")
         if on_progress:
-            on_progress(1, 1, "RFB: Já completo (cache)")
+            on_progress(1, 1, "RFB: Ja completo (cache)")
         return config.output_dir
 
-    all_partners: list[dict[str, Any]] = []
-    matched_cnpjs: set[str] = set(checkpoint.get("cnpjs", []))
-    total_steps = RFB_SOCIOS_FILE_COUNT * 2 + RFB_EMPRESAS_FILE_COUNT
+    # Total steps: reference(1) + socios*2 + empresas + estabelecimentos
+    total_steps = 1 + RFB_SOCIOS_FILE_COUNT * 2 + RFB_EMPRESAS_FILE_COUNT + RFB_ESTABELECIMENTOS_FILE_COUNT
     step = 0
 
-    # Pass 1: Scan Socios for name matches
-    completed_p1 = set(checkpoint.get("completed_socios_pass1", []))
-    for i in range(RFB_SOCIOS_FILE_COUNT):
-        if i in completed_p1:
-            step += 1
-            continue
-
+    # Reference tables
+    if not checkpoint.get("completed_reference", False):
         if on_progress:
-            on_progress(step, total_steps, f"RFB: Pass 1 — Socios{i}.zip")
-        url = f"{base_url}/Socios{i}.zip"
-        cache_path = config.output_dir / f"Socios{i}.zip"
-        zip_path = _download_zip(url, cache_path, config.timeout_seconds)
-        if zip_path is None:
-            continue
-
-        parsed = _parse_csv_from_zip_text(
-            zip_path,
-            lambda text_fh: parse_socios_csv_filtered_text(text_fh, target_names, set()),
+            on_progress(step, total_steps, "RFB: Tabelas de referencia")
+        fetch_reference_tables(
+            config.output_dir,
+            base_url,
+            config.timeout_seconds,
+            download_zip=_download_zip,
+            parse_csv_from_zip_text=_parse_csv_from_zip_text,
         )
-        if parsed is None:
-            continue
-
-        records, new_cnpjs = parsed
-        all_partners.extend(records)
-        matched_cnpjs.update(new_cnpjs)
-
-        completed_p1.add(i)
-        checkpoint["completed_socios_pass1"] = sorted(completed_p1)
-        checkpoint["cnpjs"] = sorted(matched_cnpjs)
+        checkpoint["completed_reference"] = True
         _save_checkpoint(config.output_dir, checkpoint)
-        step += 1
-        logger.info("Pass 1 - Socios%d: %d records, %d CNPJs so far", i, len(records), len(matched_cnpjs))
+    step += 1
 
-    # Pass 2: Re-scan Socios for all co-partners of matched CNPJs
-    completed_p2 = set(checkpoint.get("completed_socios_pass2", []))
-    for i in range(RFB_SOCIOS_FILE_COUNT):
-        if i in completed_p2:
-            step += 1
-            continue
+    # Pass 1: Socios by name
+    all_partners, matched_cnpjs, step = run_pass1_socios(
+        base_url=base_url,
+        socios_file_count=RFB_SOCIOS_FILE_COUNT,
+        config_output_dir=config.output_dir,
+        config_timeout=config.timeout_seconds,
+        target_names=target_names,
+        checkpoint=checkpoint,
+        download_zip=_download_zip,
+        parse_csv_from_zip_text=_parse_csv_from_zip_text,
+        save_checkpoint=_save_checkpoint,
+        on_progress=on_progress,
+        step=step,
+        total_steps=total_steps,
+    )
 
-        if on_progress:
-            on_progress(step, total_steps, f"RFB: Pass 2 — Socios{i}.zip")
-        cache_path = config.output_dir / f"Socios{i}.zip"
-        if cache_path.exists():
-            zip_path = cache_path
-        else:
-            url = f"{base_url}/Socios{i}.zip"
-            zip_path_opt = _download_zip(url, cache_path, config.timeout_seconds)
-            if zip_path_opt is None:
-                continue
-            zip_path = zip_path_opt
-
-        parsed = _parse_csv_from_zip_text(
-            zip_path,
-            lambda text_fh: parse_socios_csv_filtered_text(text_fh, set(), matched_cnpjs),
-        )
-        if parsed is None:
-            continue
-
-        records, _ = parsed
-        all_partners.extend(records)
-
-        completed_p2.add(i)
-        checkpoint["completed_socios_pass2"] = sorted(completed_p2)
-        _save_checkpoint(config.output_dir, checkpoint)
-        step += 1
-        logger.info("Pass 2 - Socios%d: %d co-partner records", i, len(records))
+    # Pass 2: Socios co-partners by CNPJ
+    pass2_partners, step = run_pass2_socios(
+        base_url=base_url,
+        socios_file_count=RFB_SOCIOS_FILE_COUNT,
+        config_output_dir=config.output_dir,
+        config_timeout=config.timeout_seconds,
+        matched_cnpjs=matched_cnpjs,
+        checkpoint=checkpoint,
+        download_zip=_download_zip,
+        parse_csv_from_zip_text=_parse_csv_from_zip_text,
+        save_checkpoint=_save_checkpoint,
+        on_progress=on_progress,
+        step=step,
+        total_steps=total_steps,
+    )
+    all_partners.extend(pass2_partners)
 
     # Deduplicate partners
     seen: set[str] = set()
@@ -411,53 +396,45 @@ def fetch_rfb_data(
             seen.add(key)
             unique_partners.append(p)
 
-    # Write partners
-    partners_path = config.output_dir / "partners_raw.jsonl"
-    with partners_path.open("w", encoding="utf-8") as fh:
-        for p in unique_partners:
-            fh.write(json.dumps(p, ensure_ascii=False) + "\n")
-    logger.info("Wrote %d unique partner records", len(unique_partners))
-
     # Pass 3: Empresas
-    all_companies: list[dict[str, Any]] = []
-    completed_e = set(checkpoint.get("completed_empresas", []))
-    for i in range(RFB_EMPRESAS_FILE_COUNT):
-        if i in completed_e:
-            step += 1
-            continue
+    all_companies, step = run_pass3_empresas(
+        base_url=base_url,
+        empresas_file_count=RFB_EMPRESAS_FILE_COUNT,
+        config_output_dir=config.output_dir,
+        config_timeout=config.timeout_seconds,
+        matched_cnpjs=matched_cnpjs,
+        checkpoint=checkpoint,
+        download_zip=_download_zip,
+        parse_csv_from_zip_text=_parse_csv_from_zip_text,
+        save_checkpoint=_save_checkpoint,
+        on_progress=on_progress,
+        step=step,
+        total_steps=total_steps,
+    )
 
-        if on_progress:
-            on_progress(step, total_steps, f"RFB: Pass 3 — Empresas{i}.zip")
-        url = f"{base_url}/Empresas{i}.zip"
-        zip_path = _download_zip(url, config.output_dir / f"Empresas{i}.zip", config.timeout_seconds)
-        if zip_path is None:
-            continue
+    # Pass 4: Estabelecimentos
+    all_establishments, step = run_pass4_estabelecimentos(
+        base_url=base_url,
+        estabelecimentos_file_count=RFB_ESTABELECIMENTOS_FILE_COUNT,
+        config_output_dir=config.output_dir,
+        config_timeout=config.timeout_seconds,
+        matched_cnpjs=matched_cnpjs,
+        checkpoint=checkpoint,
+        download_zip=_download_zip,
+        parse_csv_from_zip_text=_parse_csv_from_zip_text,
+        save_checkpoint=_save_checkpoint,
+        on_progress=on_progress,
+        step=step,
+        total_steps=total_steps,
+    )
 
-        try:
-            parsed = _parse_csv_from_zip_text(
-                zip_path,
-                lambda text_fh: parse_empresas_csv_filtered_text(text_fh, matched_cnpjs),
-            )
-            if parsed is None:
-                continue
-
-            records = parsed
-            all_companies.extend(records)
-        finally:
-            zip_path.unlink(missing_ok=True)
-
-        completed_e.add(i)
-        checkpoint["completed_empresas"] = sorted(completed_e)
-        _save_checkpoint(config.output_dir, checkpoint)
-        step += 1
-        logger.info("Empresas%d: %d company records", i, len(records))
-
-    # Write companies
-    companies_path = config.output_dir / "companies_raw.jsonl"
-    with companies_path.open("w", encoding="utf-8") as fh:
-        for c in all_companies:
-            fh.write(json.dumps(c, ensure_ascii=False) + "\n")
-    logger.info("Wrote %d company records", len(all_companies))
+    # Enrich and write all results
+    enrich_and_write_results(
+        config_output_dir=config.output_dir,
+        unique_partners=unique_partners,
+        all_companies=all_companies,
+        all_establishments=all_establishments,
+    )
 
     # Cleanup cached ZIPs
     for i in range(RFB_SOCIOS_FILE_COUNT):
@@ -466,11 +443,12 @@ def fetch_rfb_data(
             cache_path.unlink()
 
     if on_progress:
-        on_progress(total_steps, total_steps, "RFB: Concluído")
+        on_progress(total_steps, total_steps, "RFB: Concluido")
     logger.info(
-        "RFB fetch complete: %d partners, %d companies, %d CNPJs",
+        "RFB fetch complete: %d partners, %d companies, %d establishments, %d CNPJs",
         len(unique_partners),
         len(all_companies),
+        len(all_establishments),
         len(matched_cnpjs),
     )
     return config.output_dir

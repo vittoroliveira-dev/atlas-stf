@@ -61,7 +61,10 @@ testpaths = ["tests"]
 #   porque o runtime já possui threads internas (GC).  Não é nosso código e
 #   o xdist funciona sem problemas com fork no Linux.
 #   Ref: https://github.com/pytest-dev/pytest-xdist/issues/1074
-addopts = "-n auto -W ignore::DeprecationWarning:multiprocessing.popen_fork -m 'not slow'"
+addopts = "-n auto -m 'not slow'"
+filterwarnings = [
+    "ignore:This process .* is multi-threaded, use of fork:DeprecationWarning",
+]
 markers = ["slow: marks tests as slow (run with pytest -m slow)"]
 
 [tool.coverage.run]

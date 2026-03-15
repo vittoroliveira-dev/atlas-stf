@@ -6,6 +6,34 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-03-15
+
+### Added
+
+- **rfb/_reference.py**: Fetch e parse de 5 tabelas de dominio RFB (Qualificacoes, Naturezas, Cnaes, Municipios, Motivos) — lookup O(1) por codigo → descricao legivel
+- **rfb/_parser_estabelecimentos.py**: Parser CSV de Estabelecimentos RFB (delimitador `;`) com filtro por CNPJ, montagem de `cnpj_full` (14 digitos) e split de CNAEs secundarios
+- **rfb/_enrichment.py**: Funcoes puras de enriquecimento — decodifica qualification_code, natureza_juridica, cnae_fiscal, municipio e motivo de situacao cadastral
+- **rfb/_runner_fetch.py**: Logica de 4 passes extraida do runner (Socios x2, Empresas, Estabelecimentos) com enriquecimento integrado via tabelas de referencia
+- **analytics/economic_group.py**: Deteccao de grupos economicos via Union-Find sobre cadeia societaria PJ — output `economic_group.jsonl` com member_count, capital social, CNAEs, UFs, flags de ministro/parte/advogado, sem cap artificial
+- **serving/_builder_loaders_corporate.py**: Loaders corporativos extraidos de `_builder_loaders_analytics.py` — `load_corporate_conflicts()` (atualizado com 25+ campos novos) e `load_economic_groups()`
+- **ServingEconomicGroup**: Nova tabela no serving (total: 30 tabelas) com 14 colunas — grupo economico materializado para consulta API
+- **api/_economic_groups.py**: `GET /economic-groups` (lista paginada com filtros booleanos) e `GET /economic-groups/{group_id}` (detalhe) — total: 55 endpoints
+- **Enriquecimento do corporate_network.jsonl**: 25+ campos novos por conflito — labels decodificadas (qualificacao, natureza juridica, CNAE), dados multi-estabelecimento (sede, UFs, CNAEs, ate 3 key_establishments), grupo economico (id, member_count, razoes sociais) e proveniencia (evidence_type, source_dataset, evidence_strength)
+- **Campos opcionais em temporal_analysis**: enrichment de establishment_count, active_establishment_count, headquarters_uf, headquarters_cnae_label, economic_group_id, economic_group_member_count nos registros `corporate_link_timeline`
+- **CLI**: subcomando `rfb build-groups` com `--rfb-dir` e `--output-dir`
+- **Makefile**: alvo `rfb-groups` com dependencia correta (rfb-fetch → rfb-groups → rfb-network)
+- **Frontend /vinculos enriquecido**: badges de proveniencia (evidence_type + evidence_strength), qualificacao decodificada, CNAE da sede, natureza juridica, status cadastral com motivo, contagem de estabelecimentos, grupo economico com razoes sociais
+- 38 novos testes (total: 1036): test_reference (6), test_enrichment (6), test_parser_estabelecimentos (8), test_economic_group (13), test_economic_groups_api (5)
+
+### Changed
+
+- **rfb/_runner.py**: Refatorado — passes 1-4 extraidos para `_runner_fetch.py`, checkpoint atualizado com `completed_estabelecimentos` e `completed_reference`, total_steps=41, cache check inclui `establishments_raw.jsonl`
+- **rfb/_config.py**: +2 constantes (`RFB_ESTABELECIMENTOS_FILE_COUNT=10`, `RFB_REFERENCE_TABLES`)
+- **serving/_builder_schema.py**: SERVING_SCHEMA_VERSION 5 → 6
+- **ServingCorporateConflict**: +25 colunas (labels decodificadas, multi-estabelecimento, grupo economico, proveniencia, taxa substantiva)
+- **api/_schemas_risk.py**: `EstablishmentSummary` (9 campos), novos campos em `CorporateConflictItem`, `EconomicGroupItem`, `PaginatedEconomicGroupResponse`
+- **pyproject.toml**: filterwarnings corrigido para suprimir DeprecationWarning do fork() no Python 3.14 (pytest-xdist)
+
 ## [1.0.2] - 2026-03-15
 
 ### Added

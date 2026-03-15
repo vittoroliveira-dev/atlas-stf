@@ -304,6 +304,36 @@ class ServingCorporateConflict(Base):
     link_chain: Mapped[str | None] = mapped_column(Text())
     link_degree: Mapped[int] = mapped_column(Integer, default=1)
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Decoded labels
+    minister_qualification_label: Mapped[str | None] = mapped_column(String(256))
+    entity_qualification_label: Mapped[str | None] = mapped_column(String(256))
+    company_natureza_juridica_label: Mapped[str | None] = mapped_column(String(256))
+    # Multi-establishment
+    establishment_count: Mapped[int | None] = mapped_column(Integer)
+    active_establishment_count: Mapped[int | None] = mapped_column(Integer)
+    headquarters_uf: Mapped[str | None] = mapped_column(String(2))
+    headquarters_municipio_label: Mapped[str | None] = mapped_column(String(256))
+    headquarters_cnae_fiscal: Mapped[str | None] = mapped_column(String(16))
+    headquarters_cnae_label: Mapped[str | None] = mapped_column(String(512))
+    headquarters_situacao_cadastral: Mapped[str | None] = mapped_column(String(2))
+    headquarters_motivo_situacao_label: Mapped[str | None] = mapped_column(String(512))
+    establishment_ufs_json: Mapped[str | None] = mapped_column(Text())
+    establishment_cnaes_json: Mapped[str | None] = mapped_column(Text())
+    establishment_cnae_labels_json: Mapped[str | None] = mapped_column(Text())
+    key_establishments_json: Mapped[str | None] = mapped_column(Text())
+    # Economic group
+    economic_group_id: Mapped[str | None] = mapped_column(String(64))
+    economic_group_member_count: Mapped[int | None] = mapped_column(Integer)
+    economic_group_razoes_sociais_json: Mapped[str | None] = mapped_column(Text())
+    # Provenance
+    evidence_type: Mapped[str | None] = mapped_column(String(32))
+    source_dataset: Mapped[str | None] = mapped_column(String(32))
+    source_snapshot: Mapped[str | None] = mapped_column(String(7))
+    evidence_strength: Mapped[str | None] = mapped_column(String(16))
+    # Substantive rate
+    favorable_rate_substantive: Mapped[float | None] = mapped_column(Float)
+    substantive_decision_count: Mapped[int | None] = mapped_column(Integer)
+    red_flag_substantive: Mapped[bool | None] = mapped_column(Boolean)
 
 
 class ServingCounselAffinity(Base):
@@ -416,4 +446,23 @@ class ServingCounselNetworkCluster(Base):
     cluster_favorable_rate: Mapped[float | None] = mapped_column(Float)
     cluster_case_count: Mapped[int] = mapped_column(Integer, default=0)
     red_flag: Mapped[bool] = mapped_column(Boolean, index=True, default=False)
+    generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ServingEconomicGroup(Base):
+    __tablename__ = "serving_economic_group"
+
+    group_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    member_cnpjs_json: Mapped[str | None] = mapped_column(Text())
+    razoes_sociais_json: Mapped[str | None] = mapped_column(Text())
+    member_count: Mapped[int] = mapped_column(Integer)
+    total_capital_social: Mapped[float | None] = mapped_column(Float)
+    cnae_labels_json: Mapped[str | None] = mapped_column(Text())
+    ufs_json: Mapped[str | None] = mapped_column(Text())
+    active_establishment_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_establishment_count: Mapped[int] = mapped_column(Integer, default=0)
+    is_law_firm_group: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_minister_partner: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_party_partner: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_counsel_partner: Mapped[bool] = mapped_column(Boolean, default=False)
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

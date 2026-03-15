@@ -54,6 +54,12 @@
     "link_chain": {"type": ["string", "null"]},
     "link_start_date": {"type": ["string", "null"], "format": "date"},
     "link_status": {"type": ["string", "null"]},
+    "establishment_count": {"type": ["integer", "null"], "minimum": 0},
+    "active_establishment_count": {"type": ["integer", "null"], "minimum": 0},
+    "headquarters_uf": {"type": ["string", "null"]},
+    "headquarters_cnae_label": {"type": ["string", "null"]},
+    "economic_group_id": {"type": ["string", "null"]},
+    "economic_group_member_count": {"type": ["integer", "null"], "minimum": 1},
     "generated_at": {"type": "string", "format": "date-time"}
   }
 }

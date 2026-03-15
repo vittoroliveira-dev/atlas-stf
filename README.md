@@ -89,15 +89,15 @@ O repositório combina quatro frentes operacionais:
 | `raw` e `staging` | Limpeza e padronização das exportações estruturadas | `src/atlas_stf/staging/`, `tests/staging/` |
 | `core` | Domínio puro: identidade, parsers, regras, estatística, mapeamento de origem, TPU | `src/atlas_stf/core/`, `tests/core/` |
 | `curated` | Entidades canônicas de processo, decisão, parte, advogado, assunto, biografia ministerial, movimentos e eventos de sessão | `src/atlas_stf/curated/`, `tests/curated/` |
-| `analytics` | Grupos comparáveis, baseline, score, alertas, perfil de relator, auditoria de distribuição, análise temporal, counsel affinity, risco composto, velocidade decisória, mudança de relatoria, rede de advogados, linha do tempo processual, anomalia de pauta | `src/atlas_stf/analytics/`, `tests/analytics/` |
+| `analytics` | Grupos comparáveis, baseline, score, alertas, perfil de relator, auditoria de distribuição, análise temporal, counsel affinity, risco composto, velocidade decisória, mudança de relatoria, rede de advogados, linha do tempo processual, anomalia de pauta, identidade econômica, grupos econômicos | `src/atlas_stf/analytics/`, `tests/analytics/` |
 | `evidence` | Bundles técnicos por alerta | `src/atlas_stf/evidence/`, `tests/evidence/` |
-| `serving` | Banco de serving (29 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
-| `api` | Endpoints FastAPI (53) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
+| `serving` | Banco de serving (30 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
+| `api` | Endpoints FastAPI (55) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
 | `stf_portal` | Extrator de linha do tempo processual do portal STF (httpx) | `src/atlas_stf/stf_portal/`, `tests/stf_portal/` |
 | `cgu` | Dados CGU (CEIS/CNEP/Leniência) para cruzamento de sanções | `src/atlas_stf/cgu/`, `tests/cgu/` |
 | `tse` | Doações eleitorais TSE (12 ciclos, 2002–2024) | `src/atlas_stf/tse/`, `tests/tse/` |
 | `cvm` | Processos sancionadores CVM (mercado de capitais) | `src/atlas_stf/cvm/`, `tests/cvm/` |
-| `rfb` | Dados abertos CNPJ da Receita Federal para rede corporativa | `src/atlas_stf/rfb/`, `tests/rfb/` |
+| `rfb` | Dados abertos CNPJ da Receita Federal (Sócios, Empresas, Estabelecimentos e tabelas de domínio) para rede corporativa e grupos econômicos | `src/atlas_stf/rfb/`, `tests/rfb/` |
 | `datajud` | Cliente API DataJud CNJ para contexto de tribunais de origem | `src/atlas_stf/datajud/`, `tests/datajud/` |
 | `web` | Dashboard em Next.js 16 com páginas auditáveis | `web/src/app/`, `web/src/components/` |
 | Governança | Regras, decisões, risco e auditoria | `docs/`, `governance/` |
@@ -111,7 +111,7 @@ O repositório combina quatro frentes operacionais:
 | CGU Portal da Transparência | API REST (httpx) | CEIS, CNEP, Leniência |
 | TSE Doações Eleitorais | CSV público CDN | 12 ciclos (2002–2024), ~20,8M registros |
 | CVM Processo Sancionador | ZIP/CSV dados abertos | Sanções do mercado de capitais |
-| RFB Dados Abertos CNPJ | ZIP/CSV dados abertos | Sócios e empresas (~3,3M registros) |
+| RFB Dados Abertos CNPJ | ZIP/CSV dados abertos | Sócios, Empresas e Estabelecimentos (~3,3M registros) |
 | DataJud CNJ | API REST (httpx) | Agregações por tribunal de origem |
 | PDPJ/CNJ TPU | API REST (gateway.cloud.pje.jus.br) | Tabelas Processuais Unificadas (847 classes, 957 movimentos, 5598 assuntos) |
 | Portal STF | HTTP scraping (httpx) | Linha do tempo processual (andamentos, sessões, vistas) |
@@ -144,7 +144,7 @@ flowchart LR
 |---|---|
 | Backend analítico | Python 3.14+, pandas 3, scikit-learn, scipy |
 | API | FastAPI + SQLAlchemy 2.x |
-| Serving database | SQLite (29 tabelas) |
+| Serving database | SQLite (30 tabelas) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 + Recharts |
 | Qualidade | pytest (83%), ruff, pyright, ESLint, vulture |
 | Infra | Docker, GitHub Actions, uv |
@@ -288,7 +288,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | CGU (CEIS/CNEP/Leniência) | `uv run atlas-stf cgu fetch` / `build-matches` |
 | TSE (doações eleitorais) | `uv run atlas-stf tse fetch` / `build-matches` |
 | CVM (sanções mercado) | `uv run atlas-stf cvm fetch` / `build-matches` |
-| RFB (quadro societário) | `uv run atlas-stf rfb fetch` / `build-network` |
+| RFB (quadro societário) | `uv run atlas-stf rfb fetch` / `build-groups` / `build-network` |
 | Compound Risk | `uv run atlas-stf analytics compound-risk` |
 | Temporal Analysis | `uv run atlas-stf analytics build-temporal-analysis` |
 | Minister Flow | `uv run atlas-stf analytics minister-flow` |
@@ -305,7 +305,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 
 ## API HTTP
 
-### Endpoints principais (53)
+### Endpoints principais (55)
 
 <details>
 <summary>Expandir lista completa de endpoints</summary>
@@ -361,6 +361,8 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | `GET /counsel-network/red-flags` | Red flags de rede de advogados |
 | `GET /caso/{process_id}/timeline` | Linha do tempo processual (movimentos) |
 | `GET /caso/{process_id}/sessions` | Eventos de sessão do caso |
+| `GET /economic-groups` | Grupos econômicos (lista paginada com filtros) |
+| `GET /economic-groups/{group_id}` | Detalhe do grupo econômico |
 
 </details>
 
@@ -385,8 +387,8 @@ atlas-stf/
 │   ├── analytics/        # Grupos, baselines, score, alertas, cruzamentos e risco
 │   ├── evidence/         # Bundles de evidência
 │   ├── stf_portal/       # Extrator de linha do tempo do portal STF
-│   ├── serving/          # Banco de serving (29 tabelas SQLAlchemy)
-│   ├── api/              # FastAPI (53 endpoints)
+│   ├── serving/          # Banco de serving (30 tabelas SQLAlchemy)
+│   ├── api/              # FastAPI (55 endpoints)
 │   ├── cgu/              # CGU CEIS/CNEP/Leniência (httpx)
 │   ├── tse/              # TSE doações eleitorais (CSV)
 │   ├── cvm/              # CVM processos sancionadores (CSV)

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.identity import normalize_entity_name, stable_id
+from ..rfb._reference import load_all_reference_tables
 from ._match_helpers import (
     build_baseline_rates,
     build_counsel_process_map,
@@ -125,6 +126,21 @@ def _degree_decay(link_degree: int) -> float:
     return 1.0 if link_degree <= 2 else 0.5 ** (link_degree - 2)
 
 
+def _estab_summary(e: dict[str, Any]) -> dict[str, str]:
+    """Extract a summary dict from an establishment record."""
+    return {
+        "cnpj_full": e.get("cnpj_full", ""),
+        "matriz_filial": e.get("matriz_filial", ""),
+        "nome_fantasia": e.get("nome_fantasia", ""),
+        "uf": e.get("uf", ""),
+        "municipio_label": e.get("municipio_label", ""),
+        "cnae_fiscal": e.get("cnae_fiscal", ""),
+        "cnae_label": e.get("cnae_fiscal_label", ""),
+        "situacao_cadastral": e.get("situacao_cadastral", ""),
+        "data_inicio_atividade": e.get("data_inicio_atividade", ""),
+    }
+
+
 def build_corporate_network(
     *,
     rfb_dir: Path = Path("data/raw/rfb"),
@@ -148,6 +164,26 @@ def build_corporate_network(
     if not partner_index:
         logger.warning("No partners_raw.jsonl found in %s", rfb_dir)
         return output_dir
+
+    # Load optional enrichment data
+    estab_index: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    estab_path = rfb_dir / "establishments_raw.jsonl"
+    if estab_path.exists():
+        for record in read_jsonl(estab_path):
+            cnpj = record.get("cnpj_basico", "")
+            if cnpj:
+                estab_index[cnpj].append(record)
+
+    ref_tables = load_all_reference_tables(rfb_dir)
+    qualificacoes = ref_tables.get("qualificacoes", {})
+    naturezas = ref_tables.get("naturezas", {})
+
+    eg_index: dict[str, dict[str, Any]] = {}
+    eg_path = output_dir / "economic_group.jsonl"
+    if eg_path.exists():
+        for record in read_jsonl(eg_path):
+            for cnpj in record.get("member_cnpjs", []):
+                eg_index[cnpj] = record
 
     minister_names = _load_minister_names(minister_bio_path)
     party_index = build_party_index(party_path)
@@ -273,6 +309,38 @@ def build_corporate_network(
 
         conflict_id = stable_id("cn-", f"{minister_norm}:{cnpj}:{entity_name}:d{link_degree}")
 
+        # Decode qualification labels
+        minister_qual_label = qualificacoes.get(minister_qual or "", "") if minister_qual else None
+        company_nj_label = naturezas.get(company.get("natureza_juridica", ""), "") or None
+
+        # Multi-establishment enrichment
+        establishments = estab_index.get(cnpj, [])
+        hq = next((e for e in establishments if e.get("matriz_filial") == "1"), None)
+        active_estabs = [e for e in establishments if e.get("situacao_cadastral") == "02"]
+        estab_ufs = sorted({e.get("uf", "") for e in establishments if e.get("uf")})
+        estab_cnaes = sorted({e.get("cnae_fiscal", "") for e in establishments if e.get("cnae_fiscal")})
+        estab_cnae_labels = sorted(
+            {e.get("cnae_fiscal_label", "") for e in establishments if e.get("cnae_fiscal_label")}
+        )
+
+        # Key establishments: up to 3 active, prioritizing HQ
+        key_estabs: list[dict[str, Any]] = []
+        if hq and hq.get("situacao_cadastral") == "02":
+            key_estabs.append(_estab_summary(hq))
+        for e in sorted(active_estabs, key=lambda x: x.get("data_inicio_atividade", ""), reverse=True):
+            if len(key_estabs) >= 3:
+                break
+            if e is not hq:
+                key_estabs.append(_estab_summary(e))
+
+        # Economic group
+        eg = eg_index.get(cnpj, {})
+
+        # Evidence provenance
+        evidence_type = "partner_pf"
+        source_dataset = "socios"
+        evidence_strength = "direct" if link_degree == 1 else "indirect"
+
         return {
             "conflict_id": conflict_id,
             "minister_name": minister_name,
@@ -297,6 +365,32 @@ def build_corporate_network(
             "link_chain": link_chain,
             "link_degree": link_degree,
             "generated_at": now_iso,
+            # Decoded labels
+            "minister_qualification_label": minister_qual_label,
+            "entity_qualification_label": None,
+            "company_natureza_juridica_label": company_nj_label,
+            # Multi-establishment
+            "establishment_count": len(establishments),
+            "active_establishment_count": len(active_estabs),
+            "headquarters_uf": hq.get("uf") if hq else None,
+            "headquarters_municipio_label": hq.get("municipio_label") if hq else None,
+            "headquarters_cnae_fiscal": hq.get("cnae_fiscal") if hq else None,
+            "headquarters_cnae_label": hq.get("cnae_fiscal_label") if hq else None,
+            "headquarters_situacao_cadastral": hq.get("situacao_cadastral") if hq else None,
+            "headquarters_motivo_situacao_label": hq.get("motivo_situacao_label") if hq else None,
+            "establishment_ufs": estab_ufs,
+            "establishment_cnaes": estab_cnaes,
+            "establishment_cnae_labels": estab_cnae_labels,
+            "key_establishments": key_estabs,
+            # Economic group
+            "economic_group_id": eg.get("group_id"),
+            "economic_group_member_count": eg.get("member_count"),
+            "economic_group_razoes_sociais": eg.get("razoes_sociais", []),
+            # Provenance
+            "evidence_type": evidence_type,
+            "source_dataset": source_dataset,
+            "source_snapshot": None,
+            "evidence_strength": evidence_strength,
         }
 
     for minister_norm, minister_name in minister_names.items():
@@ -345,6 +439,9 @@ def build_corporate_network(
                         link_chain,
                     )
                     conflict["entity_qualification"] = qualification
+                    conflict["entity_qualification_label"] = (
+                        qualificacoes.get(qualification, "") if qualification else None
+                    )
                     conflicts.append(conflict)
 
             if degree >= max_link_degree:

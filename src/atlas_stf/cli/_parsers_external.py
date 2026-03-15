@@ -251,6 +251,9 @@ def _add_external_parsers(subparsers: Any) -> None:
     rfb_build.add_argument("--rfb-dir", type=Path, default=Path("data/raw/rfb"))
     rfb_build.add_argument("--output-dir", type=Path, default=DEFAULT_ANALYTICS_DIR)
     rfb_build.add_argument("--max-degree", type=int, default=3, help="Max BFS link degree (1-6)")
+    rfb_groups = rfb_sub.add_parser("build-groups", help="Build economic group analytics")
+    rfb_groups.add_argument("--rfb-dir", type=Path, default=Path("data/raw/rfb"))
+    rfb_groups.add_argument("--output-dir", type=Path, default=DEFAULT_ANALYTICS_DIR)
 
     stf_portal = subparsers.add_parser("stf-portal", help="Extract timeline data from STF portal")
     stf_portal_sub = stf_portal.add_subparsers(dest="stf_portal_target", required=True)

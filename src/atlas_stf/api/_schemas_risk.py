@@ -103,6 +103,18 @@ class DonationRedFlagsResponse(BaseModel):
     total_counsel_flags: int
 
 
+class EstablishmentSummary(BaseModel):
+    cnpj_full: str = ""
+    matriz_filial: str = ""
+    nome_fantasia: str = ""
+    uf: str = ""
+    municipio_label: str = ""
+    cnae_fiscal: str = ""
+    cnae_label: str = ""
+    situacao_cadastral: str = ""
+    data_inicio_atividade: str = ""
+
+
 class CorporateConflictItem(BaseModel):
     conflict_id: str
     minister_name: str
@@ -123,6 +135,36 @@ class CorporateConflictItem(BaseModel):
     red_flag: bool
     link_chain: str | None = None
     link_degree: int = Field(default=1, ge=1)
+    # Decoded labels
+    minister_qualification_label: str | None = None
+    entity_qualification_label: str | None = None
+    company_natureza_juridica_label: str | None = None
+    # Multi-establishment
+    establishment_count: int | None = None
+    active_establishment_count: int | None = None
+    headquarters_uf: str | None = None
+    headquarters_municipio_label: str | None = None
+    headquarters_cnae_fiscal: str | None = None
+    headquarters_cnae_label: str | None = None
+    headquarters_situacao_cadastral: str | None = None
+    headquarters_motivo_situacao_label: str | None = None
+    establishment_ufs: list[str] = []
+    establishment_cnaes: list[str] = []
+    establishment_cnae_labels: list[str] = []
+    key_establishments: list[EstablishmentSummary] = []
+    # Economic group
+    economic_group_id: str | None = None
+    economic_group_member_count: int | None = None
+    economic_group_razoes_sociais: list[str] = []
+    # Provenance
+    evidence_type: str | None = None
+    source_dataset: str | None = None
+    source_snapshot: str | None = None
+    evidence_strength: str | None = None
+    # Substantive rate
+    favorable_rate_substantive: float | None = None
+    substantive_decision_count: int | None = None
+    red_flag_substantive: bool | None = None
 
 
 class PaginatedCorporateConflictsResponse(BaseModel):
@@ -240,6 +282,29 @@ class CompoundRiskHeatmapResponse(BaseModel):
     ministers: list[str]
     entities: list[CompoundRiskHeatmapEntity]
     cells: list[CompoundRiskHeatmapCell]
+
+
+class EconomicGroupItem(BaseModel):
+    group_id: str
+    member_cnpjs: list[str] = []
+    razoes_sociais: list[str] = []
+    member_count: int
+    total_capital_social: float | None = None
+    cnae_labels: list[str] = []
+    ufs: list[str] = []
+    active_establishment_count: int = 0
+    total_establishment_count: int = 0
+    is_law_firm_group: bool = False
+    has_minister_partner: bool = False
+    has_party_partner: bool = False
+    has_counsel_partner: bool = False
+
+
+class PaginatedEconomicGroupResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    items: list[EconomicGroupItem]
 
 
 class HealthResponse(BaseModel):

@@ -10,7 +10,7 @@
        _ag-velocity _ag-rapporteur-change _ag-counsel-network \
        _ag-procedural-timeline _ag-pauta-anomaly \
        cgu cgu-fetch cgu-matches tse tse-fetch tse-matches cvm cvm-fetch cvm-matches \
-       rfb rfb-fetch rfb-network \
+       rfb rfb-fetch rfb-network rfb-groups \
        datajud datajud-fetch datajud-context \
        stf-portal stf-portal-fetch \
        external-fetch external-matches external-data \
@@ -198,10 +198,13 @@ cvm: cvm-fetch cvm-matches
 rfb-fetch:
 	$(CLI) rfb fetch
 
-rfb-network: rfb-fetch
+rfb-groups: rfb-fetch
+	$(CLI) rfb build-groups
+
+rfb-network: rfb-fetch rfb-groups
 	$(CLI) rfb build-network
 
-rfb: rfb-fetch rfb-network
+rfb: rfb-fetch rfb-groups rfb-network
 
 datajud-fetch:
 	$(CLI) datajud fetch

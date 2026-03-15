@@ -18,6 +18,26 @@ from ._match_helpers import (
 from ._temporal_utils import _parse_rfb_date, _round
 
 
+def _enrichment_fields(
+    company_cnpj: str,
+    estab_by_cnpj: dict[str, list[dict[str, Any]]],
+    eg_by_cnpj: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Build optional enrichment fields for a corporate link timeline record."""
+    establishments = estab_by_cnpj.get(company_cnpj, [])
+    active = [e for e in establishments if e.get("situacao_cadastral") == "02"]
+    hq = next((e for e in establishments if e.get("matriz_filial") == "1"), None)
+    eg = eg_by_cnpj.get(company_cnpj, {})
+    return {
+        "establishment_count": len(establishments) if establishments else None,
+        "active_establishment_count": len(active) if establishments else None,
+        "headquarters_uf": hq.get("uf") if hq else None,
+        "headquarters_cnae_label": hq.get("cnae_fiscal_label") if hq else None,
+        "economic_group_id": eg.get("group_id"),
+        "economic_group_member_count": eg.get("member_count"),
+    }
+
+
 def _minister_aliases(minister_bio_path: Path) -> dict[str, str]:
     if not minister_bio_path.exists():
         return {}
@@ -91,6 +111,22 @@ def _build_corporate_link_records(
         )
         if record.get("cnpj_basico")
     }
+    # Optional enrichment: establishments + economic groups
+    estab_by_cnpj: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    estab_path = rfb_dir / "establishments_raw.jsonl"
+    if estab_path.exists():
+        for record in read_jsonl(estab_path):
+            cnpj = str(record.get("cnpj_basico", ""))
+            if cnpj:
+                estab_by_cnpj[cnpj].append(record)
+
+    eg_by_cnpj: dict[str, dict[str, Any]] = {}
+    eg_path_file = rfb_dir.parent / "analytics" / "economic_group.jsonl"
+    if eg_path_file.exists():
+        for record in read_jsonl(eg_path_file):
+            for cnpj in record.get("member_cnpjs", []):
+                eg_by_cnpj[cnpj] = record
+
     by_company: dict[str, list[dict[str, Any]]] = defaultdict(list)
     pj_links: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
     for partner in read_jsonl(partner_path):
@@ -183,6 +219,7 @@ def _build_corporate_link_records(
                         "unfavorable_count": unfavorable,
                         "favorable_rate": _round(favorable_rate),
                         "generated_at": generated_at,
+                        **_enrichment_fields(company_cnpj, estab_by_cnpj, eg_by_cnpj),
                     }
                 )
             for pj_partner in [
@@ -230,6 +267,7 @@ def _build_corporate_link_records(
                                 "unfavorable_count": unfavorable,
                                 "favorable_rate": _round(favorable_rate),
                                 "generated_at": generated_at,
+                                **_enrichment_fields(linked_company, estab_by_cnpj, eg_by_cnpj),
                             }
                         )
     return records

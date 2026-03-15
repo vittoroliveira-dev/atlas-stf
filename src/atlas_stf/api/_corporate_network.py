@@ -13,6 +13,7 @@ from ._filters import _normalized_like
 from .schemas import (
     CorporateConflictItem,
     CorporateConflictRedFlagsResponse,
+    EstablishmentSummary,
     PaginatedCorporateConflictsResponse,
 )
 
@@ -21,9 +22,15 @@ def _parse_json_list(raw: str | None) -> list:
     if not raw:
         return []
     try:
-        return json.loads(raw)
-    except json.JSONDecodeError, TypeError:
+        result = json.loads(raw)
+        return result if isinstance(result, list) else []
+    except (json.JSONDecodeError, TypeError):
         return []
+
+
+def _parse_establishment_list(raw: str | None) -> list[EstablishmentSummary]:
+    items = _parse_json_list(raw)
+    return [EstablishmentSummary(**item) for item in items if isinstance(item, dict)]
 
 
 def _row_to_item(row: ServingCorporateConflict) -> CorporateConflictItem:
@@ -47,6 +54,36 @@ def _row_to_item(row: ServingCorporateConflict) -> CorporateConflictItem:
         red_flag=row.red_flag,
         link_chain=row.link_chain,
         link_degree=row.link_degree,
+        # Decoded labels
+        minister_qualification_label=row.minister_qualification_label,
+        entity_qualification_label=row.entity_qualification_label,
+        company_natureza_juridica_label=row.company_natureza_juridica_label,
+        # Multi-establishment
+        establishment_count=row.establishment_count,
+        active_establishment_count=row.active_establishment_count,
+        headquarters_uf=row.headquarters_uf,
+        headquarters_municipio_label=row.headquarters_municipio_label,
+        headquarters_cnae_fiscal=row.headquarters_cnae_fiscal,
+        headquarters_cnae_label=row.headquarters_cnae_label,
+        headquarters_situacao_cadastral=row.headquarters_situacao_cadastral,
+        headquarters_motivo_situacao_label=row.headquarters_motivo_situacao_label,
+        establishment_ufs=_parse_json_list(row.establishment_ufs_json),
+        establishment_cnaes=_parse_json_list(row.establishment_cnaes_json),
+        establishment_cnae_labels=_parse_json_list(row.establishment_cnae_labels_json),
+        key_establishments=_parse_establishment_list(row.key_establishments_json),
+        # Economic group
+        economic_group_id=row.economic_group_id,
+        economic_group_member_count=row.economic_group_member_count,
+        economic_group_razoes_sociais=_parse_json_list(row.economic_group_razoes_sociais_json),
+        # Provenance
+        evidence_type=row.evidence_type,
+        source_dataset=row.source_dataset,
+        source_snapshot=row.source_snapshot,
+        evidence_strength=row.evidence_strength,
+        # Substantive
+        favorable_rate_substantive=row.favorable_rate_substantive,
+        substantive_decision_count=row.substantive_decision_count,
+        red_flag_substantive=row.red_flag_substantive,
     )
 
 
