@@ -24,12 +24,14 @@ from ._builder_loaders import (
     load_metrics,
     load_minister_bios,
     load_ml_outlier_scores,
+    load_movements,
     load_origin_contexts,
     load_parties,
     load_rapporteur_changes,
     load_rapporteur_profiles,
     load_sanction_matches,
     load_sequential_analyses,
+    load_session_events,
     load_temporal_analyses,
 )
 from ._builder_schema import (
@@ -56,6 +58,7 @@ from .models import (
     ServingMinisterBio,
     ServingMinisterFlow,
     ServingMlOutlierScore,
+    ServingMovement,
     ServingOriginContext,
     ServingParty,
     ServingProcessCounsel,
@@ -65,6 +68,7 @@ from .models import (
     ServingSanctionMatch,
     ServingSchemaMeta,
     ServingSequentialAnalysis,
+    ServingSessionEvent,
     ServingSourceAudit,
     ServingTemporalAnalysis,
 )
@@ -136,7 +140,7 @@ def build_serving_database(
             missing_text = ", ".join(str(path) for path in missing)
             raise FileNotFoundError(f"Serving build requires existing artifacts: {missing_text}")
 
-        _total = 27  # 21 loaders + 6 DB phases
+        _total = 28  # 23 loaders + 5 DB phases
         _step = 0
 
         def _tick(desc: str) -> None:
@@ -185,6 +189,10 @@ def build_serving_database(
         counsel_network_clusters = load_counsel_network_clusters(analytics_dir)
         _tick("Serving: Carregando biografias ministros...")
         minister_bios = load_minister_bios(curated_dir)
+        _tick("Serving: Carregando movimentações...")
+        movements = load_movements(curated_dir)
+        _tick("Serving: Carregando sessões...")
+        session_events = load_session_events(curated_dir)
         _tick("Serving: Calculando auditorias...")
         audits = build_source_audits(source_files)
 
@@ -195,6 +203,8 @@ def build_serving_database(
                     ServingSourceAudit,
                     ServingMetric,
                     ServingSchemaMeta,
+                    ServingSessionEvent,
+                    ServingMovement,
                     ServingCounselNetworkCluster,
                     ServingRapporteurChange,
                     ServingDecisionVelocity,
@@ -250,6 +260,8 @@ def build_serving_database(
                 session.add_all(counsel_network_clusters)
                 session.add_all(minister_bios)
                 session.add_all(minister_flows)
+                session.add_all(movements)
+                session.add_all(session_events)
                 session.add_all(metrics)
                 session.add_all(audits)
                 _tick("Serving: Finalizando metadados...")

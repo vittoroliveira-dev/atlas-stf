@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -28,9 +30,12 @@ from .common import (
     write_jsonl,
 )
 
+logger = logging.getLogger(__name__)
+
 SCHEMA_PATH = Path("schemas/process.schema.json")
 DEFAULT_STAGING_DIR = Path("data/staging/transparencia")
 DEFAULT_OUTPUT_PATH = Path("data/curated/process.jsonl")
+DEFAULT_PORTAL_DIR = Path("data/raw/stf_portal")
 
 
 def _empty_process(process_number: str) -> dict[str, Any]:
@@ -59,9 +64,17 @@ def _empty_process(process_number: str) -> dict[str, Any]:
         "juris_legislacao_citada": None,
         "juris_procedencia": None,
         "juris_classe_extenso": None,
+        "juris_publicacao_data": None,
+        "juris_acompanhamento_url": None,
+        "juris_tese_texto": None,
+        "juris_acordao_ata": None,
         "juris_doc_count": None,
         "juris_has_acordao": None,
         "juris_has_decisao_monocratica": None,
+        "stf_portal_movement_count": None,
+        "stf_portal_last_updated": None,
+        "prevencao_process_number": None,
+        "first_distribution_date": None,
     }
 
 
@@ -127,9 +140,61 @@ def _enrich_with_jurisprudencia(
     return matched
 
 
+def _enrich_with_portal(
+    process_map: dict[str, dict[str, Any]],
+    portal_dir: Path,
+) -> int:
+    """Apply STF portal enrichment fields to matching processes. Returns match count."""
+    if not portal_dir.exists():
+        return 0
+
+    matched = 0
+    for json_path in sorted(portal_dir.glob("*.json")):
+        try:
+            doc = json.loads(json_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            logger.warning("Skipping corrupted portal JSON: %s", json_path.name)
+            continue
+        process_number = doc.get("process_number", "")
+        if not process_number:
+            continue
+
+        key = normalize_process_code(process_number)
+        record = process_map.get(key) or process_map.get(process_number)
+        if record is None:
+            continue
+
+        matched += 1
+        andamentos = doc.get("andamentos", [])
+        deslocamentos = doc.get("deslocamentos", [])
+        movement_count = len(andamentos) + len(deslocamentos)
+        record["stf_portal_movement_count"] = movement_count
+
+        fetched_at = doc.get("fetched_at")
+        if fetched_at:
+            record["stf_portal_last_updated"] = fetched_at
+
+        informacoes = doc.get("informacoes") or {}
+        prevencao = informacoes.get("prevencao")
+        if prevencao and record["prevencao_process_number"] is None:
+            record["prevencao_process_number"] = prevencao
+
+        # Find first distribution event
+        for entry in andamentos:
+            desc = (entry.get("description") or "").lower()
+            if "distribuí" in desc or "distribui" in desc:
+                dist_date = entry.get("date")
+                if dist_date and record["first_distribution_date"] is None:
+                    record["first_distribution_date"] = dist_date
+                break
+
+    return matched
+
+
 def build_process_records(
     staging_dir: Path = DEFAULT_STAGING_DIR,
     juris_index: dict[str, dict[str, Any]] | None = None,
+    portal_dir: Path = DEFAULT_PORTAL_DIR,
 ) -> list[dict[str, Any]]:
     process_map: dict[str, dict[str, Any]] = {}
 
@@ -149,6 +214,8 @@ def build_process_records(
     if juris_index:
         _enrich_with_jurisprudencia(process_map, juris_index)
 
+    _enrich_with_portal(process_map, portal_dir)
+
     records = sorted(process_map.values(), key=lambda item: item["process_number"])
     validate_records(records, SCHEMA_PATH)
     return records
@@ -158,6 +225,7 @@ def build_process_jsonl(
     staging_dir: Path = DEFAULT_STAGING_DIR,
     output_path: Path = DEFAULT_OUTPUT_PATH,
     juris_index: dict[str, dict[str, Any]] | None = None,
+    portal_dir: Path = DEFAULT_PORTAL_DIR,
 ) -> Path:
-    records = build_process_records(staging_dir=staging_dir, juris_index=juris_index)
+    records = build_process_records(staging_dir=staging_dir, juris_index=juris_index, portal_dir=portal_dir)
     return write_jsonl(records, output_path)

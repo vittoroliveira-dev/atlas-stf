@@ -8,9 +8,11 @@
        _ag-groups _ag-rapporteur _ag-assignment _ag-sequential _ag-temporal _ag-counsel \
        _ag-baseline _ag-alerts _ag-ml-outlier _ag-compound-risk \
        _ag-velocity _ag-rapporteur-change _ag-counsel-network \
+       _ag-procedural-timeline _ag-pauta-anomaly \
        cgu cgu-fetch cgu-matches tse tse-fetch tse-matches cvm cvm-fetch cvm-matches \
        rfb rfb-fetch rfb-network \
        datajud datajud-fetch datajud-context \
+       stf-portal stf-portal-fetch \
        external-fetch external-matches external-data \
        serving-build pipeline serve-api web-dev web-build web-typecheck \
        docker-build docker-up
@@ -146,12 +148,18 @@ _ag-rapporteur-change:
 _ag-counsel-network:
 	$(CLI) analytics counsel-network
 
+_ag-procedural-timeline:
+	$(CLI) analytics procedural-timeline
+
+_ag-pauta-anomaly:
+	$(CLI) analytics pauta-anomaly
+
 _ag-compound-risk: _ag-alerts _ag-counsel _ag-velocity _ag-rapporteur-change
 	$(CLI) analytics compound-risk
 
 analytics: _ag-groups _ag-rapporteur _ag-assignment _ag-sequential _ag-temporal _ag-counsel \
            _ag-baseline _ag-alerts _ag-ml-outlier _ag-velocity _ag-rapporteur-change \
-           _ag-counsel-network _ag-compound-risk
+           _ag-counsel-network _ag-procedural-timeline _ag-pauta-anomaly _ag-compound-risk
 
 evidence:
 	$(CLI) evidence build-all
@@ -202,6 +210,11 @@ datajud-context: datajud-fetch
 	$(CLI) datajud build-context
 
 datajud: datajud-fetch datajud-context
+
+stf-portal-fetch:
+	$(CLI) stf-portal fetch
+
+stf-portal: stf-portal-fetch
 
 external-fetch: cgu-fetch tse-fetch cvm-fetch rfb-fetch
 external-matches: cgu-matches tse-matches cvm-matches rfb-network

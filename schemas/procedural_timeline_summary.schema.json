@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/procedural_timeline_summary.schema.json",
+  "title": "ProceduralTimelineSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "total_records",
+    "vista_flag_count",
+    "pauta_cycle_flag_count",
+    "velocity_flag_count",
+    "peer_groups_analyzed"
+  ],
+  "properties": {
+    "generated_at": {"type": "string", "format": "date-time"},
+    "total_records": {"type": "integer"},
+    "vista_flag_count": {"type": "integer"},
+    "pauta_cycle_flag_count": {"type": "integer"},
+    "velocity_flag_count": {"type": "integer"},
+    "peer_groups_analyzed": {"type": "integer"}
+  }
+}

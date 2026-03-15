@@ -278,6 +278,38 @@ def _add_analytics_parsers(subparsers: Any) -> None:
         help="Output directory for analytics artifacts",
     )
 
+    analytics_ptl = analytics_sub.add_parser(
+        "procedural-timeline", help="Build procedural timeline analytics"
+    )
+    analytics_ptl.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=Path("data/curated"),
+        help="Curated JSONL directory",
+    )
+    analytics_ptl.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/analytics"),
+        help="Output directory for analytics artifacts",
+    )
+
+    analytics_pa = analytics_sub.add_parser(
+        "pauta-anomaly", help="Build pauta anomaly analytics"
+    )
+    analytics_pa.add_argument(
+        "--session-event-path",
+        type=Path,
+        default=Path("data/curated/session_event.jsonl"),
+        help="Session event JSONL path",
+    )
+    analytics_pa.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/analytics"),
+        help="Output directory for analytics artifacts",
+    )
+
     analytics_affinity = analytics_sub.add_parser("counsel-affinity", help="Build counsel affinity analytics")
     analytics_affinity.add_argument(
         "--output-dir",

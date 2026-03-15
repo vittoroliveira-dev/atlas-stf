@@ -23,6 +23,10 @@ def test_build_process_records_with_juris_enrichment(tmp_path: Path):
             "juris_legislacao_citada": "CF art 5",
             "juris_procedencia": "SAO PAULO - SP",
             "juris_classe_extenso": "ACAO CAUTELAR",
+            "juris_publicacao_data": "2026-04-01",
+            "juris_acompanhamento_url": "https://portal.stf.jus.br/processos/ac1",
+            "juris_tese_texto": "Tese firmada",
+            "juris_acordao_ata": "Ata do acordao",
             "juris_doc_count": 3,
             "juris_has_acordao": True,
             "juris_has_decisao_monocratica": True,
@@ -37,6 +41,10 @@ def test_build_process_records_with_juris_enrichment(tmp_path: Path):
     assert rec["juris_partes"] == "PARTE A vs PARTE B"
     assert rec["juris_doc_count"] == 3
     assert rec["juris_has_acordao"] is True
+    assert rec["juris_publicacao_data"] == "2026-04-01"
+    assert rec["juris_acompanhamento_url"] == "https://portal.stf.jus.br/processos/ac1"
+    assert rec["juris_tese_texto"] == "Tese firmada"
+    assert rec["juris_acordao_ata"] == "Ata do acordao"
 
 
 def test_build_process_records_without_juris_has_null_fields(tmp_path: Path):
@@ -53,6 +61,10 @@ def test_build_process_records_without_juris_has_null_fields(tmp_path: Path):
     assert rec["juris_inteiro_teor_url"] is None
     assert rec["juris_doc_count"] is None
     assert rec["juris_has_acordao"] is None
+    assert rec["juris_publicacao_data"] is None
+    assert rec["juris_acompanhamento_url"] is None
+    assert rec["juris_tese_texto"] is None
+    assert rec["juris_acordao_ata"] is None
 
 
 def test_build_decision_event_records_with_juris_enrichment(tmp_path: Path):
@@ -69,6 +81,7 @@ def test_build_decision_event_records_with_juris_enrichment(tmp_path: Path):
                 "juris_decisao_texto": "Texto completo da decisao",
                 "juris_ementa_texto": None,
                 "juris_inteiro_teor_url": "https://example.com/ac1.pdf",
+                "juris_publicacao_data": "2026-04-01",
             },
         ],
     }
@@ -80,6 +93,7 @@ def test_build_decision_event_records_with_juris_enrichment(tmp_path: Path):
     assert rec["juris_doc_id"] == "doc-abc"
     assert rec["juris_decisao_texto"] == "Texto completo da decisao"
     assert rec["juris_inteiro_teor_url"] == "https://example.com/ac1.pdf"
+    assert rec["juris_publicacao_data"] == "2026-04-01"
 
 
 def test_build_decision_event_records_without_juris_has_null_fields(tmp_path: Path):
@@ -96,6 +110,7 @@ def test_build_decision_event_records_without_juris_has_null_fields(tmp_path: Pa
     assert rec["juris_decisao_texto"] is None
     assert rec["juris_ementa_texto"] is None
     assert rec["juris_inteiro_teor_url"] is None
+    assert rec["juris_publicacao_data"] is None
 
 
 def test_build_decision_event_no_match_keeps_nulls(tmp_path: Path):
@@ -112,6 +127,7 @@ def test_build_decision_event_no_match_keeps_nulls(tmp_path: Path):
                 "juris_decisao_texto": "Wrong date",
                 "juris_ementa_texto": None,
                 "juris_inteiro_teor_url": None,
+                "juris_publicacao_data": "2026-04-01",
             },
         ],
     }
@@ -119,3 +135,4 @@ def test_build_decision_event_no_match_keeps_nulls(tmp_path: Path):
     records = build_decision_event_records(staging_file=staging_file, decision_index=decision_index)
     rec = records[0]
     assert rec["juris_doc_id"] is None
+    assert rec["juris_publicacao_data"] is None

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/pauta_anomaly.schema.json",
+  "title": "PautaAnomaly",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "anomaly_id",
+    "rapporteur",
+    "analysis_period",
+    "vista_request_count",
+    "pauta_withdrawal_count",
+    "pauta_no_rejudge_90d_count",
+    "vista_duration_flag",
+    "vista_frequency_flag",
+    "pauta_stall_flag",
+    "generated_at"
+  ],
+  "properties": {
+    "anomaly_id": {"type": "string"},
+    "rapporteur": {"type": "string"},
+    "analysis_period": {"type": "string"},
+    "vista_request_count": {"type": "integer", "minimum": 0},
+    "vista_avg_duration_days": {"type": ["number", "null"]},
+    "vista_max_duration_days": {"type": ["integer", "null"]},
+    "baseline_vista_avg_duration": {"type": ["number", "null"]},
+    "vista_duration_z_score": {"type": ["number", "null"]},
+    "vista_frequency_z_score": {"type": ["number", "null"]},
+    "pauta_withdrawal_count": {"type": "integer", "minimum": 0},
+    "pauta_no_rejudge_90d_count": {"type": "integer", "minimum": 0},
+    "vista_duration_flag": {"type": "boolean"},
+    "vista_frequency_flag": {"type": "boolean"},
+    "pauta_stall_flag": {"type": "boolean"},
+    "generated_at": {"type": "string", "format": "date-time"}
+  }
+}

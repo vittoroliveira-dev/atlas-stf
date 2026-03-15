@@ -87,12 +87,13 @@ O repositório combina quatro frentes operacionais:
 | Subsistema | Entrega principal | Evidência no repositório |
 |---|---|---|
 | `raw` e `staging` | Limpeza e padronização das exportações estruturadas | `src/atlas_stf/staging/`, `tests/staging/` |
-| `core` | Domínio puro: identidade, parsers, regras, estatística, mapeamento de origem | `src/atlas_stf/core/`, `tests/core/` |
-| `curated` | Entidades canônicas de processo, decisão, parte, advogado, assunto e biografia ministerial | `src/atlas_stf/curated/`, `tests/curated/` |
-| `analytics` | Grupos comparáveis, baseline, score, alertas, perfil de relator, auditoria de distribuição, análise temporal, counsel affinity, risco composto, velocidade decisória, mudança de relatoria, rede de advogados | `src/atlas_stf/analytics/`, `tests/analytics/` |
+| `core` | Domínio puro: identidade, parsers, regras, estatística, mapeamento de origem, TPU | `src/atlas_stf/core/`, `tests/core/` |
+| `curated` | Entidades canônicas de processo, decisão, parte, advogado, assunto, biografia ministerial, movimentos e eventos de sessão | `src/atlas_stf/curated/`, `tests/curated/` |
+| `analytics` | Grupos comparáveis, baseline, score, alertas, perfil de relator, auditoria de distribuição, análise temporal, counsel affinity, risco composto, velocidade decisória, mudança de relatoria, rede de advogados, linha do tempo processual, anomalia de pauta | `src/atlas_stf/analytics/`, `tests/analytics/` |
 | `evidence` | Bundles técnicos por alerta | `src/atlas_stf/evidence/`, `tests/evidence/` |
-| `serving` | Banco de serving (27 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
-| `api` | Endpoints FastAPI (51+) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
+| `serving` | Banco de serving (29 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
+| `api` | Endpoints FastAPI (53) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
+| `stf_portal` | Extrator de linha do tempo processual do portal STF (httpx) | `src/atlas_stf/stf_portal/`, `tests/stf_portal/` |
 | `cgu` | Dados CGU (CEIS/CNEP/Leniência) para cruzamento de sanções | `src/atlas_stf/cgu/`, `tests/cgu/` |
 | `tse` | Doações eleitorais TSE (12 ciclos, 2002–2024) | `src/atlas_stf/tse/`, `tests/tse/` |
 | `cvm` | Processos sancionadores CVM (mercado de capitais) | `src/atlas_stf/cvm/`, `tests/cvm/` |
@@ -112,6 +113,8 @@ O repositório combina quatro frentes operacionais:
 | CVM Processo Sancionador | ZIP/CSV dados abertos | Sanções do mercado de capitais |
 | RFB Dados Abertos CNPJ | ZIP/CSV dados abertos | Sócios e empresas (~3,3M registros) |
 | DataJud CNJ | API REST (httpx) | Agregações por tribunal de origem |
+| PDPJ/CNJ TPU | API REST (gateway.cloud.pje.jus.br) | Tabelas Processuais Unificadas (847 classes, 957 movimentos, 5598 assuntos) |
+| Portal STF | HTTP scraping (httpx) | Linha do tempo processual (andamentos, sessões, vistas) |
 
 ## Arquitetura
 
@@ -141,7 +144,7 @@ flowchart LR
 |---|---|
 | Backend analítico | Python 3.14+, pandas 3, scikit-learn, scipy |
 | API | FastAPI + SQLAlchemy 2.x |
-| Serving database | SQLite (27 tabelas) |
+| Serving database | SQLite (29 tabelas) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 + Recharts |
 | Qualidade | pytest (83%), ruff, pyright, ESLint, vulture |
 | Infra | Docker, GitHub Actions, uv |
@@ -197,6 +200,7 @@ make cgu             # Sanções CGU (CEIS/CNEP/Leniência)
 make tse             # Doações eleitorais TSE
 make cvm             # Sanções CVM
 make rfb             # Rede corporativa RFB
+make stf-portal      # Linha do tempo do portal STF
 make evidence        # Bundles de evidência
 make serving-build   # Materializa banco SQLite para API
 ```
@@ -291,6 +295,9 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | Decision Velocity | `uv run atlas-stf analytics decision-velocity` |
 | Rapporteur Change | `uv run atlas-stf analytics rapporteur-change` |
 | Counsel Network | `uv run atlas-stf analytics counsel-network` |
+| Procedural Timeline | `uv run atlas-stf analytics procedural-timeline` |
+| Pauta Anomaly | `uv run atlas-stf analytics pauta-anomaly` |
+| STF Portal | `uv run atlas-stf stf-portal fetch` |
 | Analytics (todos) | `uv run atlas-stf analytics ...` |
 | Evidence | `uv run atlas-stf evidence ...` |
 | Serving | `uv run atlas-stf serving build ...` |
@@ -298,7 +305,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 
 ## API HTTP
 
-### Endpoints principais (51+)
+### Endpoints principais (53)
 
 <details>
 <summary>Expandir lista completa de endpoints</summary>
@@ -352,6 +359,8 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | `GET /rapporteur-change/red-flags` | Red flags de redistribuição |
 | `GET /counsel-network` | Clusters de rede de advogados |
 | `GET /counsel-network/red-flags` | Red flags de rede de advogados |
+| `GET /caso/{process_id}/timeline` | Linha do tempo processual (movimentos) |
+| `GET /caso/{process_id}/sessions` | Eventos de sessão do caso |
 
 </details>
 
@@ -368,15 +377,16 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 ```text
 atlas-stf/
 ├── src/atlas_stf/
-│   ├── core/             # Domínio puro (identidade, parsers, regras, stats)
+│   ├── core/             # Domínio puro (identidade, parsers, regras, stats, TPU)
 │   ├── cli/              # CLI unificada do projeto
 │   ├── staging/          # Limpeza e normalização
 │   ├── scraper/          # Coleta de jurisprudência
 │   ├── curated/          # Entidades canônicas
 │   ├── analytics/        # Grupos, baselines, score, alertas, cruzamentos e risco
 │   ├── evidence/         # Bundles de evidência
-│   ├── serving/          # Banco de serving (27 tabelas SQLAlchemy)
-│   ├── api/              # FastAPI (51+ endpoints)
+│   ├── stf_portal/       # Extrator de linha do tempo do portal STF
+│   ├── serving/          # Banco de serving (29 tabelas SQLAlchemy)
+│   ├── api/              # FastAPI (53 endpoints)
 │   ├── cgu/              # CGU CEIS/CNEP/Leniência (httpx)
 │   ├── tse/              # TSE doações eleitorais (CSV)
 │   ├── cvm/              # CVM processos sancionadores (CSV)
@@ -386,7 +396,7 @@ atlas-stf/
 │   ├── src/app/          # 21 páginas (App Router, async Server Components)
 │   ├── src/components/   # 35+ componentes
 │   └── src/lib/          # 18+ módulos (API client, types, mappers)
-├── tests/                # 89+ arquivos, 789+ testes (mirror da src/)
+├── tests/                # 100+ arquivos, 998 testes (mirror da src/)
 ├── docs/                 # Documentação metodológica (11 documentos)
 ├── governance/           # Regras, decisões, auditoria e risco
 ├── schemas/              # Contratos JSON das entidades
@@ -404,7 +414,7 @@ atlas-stf/
 uv run ruff check src/ tests/
 uv run pyright src/
 
-# Testes (789+, 83% cobertura mínima)
+# Testes (998, 83% cobertura mínima)
 uv run pytest
 
 # Lint e typecheck (Frontend)

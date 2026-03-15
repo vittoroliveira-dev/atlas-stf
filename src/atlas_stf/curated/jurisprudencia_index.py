@@ -64,6 +64,10 @@ def build_process_index(juris_dir: Path = DEFAULT_JURIS_DIR) -> dict[str, dict[s
                             "juris_legislacao_citada": None,
                             "juris_procedencia": None,
                             "juris_classe_extenso": None,
+                            "juris_publicacao_data": None,
+                            "juris_acompanhamento_url": None,
+                            "juris_tese_texto": None,
+                            "juris_acordao_ata": None,
                             "juris_doc_count": 0,
                             "juris_has_acordao": False,
                             "juris_has_decisao_monocratica": False,
@@ -79,6 +83,10 @@ def build_process_index(juris_dir: Path = DEFAULT_JURIS_DIR) -> dict[str, dict[s
                     _merge_first(entry, "juris_legislacao_citada", doc.get("documental_legislacao_citada_texto"))
                     _merge_first(entry, "juris_procedencia", doc.get("procedencia_geografica_completo"))
                     _merge_first(entry, "juris_classe_extenso", doc.get("processo_classe_processual_unificada_extenso"))
+                    _merge_first(entry, "juris_publicacao_data", doc.get("publicacao_data"))
+                    _merge_first(entry, "juris_acompanhamento_url", doc.get("acompanhamento_processual_url"))
+                    _merge_first(entry, "juris_tese_texto", doc.get("documental_tese_texto"))
+                    _merge_first(entry, "juris_acordao_ata", doc.get("acordao_ata"))
 
     logger.info("Jurisprudencia process index: %d processes indexed", len(index))
     return index
@@ -113,6 +121,7 @@ def build_decision_index(juris_dir: Path = DEFAULT_JURIS_DIR) -> dict[str, list[
                     entry: dict[str, Any] = {
                         "juris_doc_id": _safe_str(doc.get("_id")),
                         "juris_inteiro_teor_url": _safe_str(doc.get("inteiro_teor_url")),
+                        "juris_publicacao_data": _safe_str(doc.get("publicacao_data")),
                     }
                     if is_acordao:
                         entry["juris_ementa_texto"] = _safe_str(doc.get("ementa_texto"))

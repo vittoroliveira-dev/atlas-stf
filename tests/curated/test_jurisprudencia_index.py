@@ -46,6 +46,10 @@ def test_build_process_index(tmp_path: Path):
                 "documental_legislacao_citada_texto": "CF art 5",
                 "procedencia_geografica_completo": "SAO PAULO - SP",
                 "processo_classe_processual_unificada_extenso": "ACAO CAUTELAR",
+                "publicacao_data": "2024-02-01",
+                "acompanhamento_processual_url": "https://portal.stf.jus.br/processos/ac1",
+                "documental_tese_texto": "Tese firmada no AC 1",
+                "acordao_ata": "Ata da sessao de julgamento",
             },
             {
                 "processo_codigo_completo": "AC 1",
@@ -74,6 +78,10 @@ def test_build_process_index(tmp_path: Path):
     assert ac1["juris_legislacao_citada"] == "CF art 5"
     assert ac1["juris_procedencia"] == "SAO PAULO - SP"
     assert ac1["juris_classe_extenso"] == "ACAO CAUTELAR"
+    assert ac1["juris_publicacao_data"] == "2024-02-01"
+    assert ac1["juris_acompanhamento_url"] == "https://portal.stf.jus.br/processos/ac1"
+    assert ac1["juris_tese_texto"] == "Tese firmada no AC 1"
+    assert ac1["juris_acordao_ata"] == "Ata da sessao de julgamento"
     assert ac1["juris_doc_count"] == 2
     assert ac1["juris_has_decisao_monocratica"] is True
     assert ac1["juris_has_acordao"] is False
@@ -82,6 +90,8 @@ def test_build_process_index(tmp_path: Path):
     assert hc200["juris_doc_count"] == 1
     assert hc200["juris_has_acordao"] is True
     assert hc200["juris_has_decisao_monocratica"] is False
+    assert hc200["juris_publicacao_data"] is None
+    assert hc200["juris_acompanhamento_url"] is None
 
 
 def test_build_decision_index(tmp_path: Path):
@@ -95,6 +105,7 @@ def test_build_decision_index(tmp_path: Path):
                 "decisao_texto": "Texto da decisao monocratica",
                 "_id": "doc-abc",
                 "inteiro_teor_url": "https://example.com/ac1.pdf",
+                "publicacao_data": "2024-02-01",
             },
         ],
     )
@@ -120,10 +131,12 @@ def test_build_decision_index(tmp_path: Path):
     assert entries[0]["juris_decisao_texto"] == "Texto da decisao monocratica"
     assert entries[0]["juris_doc_id"] == "doc-abc"
     assert entries[0]["juris_ementa_texto"] is None
+    assert entries[0]["juris_publicacao_data"] == "2024-02-01"
 
     hc_entries = index["HC 200::2024-01-20"]
     assert hc_entries[0]["juris_ementa_texto"] == "Ementa do acordao"
     assert hc_entries[0]["juris_decisao_texto"] is None
+    assert hc_entries[0]["juris_publicacao_data"] is None
 
 
 def test_build_process_index_empty_dir(tmp_path: Path):

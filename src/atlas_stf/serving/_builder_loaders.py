@@ -48,6 +48,12 @@ from ._builder_loaders_analytics import (
 from ._builder_loaders_analytics import (
     load_temporal_analyses as load_temporal_analyses,
 )
+from ._builder_loaders_timeline import (
+    load_movements as load_movements,
+)
+from ._builder_loaders_timeline import (
+    load_session_events as load_session_events,
+)
 from ._builder_utils import (
     SourceFile,
     _coerce_bool,
@@ -99,6 +105,7 @@ def load_cases(curated_dir: Path) -> list[ServingCase]:
                 thematic_key=derive_thematic_key(process.get("subjects_normalized"), process.get("branch_of_law")),
                 origin_description=process.get("origin_description"),
                 inteiro_teor_url=process.get("juris_inteiro_teor_url"),
+                acompanhamento_url=process.get("juris_acompanhamento_url"),
                 juris_doc_count=_coerce_int(process.get("juris_doc_count")),
                 juris_has_acordao=_coerce_bool(process.get("juris_has_acordao")),
                 juris_has_decisao_monocratica=_coerce_bool(process.get("juris_has_decisao_monocratica")),
@@ -111,6 +118,7 @@ def load_cases(curated_dir: Path) -> list[ServingCase]:
                 judging_body=record.get("judging_body"),
                 is_collegiate=record.get("is_collegiate"),
                 decision_note=record.get("decision_note"),
+                first_distribution_date=process.get("first_distribution_date"),
             )
         )
     return cases

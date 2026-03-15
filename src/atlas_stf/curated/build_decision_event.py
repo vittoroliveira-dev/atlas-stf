@@ -87,6 +87,7 @@ def _lookup_decision_enrichment(
         "juris_decisao_texto": None,
         "juris_ementa_texto": None,
         "juris_inteiro_teor_url": None,
+        "juris_publicacao_data": None,
     }
     if not decision_date:
         return empty
@@ -103,6 +104,7 @@ _EMPTY_JURIS: dict[str, Any] = {
     "juris_decisao_texto": None,
     "juris_ementa_texto": None,
     "juris_inteiro_teor_url": None,
+    "juris_publicacao_data": None,
 }
 
 

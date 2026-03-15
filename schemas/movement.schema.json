@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/movement.schema.json",
+  "title": "Movement",
+  "description": "Evento processual extraído do portal do STF.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["movement_id", "process_id", "source_system"],
+  "properties": {
+    "movement_id": {"type": "string"},
+    "process_id": {"type": "string"},
+    "source_system": {"type": "string"},
+    "tpu_code": {"type": ["integer", "null"]},
+    "tpu_name": {"type": ["string", "null"]},
+    "movement_category": {"type": ["string", "null"]},
+    "movement_raw_description": {"type": ["string", "null"]},
+    "movement_date": {"type": ["string", "null"], "format": "date"},
+    "movement_detail": {"type": ["string", "null"]},
+    "rapporteur_at_event": {"type": ["string", "null"]},
+    "tpu_match_confidence": {"type": ["string", "null"]},
+    "normalization_method": {"type": ["string", "null"]},
+    "created_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}

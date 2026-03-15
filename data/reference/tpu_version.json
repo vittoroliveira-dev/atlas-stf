@@ -1,0 +1,19 @@
+{
+  "sgt_version": "pdpj-tpu-v1.4",
+  "generated_at": "2026-03-15T03:38:59.957562+00:00",
+  "source_urls": {
+    "classes": "https://gateway.cloud.pje.jus.br/tpu/api/v1/publico/download/classes",
+    "movimentos": "https://gateway.cloud.pje.jus.br/tpu/api/v1/publico/download/movimentos",
+    "assuntos": "https://gateway.cloud.pje.jus.br/tpu/api/v1/publico/download/assuntos"
+  },
+  "source_checksums": {
+    "classes": "8cae09f32f30a692a5dc7973584b5bd99a32d8888f3c94f69d586fef26e2623c",
+    "movimentos": "9ef737bfd101801156c0478385204394ecdb2f3a0f8cb5b743de74321a90bcaf",
+    "assuntos": "a905c34fa903bd9da330fd3a43918a471ef14a5f1ac8a0fe85c027f97e96b150"
+  },
+  "artifact_checksums": {
+    "tpu_classes.json": "827d83cb775f36315ae1b6b4bea58f265c5d9be453533b3404d38351c84e399c",
+    "tpu_movements.json": "9090093852c89e62ab19b3d5646ef582ccda32e8a4912b5b9bf70093fa7dbbdc",
+    "tpu_subjects.json": "b087c0f6f4f1b054c1d5279837250446ecfc986f3f022e0056f9b66e7cc11531"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/session_event.schema.json",
+  "title": "SessionEvent",
+  "description": "Evento de sessão extraído do portal do STF.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["session_event_id", "process_id", "source_system"],
+  "properties": {
+    "session_event_id": {"type": "string"},
+    "process_id": {"type": "string"},
+    "movement_id": {"type": ["string", "null"]},
+    "source_system": {"type": "string"},
+    "session_type": {"type": ["string", "null"]},
+    "event_type": {"type": ["string", "null"]},
+    "event_date": {"type": ["string", "null"], "format": "date"},
+    "rapporteur_at_event": {"type": ["string", "null"]},
+    "vista_duration_days": {"type": ["integer", "null"]},
+    "created_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}

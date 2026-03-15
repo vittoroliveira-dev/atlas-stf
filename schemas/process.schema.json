@@ -114,6 +114,22 @@
       "type": ["string", "null"],
       "description": "Nome da classe processual por extenso, enriquecido da jurisprudencia."
     },
+    "juris_publicacao_data": {
+      "type": ["string", "null"],
+      "description": "Data de publicacao mais antiga encontrada na jurisprudencia."
+    },
+    "juris_acompanhamento_url": {
+      "type": ["string", "null"],
+      "description": "URL do acompanhamento processual no portal do STF."
+    },
+    "juris_tese_texto": {
+      "type": ["string", "null"],
+      "description": "Texto da tese firmada, enriquecido da jurisprudencia."
+    },
+    "juris_acordao_ata": {
+      "type": ["string", "null"],
+      "description": "Ata do acordao, enriquecida da jurisprudencia."
+    },
     "juris_doc_count": {
       "type": ["integer", "null"],
       "description": "Quantidade de documentos encontrados na jurisprudencia para este processo."
@@ -125,6 +141,23 @@
     "juris_has_decisao_monocratica": {
       "type": ["boolean", "null"],
       "description": "Se existe pelo menos uma decisao monocratica na jurisprudencia."
+    },
+    "stf_portal_movement_count": {
+      "type": ["integer", "null"],
+      "description": "Quantidade de andamentos + deslocamentos encontrados no portal do STF."
+    },
+    "stf_portal_last_updated": {
+      "type": ["string", "null"],
+      "description": "Data/hora da ultima coleta do portal do STF (fetched_at)."
+    },
+    "prevencao_process_number": {
+      "type": ["string", "null"],
+      "description": "Numero do processo de prevencao, quando informado no portal."
+    },
+    "first_distribution_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Data do primeiro evento de distribuicao encontrado no portal."
     }
   }
 }

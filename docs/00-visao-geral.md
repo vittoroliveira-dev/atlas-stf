@@ -47,7 +47,12 @@ O repositório cobre:
 - cruzamento com quadro societário da RFB para detecção de vínculos corporativos entre ministros e partes/advogados (módulo opcional);
 - análise de afinidade ministro-advogado para detecção de pares com taxa de êxito anômala (módulo opcional);
 - índice de risco composto que consolida sanções, doações, vínculos e afinidade num ranking unificado (módulo opcional);
-- análise temporal de padrões decisórios ministeriais, incluindo eventos marcantes, tendências mensais e cruzamento com rede corporativa (módulo opcional).
+- análise temporal de padrões decisórios ministeriais, incluindo eventos marcantes, tendências mensais e cruzamento com rede corporativa (módulo opcional);
+- análise de velocidade decisória para detecção de anomalias de tempo de tramitação (fura-fila/parado) (módulo opcional);
+- detecção de redistribuição de relatoria e resultado pós-mudança vs baseline (módulo opcional);
+- rede de advogados com detecção de clusters de co-clientela (módulo opcional);
+- linha do tempo processual com andamentos extraídos do portal STF e categorização TPU (módulo opcional);
+- análise de anomalia de sessão por ministro — frequência de vista, duração e retirada de pauta (módulo opcional).
 
 ## Superfície pública real no estado atual
 
@@ -71,6 +76,9 @@ O repositório cobre:
 - `/origem`
 - `/temporal`
 - `/convergencia`
+- `/velocidade`
+- `/redistribuicao`
+- `/rede-advogados`
 
 ### Endpoints HTTP implementados
 
@@ -118,6 +126,14 @@ O repositório cobre:
 - `GET /compound-risk/heatmap`
 - `GET /temporal-analysis`
 - `GET /temporal-analysis/{minister}`
+- `GET /decision-velocity`
+- `GET /decision-velocity/flags`
+- `GET /rapporteur-change`
+- `GET /rapporteur-change/red-flags`
+- `GET /counsel-network`
+- `GET /counsel-network/red-flags`
+- `GET /caso/{process_id}/timeline`
+- `GET /caso/{process_id}/sessions`
 
 Observações contratuais já comprovadas no código:
 

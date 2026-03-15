@@ -252,6 +252,27 @@ def _add_external_parsers(subparsers: Any) -> None:
     rfb_build.add_argument("--output-dir", type=Path, default=DEFAULT_ANALYTICS_DIR)
     rfb_build.add_argument("--max-degree", type=int, default=3, help="Max BFS link degree (1-6)")
 
+    stf_portal = subparsers.add_parser("stf-portal", help="Extract timeline data from STF portal")
+    stf_portal_sub = stf_portal.add_subparsers(dest="stf_portal_target", required=True)
+    stf_portal_fetch = stf_portal_sub.add_parser("fetch", help="Fetch process timeline from STF portal")
+    stf_portal_fetch.add_argument(
+        "--output-dir", type=Path, default=Path("data/raw/stf_portal"),
+        help="Output directory for raw portal data",
+    )
+    stf_portal_fetch.add_argument(
+        "--curated-dir", type=Path, default=DEFAULT_CURATED_DIR,
+        help="Curated JSONL directory (for process list)",
+    )
+    stf_portal_fetch.add_argument(
+        "--max-processes", type=int, default=None,
+        help="Limit number of processes to fetch",
+    )
+    stf_portal_fetch.add_argument(
+        "--rate-limit", type=float, default=2.0,
+        help="Seconds between requests (default: 2.0)",
+    )
+    stf_portal_fetch.add_argument("--dry-run", action="store_true", help="List processes without fetching")
+
     api = subparsers.add_parser("api", help="Serve the HTTP API over the serving database")
     api_sub = api.add_subparsers(dest="api_target", required=True)
     api_serve = api_sub.add_parser("serve", help="Start the FastAPI application with Uvicorn")

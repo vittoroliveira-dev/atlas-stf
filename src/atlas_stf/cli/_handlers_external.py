@@ -152,4 +152,17 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
         )
         return 0
 
+    if args.command == "stf-portal" and args.stf_portal_target == "fetch":
+        from ..stf_portal._config import StfPortalConfig
+        from ..stf_portal._runner import run_extraction
+
+        config = StfPortalConfig(
+            output_dir=args.output_dir,
+            curated_dir=args.curated_dir,
+            max_processes=args.max_processes,
+            rate_limit_seconds=args.rate_limit,
+        )
+        run_extraction(config, dry_run=args.dry_run)
+        return 0
+
     return None

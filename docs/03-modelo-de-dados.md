@@ -448,6 +448,97 @@ Representa o fluxo decisório de um ministro por recorte filtrado.
 - Uma entidade (party ou counsel) pode ter zero ou um `compound_risk`.
 - Um ministro pode ter zero ou um `temporal_analysis`.
 - Um ministro pode ter zero ou um `minister_flow`.
+- Um `process` pode ter muitos `movement` (andamentos do portal STF).
+- Um `movement` pode ter zero ou um `session_event` associado.
+- Um `process` pode ter muitos `session_event` (pauta, vista, julgamento).
+- Um `process` pode ter zero ou um `procedural_timeline` (analytics derivado).
+- Um ministro pode ter zero ou um `pauta_anomaly` (analytics derivado).
+
+---
+
+### 22. `movement`
+
+Representa um andamento processual extraído do portal do STF.
+
+#### Campos conceituais
+- `movement_id`
+- `process_id`
+- `movement_date`
+- `movement_text`
+- `movement_category`
+- `tpu_movement_code`
+- `tpu_match_confidence`
+- `normalization_method`
+
+#### Estado do artefato
+- Schema: `schemas/movement.schema.json`
+- Builder: `curated/build_movement.py`
+- Serving: `serving_movement` (tabela SQLite)
+- API: `GET /caso/{process_id}/timeline`
+
+---
+
+### 23. `session_event`
+
+Representa um evento de sessão (pauta, vista, julgamento, sessão virtual) extraído do portal do STF.
+
+#### Campos conceituais
+- `session_event_id`
+- `process_id`
+- `event_type`
+- `event_date`
+- `session_type`
+- `vista_start_date`
+- `vista_end_date`
+- `vista_duration_days`
+- `minister_name`
+
+#### Estado do artefato
+- Schema: `schemas/session_event.schema.json`
+- Builder: `curated/build_session_event.py`
+- Serving: `serving_session_event` (tabela SQLite)
+- API: `GET /caso/{process_id}/sessions`
+
+---
+
+### 24. `procedural_timeline`
+
+Analytics derivado: janelas temporais precisas por processo com comparação entre pares.
+
+#### Campos conceituais
+- `process_id`
+- `process_class`
+- `decision_year`
+- `days_distribution_to_first_decision`
+- `days_in_vista_total`
+- `pauta_cycle_count`
+- `redistribution_count`
+- `peer_median_days`
+- `risk_vista_above_p95`
+- `risk_pauta_cycle_above_p95`
+
+#### Estado do artefato
+- Schema: `schemas/procedural_timeline.schema.json`, `schemas/procedural_timeline_summary.schema.json`
+- Builder: `analytics/procedural_timeline.py`
+
+---
+
+### 25. `pauta_anomaly`
+
+Analytics derivado: anomalia de sessão por ministro.
+
+#### Campos conceituais
+- `minister_name`
+- `vista_frequency`
+- `vista_frequency_z_score`
+- `avg_vista_duration_days`
+- `baseline_avg_vista_duration_days`
+- `withdrawn_without_reschedule_count`
+- `red_flag`
+
+#### Estado do artefato
+- Schema: `schemas/pauta_anomaly.schema.json`, `schemas/pauta_anomaly_summary.schema.json`
+- Builder: `analytics/pauta_anomaly.py`
 
 ---
 

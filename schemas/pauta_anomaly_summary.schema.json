@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/pauta_anomaly_summary.schema.json",
+  "title": "PautaAnomalySummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "total_records",
+    "vista_duration_flag_count",
+    "vista_frequency_flag_count",
+    "pauta_stall_flag_count",
+    "ministers_analyzed",
+    "periods_analyzed"
+  ],
+  "properties": {
+    "generated_at": {"type": "string", "format": "date-time"},
+    "total_records": {"type": "integer"},
+    "vista_duration_flag_count": {"type": "integer"},
+    "vista_frequency_flag_count": {"type": "integer"},
+    "pauta_stall_flag_count": {"type": "integer"},
+    "ministers_analyzed": {"type": "integer"},
+    "periods_analyzed": {"type": "integer"}
+  }
+}

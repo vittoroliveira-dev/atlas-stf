@@ -34,6 +34,7 @@
     "p95_days": {"type": "number"},
     "velocity_flag": {"type": ["string", "null"]},
     "velocity_z_score": {"type": "number"},
+    "days_in_vista_deducted": {"type": "integer", "minimum": 0},
     "generated_at": {"type": "string", "format": "date-time"}
   }
 }

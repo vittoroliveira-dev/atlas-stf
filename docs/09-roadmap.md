@@ -165,6 +165,10 @@ Transformar os resultados em interface e relatórios.
 - velocidade decisória (anomalias de tempo de tramitação)
 - mudança de relatoria (redistribuição e resultado pós-mudança)
 - rede de advogados (clusters com clientes compartilhados)
+- linha do tempo processual (andamentos e eventos de sessão do portal STF)
+- normalização TPU (Tabelas Processuais Unificadas do CNJ)
+- análise de janelas temporais precisas (procedural timeline)
+- detecção de anomalia de sessão por ministro (pauta anomaly)
 
 ### Observação
 
@@ -213,7 +217,7 @@ Adicionar camadas derivadas opcionais, sem substituir o pipeline determinístico
 - pipeline-base determinístico: `concluída`
 - serving database: `concluída`
 - API e dashboard auditáveis: `em consolidação`
-- módulos opcionais CGU, TSE, CVM, DataJud, RFB, afinidade, compound risk, temporal, decision velocity, rapporteur change e counsel network: `materializados com dependência de dados locais`
+- módulos opcionais CGU, TSE, CVM, DataJud, RFB, afinidade, compound risk, temporal, decision velocity, rapporteur change, counsel network, procedural timeline e pauta anomaly: `materializados com dependência de dados locais`
 - análise derivada por IA sobre bundles: `futura`
 
 ## Critério de passagem de fase

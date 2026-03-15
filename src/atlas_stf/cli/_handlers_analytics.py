@@ -180,6 +180,30 @@ def dispatch_analytics(parser: argparse.ArgumentParser, args: argparse.Namespace
             )
         return 0
 
+    if args.command == "analytics" and args.analytics_target == "procedural-timeline":
+        from ..analytics.procedural_timeline import build_procedural_timeline
+        from ._progress import cli_progress
+
+        with cli_progress("Timeline") as on_progress:
+            build_procedural_timeline(
+                curated_dir=args.curated_dir,
+                output_dir=args.output_dir,
+                on_progress=on_progress,
+            )
+        return 0
+
+    if args.command == "analytics" and args.analytics_target == "pauta-anomaly":
+        from ..analytics.pauta_anomaly import build_pauta_anomaly
+        from ._progress import cli_progress
+
+        with cli_progress("Pauta Anomaly") as on_progress:
+            build_pauta_anomaly(
+                session_event_path=args.session_event_path,
+                output_dir=args.output_dir,
+                on_progress=on_progress,
+            )
+        return 0
+
     if args.command == "analytics" and args.analytics_target == "counsel-affinity":
         from ..analytics.counsel_affinity import build_counsel_affinity
         from ._progress import cli_progress

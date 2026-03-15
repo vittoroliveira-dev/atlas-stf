@@ -103,6 +103,10 @@
     "juris_inteiro_teor_url": {
       "type": ["string", "null"],
       "description": "URL do inteiro teor, enriquecido da jurisprudencia."
+    },
+    "juris_publicacao_data": {
+      "type": ["string", "null"],
+      "description": "Data de publicacao da decisao, enriquecida da jurisprudencia."
     }
   }
 }

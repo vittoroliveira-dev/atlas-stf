@@ -6,6 +6,33 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-03-15
+
+### Added
+
+- **core/tpu.py**: Camada de normalização TPU (Tabelas Processuais Unificadas) — funções puras para categorização semântica de movimentos (`categorize_movement_text`, `is_redistribution`, `is_pedido_de_vista`, `is_pauta_inclusion` etc.), resolução sigla→código TPU (`normalize_class_sigla_to_tpu`), consulta por código (`tpu_class_name`, `tpu_movement_name`)
+- **data/reference/**: Artefatos estáticos TPU (847 classes, 957 movimentos, 5598 assuntos) baixados da API PDPJ/CNJ (`gateway.cloud.pje.jus.br/tpu`) via `scripts/build_tpu_tables.py`
+- **stf_portal/**: Módulo extrator de linha do tempo processual do portal do STF — configuração, checkpoint, parser HTML, extrator httpx, orquestrador com priorização e rate limiting (`src/atlas_stf/stf_portal/`)
+- **build_movement.py**: Builder curated para andamentos e deslocamentos do portal STF → `movement.jsonl` com categorização TPU fuzzy e auditabilidade (`tpu_match_confidence`, `normalization_method`)
+- **build_session_event.py**: Builder curated para eventos de sessão (pauta, vista, julgamento, sessão virtual) → `session_event.jsonl` com `vista_duration_days` calculado e `session_type` detectado
+- **Enriquecimento do process.jsonl com o portal STF**: 4 novos campos — `stf_portal_movement_count`, `stf_portal_last_updated`, `prevencao_process_number`, `first_distribution_date`
+- **Propagação de campos da jurisprudência**: 4 campos já capturados pelo scraper mas descartados, agora propagados no curated — `juris_publicacao_data`, `juris_acompanhamento_url`, `juris_tese_texto`, `juris_acordao_ata`; `juris_publicacao_data` também propagado por decisão no `decision_event.jsonl`
+- **ServingMovement** e **ServingSessionEvent**: 2 novas tabelas no serving (total: 29 tabelas) com campos semânticos indexados (`movement_category`, `session_type`, `event_type`, `movement_date`)
+- **`acompanhamento_url`** e **`first_distribution_date`** no ServingCase
+- **API de linha do tempo**: `GET /caso/{process_id}/timeline` (movimentos cronológicos) e `GET /caso/{process_id}/sessions` (eventos de sessão) — total: 53 endpoints
+- **procedural_timeline.py**: Analytics de janelas temporais precisas — `days_distribution_to_first_decision`, `days_in_vista_total`, `pauta_cycle_count`, `redistribution_count` com comparação entre pares `(process_class, decision_year)` e sinalizadores de risco (vista > P95, ciclo de pauta > P95)
+- **pauta_anomaly.py**: Analytics de anomalia de sessão por ministro — frequência de vista (z-score), duração de vista vs. linha de base, retirada de pauta sem re-agendamento em 90 dias
+- **CLI**: subcomandos `stf-portal fetch`, `analytics procedural-timeline`, `analytics pauta-anomaly`
+- **Makefile**: alvos `stf-portal`, `_ag-procedural-timeline`, `_ag-pauta-anomaly`
+- 6 novos esquemas JSON (movement, session_event, procedural_timeline + resumo, pauta_anomaly + resumo)
+- 107 novos testes (total: 998)
+
+### Changed
+
+- **Divisão do models.py**: `serving/models.py` (545→140 linhas) dividido em `_models_analytics.py` (419 linhas) e `_models_timeline.py` (37 linhas) — re-exportações mantêm compatibilidade retroativa
+- **decision_velocity.py refinado**: usa `first_distribution_date` (portal) em vez de `filing_date` quando disponível; desconta `days_in_vista` para comparação justa; novo campo opcional `days_in_vista_deducted`
+- **SERVING_SCHEMA_VERSION**: 3 → 5
+
 ## [1.0.1] - 2026-03-14
 
 ### Added
