@@ -31,7 +31,7 @@ def _parse_date(date_str: str | None) -> datetime | None:
         return None
     try:
         return datetime.strptime(date_str[:10], "%Y-%m-%d")
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         return None
 
 
@@ -51,9 +51,7 @@ def _group_session_events(
 
     Returns {rapporteur: {year_str: [events]}}.
     """
-    result: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
+    result: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
     for record in read_jsonl(session_event_path):
         rapporteur = record.get("rapporteur_at_event")
         event_date = record.get("event_date")
@@ -159,9 +157,7 @@ def build_pauta_anomaly(
                 vista_max = int(max(vista_durations))
 
             # Pauta metrics
-            pauta_withdrawal_count = sum(
-                1 for e in events if e.get("event_type") == "pauta_withdrawal"
-            )
+            pauta_withdrawal_count = sum(1 for e in events if e.get("event_type") == "pauta_withdrawal")
 
             minister_period_data[(rapporteur, period)] = {
                 "vista_count": vista_count,
@@ -181,9 +177,7 @@ def build_pauta_anomaly(
         # Collect global baselines for this period
         period_vista_avgs: list[float] = []
         period_vista_counts: list[float] = []
-        minister_keys = [
-            (rap, per) for (rap, per) in minister_period_data if per == period
-        ]
+        minister_keys = [(rap, per) for (rap, per) in minister_period_data if per == period]
 
         for key in minister_keys:
             data = minister_period_data[key]
@@ -194,17 +188,11 @@ def build_pauta_anomaly(
         # Global baselines
         baseline_vista_avg: float | None = None
         if period_vista_avgs:
-            baseline_vista_avg = round(
-                sum(period_vista_avgs) / len(period_vista_avgs), 2
-            )
+            baseline_vista_avg = round(sum(period_vista_avgs) / len(period_vista_avgs), 2)
 
         # Standard deviations for z-scores
         vista_avg_std = _compute_std(period_vista_avgs)
-        vista_count_mean = (
-            sum(period_vista_counts) / len(period_vista_counts)
-            if period_vista_counts
-            else 0.0
-        )
+        vista_count_mean = sum(period_vista_counts) / len(period_vista_counts) if period_vista_counts else 0.0
         vista_count_std = _compute_std(period_vista_counts)
 
         for key in minister_keys:
@@ -218,22 +206,14 @@ def build_pauta_anomaly(
 
             v_frequency_z: float | None = None
             if period_vista_counts:
-                v_frequency_z = z_score(
-                    float(data["vista_count"]), vista_count_mean, vista_count_std
-                )
+                v_frequency_z = z_score(float(data["vista_count"]), vista_count_mean, vista_count_std)
 
             # Pauta no-rejudge count
-            pauta_no_rejudge = _count_pauta_no_rejudge(
-                dict(process_session_events), rapporteur, period
-            )
+            pauta_no_rejudge = _count_pauta_no_rejudge(dict(process_session_events), rapporteur, period)
 
             # Flags
-            vista_duration_flag = (
-                v_duration_z is not None and v_duration_z > Z_SCORE_THRESHOLD
-            )
-            vista_frequency_flag = (
-                v_frequency_z is not None and v_frequency_z > Z_SCORE_THRESHOLD
-            )
+            vista_duration_flag = v_duration_z is not None and v_duration_z > Z_SCORE_THRESHOLD
+            vista_frequency_flag = v_frequency_z is not None and v_frequency_z > Z_SCORE_THRESHOLD
             pauta_stall_flag = pauta_no_rejudge > 0
 
             anomaly_id = stable_id("pa_", f"{rapporteur}:{period}")

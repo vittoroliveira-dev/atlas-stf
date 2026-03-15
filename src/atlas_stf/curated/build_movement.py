@@ -22,7 +22,7 @@ DEFAULT_OUTPUT_PATH = Path("data/curated/movement.jsonl")
 def _read_portal_json(path: Path) -> dict[str, Any] | None:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError):
+    except json.JSONDecodeError, UnicodeDecodeError:
         logger.warning("Skipping corrupted portal JSON: %s", path.name)
         return None
 
@@ -125,14 +125,22 @@ def build_movement_records(
         for entry in doc.get("andamentos", []):
             records.append(
                 _build_movement_from_andamento(
-                    process_number, process_id, entry, rapporteur, timestamp,
+                    process_number,
+                    process_id,
+                    entry,
+                    rapporteur,
+                    timestamp,
                 )
             )
 
         for entry in doc.get("deslocamentos", []):
             records.append(
                 _build_movement_from_deslocamento(
-                    process_number, process_id, entry, rapporteur, timestamp,
+                    process_number,
+                    process_id,
+                    entry,
+                    rapporteur,
+                    timestamp,
                 )
             )
 

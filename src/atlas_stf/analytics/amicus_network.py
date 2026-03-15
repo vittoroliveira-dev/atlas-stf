@@ -18,9 +18,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_CURATED_DIR = Path("data/curated")
 DEFAULT_OUTPUT_DIR = Path("data/analytics")
 
-_AMICUS_ROLE_TYPES: frozenset[str] = frozenset({
-    "amicus_representative",
-})
+_AMICUS_ROLE_TYPES: frozenset[str] = frozenset(
+    {
+        "amicus_representative",
+    }
+)
 
 
 def build_amicus_network(
@@ -93,10 +95,7 @@ def build_amicus_network(
     tick("Amicus: Filtrando arestas amicus...")
 
     # Filter edges for amicus role
-    amicus_edges = [
-        e for e in edges
-        if e.get("role_type") in _AMICUS_ROLE_TYPES
-    ]
+    amicus_edges = [e for e in edges if e.get("role_type") in _AMICUS_ROLE_TYPES]
 
     # Also check events for amicus_brief type
     amicus_event_lawyers: dict[str, set[str]] = defaultdict(set)
@@ -160,18 +159,20 @@ def build_amicus_network(
         last_date = sorted_dates[-1] if sorted_dates else None
 
         amicus_id = stable_id("ami_", f"amicus:{lawyer_id}")
-        records.append({
-            "amicus_id": amicus_id,
-            "lawyer_id": lawyer_id,
-            "lawyer_name": lawyer_lookup.get(lawyer_id, ""),
-            "process_class_distribution": dict(class_dist),
-            "minister_distribution": dict(minister_dist),
-            "process_count": process_count,
-            "edge_count": data["edge_count"],
-            "first_date": first_date,
-            "last_date": last_date,
-            "generated_at": timestamp,
-        })
+        records.append(
+            {
+                "amicus_id": amicus_id,
+                "lawyer_id": lawyer_id,
+                "lawyer_name": lawyer_lookup.get(lawyer_id, ""),
+                "process_class_distribution": dict(class_dist),
+                "minister_distribution": dict(minister_dist),
+                "process_count": process_count,
+                "edge_count": data["edge_count"],
+                "first_date": first_date,
+                "last_date": last_date,
+                "generated_at": timestamp,
+            }
+        )
 
     tick("Amicus: Escrevendo resultados...")
 
@@ -191,9 +192,7 @@ def build_amicus_network(
     }
 
     summary_path = output_dir / "amicus_network_summary.json"
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
     tick("Amicus: Concluido")
     logger.info(

@@ -210,12 +210,8 @@ def build_counsel_affinity(
         # Substantive red flag
         red_flag_substantive: bool | None = None
         if pair_rate_substantive is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
-            sub_delta_minister = (
-                (pair_rate_substantive - minister_baseline) if minister_baseline is not None else -1.0
-            )
-            sub_delta_counsel = (
-                (pair_rate_substantive - counsel_baseline) if counsel_baseline is not None else -1.0
-            )
+            sub_delta_minister = (pair_rate_substantive - minister_baseline) if minister_baseline is not None else -1.0
+            sub_delta_counsel = (pair_rate_substantive - counsel_baseline) if counsel_baseline is not None else -1.0
             max_sub_delta = max(sub_delta_minister, sub_delta_counsel)
             red_flag_substantive = max_sub_delta > RED_FLAG_DELTA_THRESHOLD
 

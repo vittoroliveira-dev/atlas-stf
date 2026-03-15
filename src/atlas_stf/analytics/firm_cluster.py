@@ -203,16 +203,18 @@ def build_firm_cluster(
                 class_counts[pc] += 1
 
         cluster_id = stable_id("fcl_", ":".join(sorted(member_ids)))
-        records.append({
-            "cluster_id": cluster_id,
-            "firm_ids": sorted(member_ids),
-            "firm_names": [firm_lookup.get(fid, "") for fid in sorted(member_ids)],
-            "shared_party_count": len(cluster_party_ids),
-            "shared_process_count": len(cluster_process_ids),
-            "process_classes": dict(class_counts),
-            "cluster_size": len(member_ids),
-            "generated_at": timestamp,
-        })
+        records.append(
+            {
+                "cluster_id": cluster_id,
+                "firm_ids": sorted(member_ids),
+                "firm_names": [firm_lookup.get(fid, "") for fid in sorted(member_ids)],
+                "shared_party_count": len(cluster_party_ids),
+                "shared_process_count": len(cluster_process_ids),
+                "process_classes": dict(class_counts),
+                "cluster_size": len(member_ids),
+                "generated_at": timestamp,
+            }
+        )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = write_jsonl(records, output_dir / "firm_cluster.jsonl")
@@ -225,9 +227,7 @@ def build_firm_cluster(
         "generated_at": timestamp,
     }
     summary_path = output_dir / "firm_cluster_summary.json"
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
     tick("Cluster: Concluido")
     logger.info(

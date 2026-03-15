@@ -20,6 +20,7 @@ from .models import (
     ServingCounselNetworkCluster,
     ServingCounselSanctionProfile,
     ServingDecisionVelocity,
+    ServingDonationEvent,
     ServingDonationMatch,
     ServingMinisterBio,
     ServingMlOutlierScore,
@@ -297,15 +298,19 @@ def load_donation_matches(
     if dm_path.exists():
         for record in _read_jsonl(dm_path):
             strategy = record.get("match_strategy")
+            entity_id = str(record.get("entity_id") or "")
             donation_matches.append(
                 ServingDonationMatch(
                     match_id=str(record.get("match_id", "")),
                     entity_type=str(record.get("entity_type", "party")),
-                    party_id=str(record.get("party_id") or record.get("entity_id") or ""),
+                    entity_id=entity_id,
+                    party_id=str(record.get("party_id") or entity_id),
                     party_name_normalized=str(
                         record.get("party_name_normalized") or record.get("entity_name_normalized") or ""
                     ),
                     donor_cpf_cnpj=str(record.get("donor_cpf_cnpj", "")),
+                    donor_name_normalized=str(record.get("donor_name_normalized") or ""),
+                    donor_name_originator=str(record.get("donor_name_originator") or ""),
                     total_donated_brl=float(record.get("total_donated_brl", 0.0)),
                     donation_count=_coerce_int(record.get("donation_count")),
                     election_years_json=json.dumps(record.get("election_years", []), ensure_ascii=False),
@@ -314,12 +319,18 @@ def load_donation_matches(
                     positions_donated_to_json=json.dumps(record.get("positions_donated_to", []), ensure_ascii=False),
                     stf_case_count=_coerce_int(record.get("stf_case_count")),
                     favorable_rate=record.get("favorable_rate"),
+                    favorable_rate_substantive=_coerce_float(record.get("favorable_rate_substantive")),
+                    substantive_decision_count=_coerce_int(record.get("substantive_decision_count")),
                     baseline_favorable_rate=record.get("baseline_favorable_rate"),
                     favorable_rate_delta=record.get("favorable_rate_delta"),
                     red_flag=_coerce_bool(record.get("red_flag")),
+                    red_flag_substantive=_coerce_bool(record.get("red_flag_substantive")),
                     match_strategy=strategy,
                     match_score=_coerce_float(record.get("match_score")),
                     match_confidence=_match_confidence(strategy),
+                    matched_alias=str(record.get("matched_alias") or ""),
+                    matched_tax_id=str(record.get("matched_tax_id") or ""),
+                    uncertainty_note=str(record.get("uncertainty_note") or ""),
                     matched_at=_parse_datetime(record.get("matched_at")),
                 )
             )
@@ -341,6 +352,32 @@ def load_donation_matches(
                 )
             )
     return donation_matches, counsel_donation_profiles
+
+
+def load_donation_events(analytics_dir: Path) -> list[ServingDonationEvent]:
+    de_path = analytics_dir / "donation_event.jsonl"
+    if not de_path.exists():
+        return []
+    events: list[ServingDonationEvent] = []
+    for record in _read_jsonl(de_path):
+        events.append(
+            ServingDonationEvent(
+                event_id=str(record.get("event_id", "")),
+                match_id=str(record.get("match_id", "")),
+                election_year=_coerce_int(record.get("election_year")),
+                donation_date=_parse_date(record.get("donation_date")),
+                donation_amount=float(record.get("donation_amount", 0.0)),
+                candidate_name=str(record.get("candidate_name") or ""),
+                party_abbrev=str(record.get("party_abbrev") or ""),
+                position=str(record.get("position") or ""),
+                state=str(record.get("state") or ""),
+                donor_name=str(record.get("donor_name") or ""),
+                donor_name_originator=str(record.get("donor_name_originator") or ""),
+                donor_cpf_cnpj=str(record.get("donor_cpf_cnpj") or ""),
+                donation_description=str(record.get("donation_description") or ""),
+            )
+        )
+    return events
 
 
 def load_counsel_affinities(analytics_dir: Path) -> list[ServingCounselAffinity]:

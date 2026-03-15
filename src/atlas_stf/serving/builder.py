@@ -20,6 +20,7 @@ from ._builder_loaders import (
     load_counsel_network_clusters,
     load_counsels,
     load_decision_velocities,
+    load_donation_events,
     load_donation_matches,
     load_economic_groups,
     load_law_firm_entities,
@@ -199,6 +200,7 @@ def build_serving_database(
         sanction_matches, counsel_sanction_profiles = load_sanction_matches(analytics_dir)
         _tick("Serving: Carregando doações...")
         donation_matches, counsel_donation_profiles = load_donation_matches(analytics_dir)
+        donation_events = load_donation_events(analytics_dir)
         _tick("Serving: Carregando vínculos societários...")
         corporate_conflicts = load_corporate_conflicts(analytics_dir)
         _tick("Serving: Carregando afinidade advogado...")
@@ -302,6 +304,7 @@ def build_serving_database(
                 session.add_all(sanction_matches)
                 session.add_all(counsel_sanction_profiles)
                 session.add_all(donation_matches)
+                session.add_all(donation_events)
                 session.add_all(counsel_donation_profiles)
                 session.add_all(corporate_conflicts)
                 session.add_all(counsel_affinities)

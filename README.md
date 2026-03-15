@@ -158,21 +158,20 @@ flowchart LR
 - `ATLAS_STF_DATABASE_URL` deve apontar para essa URL em execução local e no `docker-compose`.
 - O serving DB é reconstruído a partir de `data/curated/` e `data/analytics/`; ele não é a fonte primária.
 
-## Instalação via Pacote
+## Instalação
 
-O Atlas STF é distribuído como pacote Python via [GitHub Packages](https://github.com/vittoroliveira-dev/atlas-stf/packages).
+### Via Docker (recomendado)
 
 ```bash
-pip install atlas-stf \
-  --index-url https://pypi.pkg.github.com/vittoroliveira-dev/atlas-stf/simple/
+docker pull ghcr.io/vittoroliveira-dev/atlas-stf:latest
+docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.0.4
 ```
 
-> **Nota:** o registro GitHub Packages requer autenticação. Configure um [Personal Access Token](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-apache-maven-registry#authenticating-with-a-personal-access-token) com permissão `read:packages` e use-o como senha no `pip`:
->
-> ```bash
-> pip install atlas-stf \
->   --index-url https://<USUARIO>:<TOKEN>@pypi.pkg.github.com/vittoroliveira-dev/atlas-stf/simple/
-> ```
+### Via wheel (release asset)
+
+```bash
+pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.0.4-py3-none-any.whl
+```
 
 Após a instalação, a CLI fica disponível:
 

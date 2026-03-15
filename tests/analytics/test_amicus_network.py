@@ -40,33 +40,45 @@ def test_amicus_network_nonempty_records(tmp_path: Path) -> None:
     curated.mkdir()
     output = tmp_path / "analytics"
 
-    _write_jsonl(curated / "lawyer_entity.jsonl", [
-        {"lawyer_id": "law_abc", "lawyer_name_normalized": "JOAO DA SILVA"},
-    ])
-    _write_jsonl(curated / "representation_edge.jsonl", [
-        {
-            "lawyer_id": "law_abc",
-            "process_id": "proc_1",
-            "role_type": "amicus_representative",
-            "start_date": "2025-01-01",
-            "end_date": "2025-06-01",
-        },
-        {
-            "lawyer_id": "law_abc",
-            "process_id": "proc_2",
-            "role_type": "amicus_representative",
-            "start_date": "2025-03-01",
-            "end_date": None,
-        },
-    ])
+    _write_jsonl(
+        curated / "lawyer_entity.jsonl",
+        [
+            {"lawyer_id": "law_abc", "lawyer_name_normalized": "JOAO DA SILVA"},
+        ],
+    )
+    _write_jsonl(
+        curated / "representation_edge.jsonl",
+        [
+            {
+                "lawyer_id": "law_abc",
+                "process_id": "proc_1",
+                "role_type": "amicus_representative",
+                "start_date": "2025-01-01",
+                "end_date": "2025-06-01",
+            },
+            {
+                "lawyer_id": "law_abc",
+                "process_id": "proc_2",
+                "role_type": "amicus_representative",
+                "start_date": "2025-03-01",
+                "end_date": None,
+            },
+        ],
+    )
     _write_jsonl(curated / "representation_event.jsonl", [])
-    _write_jsonl(curated / "process.jsonl", [
-        {"process_id": "proc_1", "process_class": "ADI"},
-        {"process_id": "proc_2", "process_class": "ADPF"},
-    ])
-    _write_jsonl(curated / "decision_event.jsonl", [
-        {"process_id": "proc_1", "current_rapporteur": "MINISTRO A", "decision_date": "2025-02-01"},
-    ])
+    _write_jsonl(
+        curated / "process.jsonl",
+        [
+            {"process_id": "proc_1", "process_class": "ADI"},
+            {"process_id": "proc_2", "process_class": "ADPF"},
+        ],
+    )
+    _write_jsonl(
+        curated / "decision_event.jsonl",
+        [
+            {"process_id": "proc_1", "current_rapporteur": "MINISTRO A", "decision_date": "2025-02-01"},
+        ],
+    )
 
     result = build_amicus_network(curated_dir=curated, output_dir=output)
 

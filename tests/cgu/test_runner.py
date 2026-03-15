@@ -528,9 +528,24 @@ class TestNormalizeDateCgu:
 class TestPreserveRawFields:
     def test_preserve_raw_tipo_pessoa(self) -> None:
         row = [
-            "CEIS", "12345", "F", "123.456.789-00", "JOAO",
-            "ORG", "RAZAO", "", "PROC", "Cat",
-            "01/01/2020", "01/01/2025", "", "", "", "", "", "CGU",
+            "CEIS",
+            "12345",
+            "F",
+            "123.456.789-00",
+            "JOAO",
+            "ORG",
+            "RAZAO",
+            "",
+            "PROC",
+            "Cat",
+            "01/01/2020",
+            "01/01/2025",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "CGU",
         ]
         from atlas_stf.cgu._runner import _CEIS_COL
 

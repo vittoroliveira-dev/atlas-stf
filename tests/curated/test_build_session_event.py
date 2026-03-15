@@ -19,7 +19,8 @@ def _write_movements(path: Path, movements: list[dict]) -> None:
 def _write_portal_json(portal_dir: Path, filename: str, doc: dict) -> None:
     portal_dir.mkdir(parents=True, exist_ok=True)
     (portal_dir / filename).write_text(
-        json.dumps(doc, ensure_ascii=False), encoding="utf-8",
+        json.dumps(doc, ensure_ascii=False),
+        encoding="utf-8",
     )
 
 
@@ -294,12 +295,14 @@ def test_sessao_virtual_from_portal(tmp_path: Path):
         "andamentos": [],
         "deslocamentos": [],
         "peticoes": [],
-        "sessao_virtual": [{
-            "start_date": "2020-06-01",
-            "end_date": "2020-06-05",
-            "result": "Procedente",
-            "tab_name": "Sessão Virtual",
-        }],
+        "sessao_virtual": [
+            {
+                "start_date": "2020-06-01",
+                "end_date": "2020-06-05",
+                "result": "Procedente",
+                "tab_name": "Sessão Virtual",
+            }
+        ],
         "informacoes": {"classe": "ADI", "relator_atual": "Min. Z"},
     }
     _write_portal_json(portal_dir, "ADI_5678.json", doc)

@@ -57,15 +57,18 @@ class TestCuratedBuilderSmoke:
         from atlas_stf.curated.build_representation import build_representation_jsonl
 
         process_path = tmp_path / "curated" / "process.jsonl"
-        _write_jsonl(process_path, [
-            {
-                "process_id": "proc_001",
-                "process_number": "ADI 1234",
-                "juris_partes": "REQTE.: EMPRESA X (ADV.: DR. JOSE SILVA OAB/SP 12345)",
-                "juris_advogados": "JOSE SILVA",
-                "counsel_raw": None,
-            },
-        ])
+        _write_jsonl(
+            process_path,
+            [
+                {
+                    "process_id": "proc_001",
+                    "process_number": "ADI 1234",
+                    "juris_partes": "REQTE.: EMPRESA X (ADV.: DR. JOSE SILVA OAB/SP 12345)",
+                    "juris_advogados": "JOSE SILVA",
+                    "counsel_raw": None,
+                },
+            ],
+        )
         portal_dir = tmp_path / "portal"
         portal_dir.mkdir()
         curated_dir = tmp_path / "out"
@@ -88,18 +91,21 @@ class TestCuratedBuilderSmoke:
         from atlas_stf.curated.build_representation import build_representation_jsonl
 
         process_path = tmp_path / "curated" / "process.jsonl"
-        _write_jsonl(process_path, [
-            {
-                "process_id": "p1",
-                "juris_advogados": "JOSE SILVA",
-                "juris_partes": "REQTE.: X (ADV.: JOSE SILVA OAB/SP 11111)",
-            },
-            {
-                "process_id": "p2",
-                "juris_advogados": "JOSE SILVA",
-                "juris_partes": "REQTE.: Y (ADV.: JOSE SILVA OAB/SP 11111)",
-            },
-        ])
+        _write_jsonl(
+            process_path,
+            [
+                {
+                    "process_id": "p1",
+                    "juris_advogados": "JOSE SILVA",
+                    "juris_partes": "REQTE.: X (ADV.: JOSE SILVA OAB/SP 11111)",
+                },
+                {
+                    "process_id": "p2",
+                    "juris_advogados": "JOSE SILVA",
+                    "juris_partes": "REQTE.: Y (ADV.: JOSE SILVA OAB/SP 11111)",
+                },
+            ],
+        )
         portal_dir = tmp_path / "portal"
         portal_dir.mkdir()
         curated_dir = tmp_path / "out"
@@ -233,10 +239,58 @@ class TestServingSmoke:
         assert load_representation_edges(tmp_path) == []
         assert load_representation_events(tmp_path) == []
 
-    def test_schema_version_is_7(self) -> None:
+    def test_schema_version_is_8(self) -> None:
         from atlas_stf.serving._builder_schema import SERVING_SCHEMA_VERSION
 
-        assert SERVING_SCHEMA_VERSION == 7
+        assert SERVING_SCHEMA_VERSION == 8
+
+    def test_schema_upgrade_drops_and_recreates(self, tmp_path: Path) -> None:
+        """P4/P5: incompatible schema must be rebuilt, not crash."""
+        from datetime import datetime, timezone
+
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import Session
+
+        from atlas_stf.serving._builder_schema import (
+            SERVING_SCHEMA_SINGLETON_KEY,
+            _ensure_compatible_schema,
+        )
+        from atlas_stf.serving.models import Base, ServingDonationEvent, ServingDonationMatch, ServingSchemaMeta
+
+        db_path = tmp_path / "test_upgrade.db"
+        engine = create_engine(f"sqlite:///{db_path}")
+
+        # Create schema with a fake old version
+        Base.metadata.create_all(engine)
+        with Session(engine) as session:
+            session.add(
+                ServingSchemaMeta(
+                    singleton_key=SERVING_SCHEMA_SINGLETON_KEY,
+                    schema_version=7,  # old version
+                    schema_fingerprint="old_fingerprint",
+                    built_at=datetime.now(timezone.utc),
+                )
+            )
+            session.commit()
+
+        # Now call _ensure_compatible_schema — should drop+recreate
+        _ensure_compatible_schema(engine)
+
+        # Verify tables exist after rebuild
+        from sqlalchemy import inspect as sa_inspect
+
+        inspector = sa_inspect(engine)
+        tables = set(inspector.get_table_names())
+        assert ServingDonationMatch.__tablename__ in tables
+        assert ServingDonationEvent.__tablename__ in tables
+
+        # Verify version is current
+        with Session(engine) as session:
+            meta = session.get(ServingSchemaMeta, SERVING_SCHEMA_SINGLETON_KEY)
+        # After drop+recreate, no meta row exists yet (builder writes it later)
+        assert meta is None
+
+        engine.dispose()
 
 
 # ---------------------------------------------------------------------------
@@ -320,21 +374,35 @@ class TestAuditGateSmoke:
     def test_audit_representation_with_valid_data(self, tmp_path: Path) -> None:
         from atlas_stf.audit_gates import audit_representation
 
-        _write_jsonl(tmp_path / "lawyer_entity.jsonl", [
-            {"lawyer_id": "law_001", "lawyer_name_raw": "DR JOSE", "oab_number": "12345/SP"},
-        ])
-        _write_jsonl(tmp_path / "law_firm_entity.jsonl", [
-            {"firm_id": "firm_001", "firm_name_raw": "SILVA ADVOGADOS"},
-        ])
-        _write_jsonl(tmp_path / "representation_edge.jsonl", [
-            {
-                "edge_id": "rep_001", "process_id": "p1",
-                "representative_entity_id": "law_001", "representative_kind": "lawyer",
-            },
-        ])
-        _write_jsonl(tmp_path / "representation_event.jsonl", [
-            {"event_id": "evt_001", "process_id": "p1", "event_type": "petition"},
-        ])
+        _write_jsonl(
+            tmp_path / "lawyer_entity.jsonl",
+            [
+                {"lawyer_id": "law_001", "lawyer_name_raw": "DR JOSE", "oab_number": "12345/SP"},
+            ],
+        )
+        _write_jsonl(
+            tmp_path / "law_firm_entity.jsonl",
+            [
+                {"firm_id": "firm_001", "firm_name_raw": "SILVA ADVOGADOS"},
+            ],
+        )
+        _write_jsonl(
+            tmp_path / "representation_edge.jsonl",
+            [
+                {
+                    "edge_id": "rep_001",
+                    "process_id": "p1",
+                    "representative_entity_id": "law_001",
+                    "representative_kind": "lawyer",
+                },
+            ],
+        )
+        _write_jsonl(
+            tmp_path / "representation_event.jsonl",
+            [
+                {"event_id": "evt_001", "process_id": "p1", "event_type": "petition"},
+            ],
+        )
 
         analytics_dir = tmp_path / "analytics"
         analytics_dir.mkdir()

@@ -125,8 +125,7 @@ def load_representation_edges(curated_dir: Path) -> list[ServingRepresentationEd
                 firm_id=record.get("firm_id"),
                 party_id=record.get("party_id"),
                 event_count=_coerce_int(
-                    record.get("event_count") if record.get("event_count") is not None
-                    else record.get("evidence_count")
+                    record.get("event_count") if record.get("event_count") is not None else record.get("evidence_count")
                 ),
                 start_date=_parse_date(record.get("start_date")),
                 end_date=_parse_date(record.get("end_date")),

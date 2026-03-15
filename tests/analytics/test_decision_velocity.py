@@ -104,13 +104,17 @@ def test_build_decision_velocity_skips_small_groups(tmp_path: Path):
         event_path,
         [
             {
-                "decision_event_id": "de_1", "process_id": "p1",
-                "decision_date": "2020-06-01", "decision_year": 2020,
+                "decision_event_id": "de_1",
+                "process_id": "p1",
+                "decision_date": "2020-06-01",
+                "decision_year": 2020,
                 "current_rapporteur": "X",
             },
             {
-                "decision_event_id": "de_2", "process_id": "p2",
-                "decision_date": "2020-06-01", "decision_year": 2020,
+                "decision_event_id": "de_2",
+                "process_id": "p2",
+                "decision_date": "2020-06-01",
+                "decision_year": 2020,
                 "current_rapporteur": "X",
             },
         ],

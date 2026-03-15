@@ -58,10 +58,13 @@ class SanctionRedFlagsResponse(BaseModel):
 class DonationMatchItem(BaseModel):
     match_id: str
     entity_type: str = "party"
+    entity_id: str = ""
     party_id: str
     counsel_id: str | None = None
     party_name_normalized: str
     donor_cpf_cnpj: str
+    donor_name_normalized: str | None = None
+    donor_name_originator: str | None = None
     total_donated_brl: float
     donation_count: int
     election_years: list[int] = []
@@ -70,12 +73,18 @@ class DonationMatchItem(BaseModel):
     positions_donated_to: list[str] = []
     stf_case_count: int
     favorable_rate: float | None = None
+    favorable_rate_substantive: float | None = None
+    substantive_decision_count: int | None = None
     baseline_favorable_rate: float | None = None
     favorable_rate_delta: float | None = None
     red_flag: bool
+    red_flag_substantive: bool | None = None
     match_strategy: str | None = None
     match_score: float | None = None
     match_confidence: str | None = None
+    matched_alias: str | None = None
+    matched_tax_id: str | None = None
+    uncertainty_note: str | None = None
 
 
 class CounselDonationProfileItem(BaseModel):
@@ -101,6 +110,29 @@ class DonationRedFlagsResponse(BaseModel):
     counsel_flags: list[CounselDonationProfileItem]
     total_party_flags: int
     total_counsel_flags: int
+
+
+class DonationEventItem(BaseModel):
+    event_id: str
+    match_id: str
+    election_year: int | None = None
+    donation_date: str | None = None
+    donation_amount: float = 0.0
+    candidate_name: str | None = None
+    party_abbrev: str | None = None
+    position: str | None = None
+    state: str | None = None
+    donor_name: str | None = None
+    donor_name_originator: str | None = None
+    donor_cpf_cnpj: str | None = None
+    donation_description: str | None = None
+
+
+class PaginatedDonationEventsResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    items: list[DonationEventItem]
 
 
 class EstablishmentSummary(BaseModel):

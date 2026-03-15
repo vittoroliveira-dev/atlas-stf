@@ -19,14 +19,21 @@ def tmp_dirs(tmp_path):
 @pytest.fixture
 def raw_events(tmp_dirs):
     raw_dir, _ = tmp_dirs
-    events = [{
-        "event_id": "agd_t1", "minister_slug": "zanin",
-        "minister_name": "MIN. CRISTIANO ZANIN", "owner_scope": "ministerial",
-        "event_date": "2024-03-02", "event_title": "Reuniao sobre ADPF 342",
-        "event_category": "private_advocacy", "meeting_nature": "private_meeting",
-        "process_refs": [{"class": "ADPF", "number": "342", "raw": "ADPF 342"}],
-        "has_process_ref": True, "relevance_track": "A",
-    }]
+    events = [
+        {
+            "event_id": "agd_t1",
+            "minister_slug": "zanin",
+            "minister_name": "MIN. CRISTIANO ZANIN",
+            "owner_scope": "ministerial",
+            "event_date": "2024-03-02",
+            "event_title": "Reuniao sobre ADPF 342",
+            "event_category": "private_advocacy",
+            "meeting_nature": "private_meeting",
+            "process_refs": [{"class": "ADPF", "number": "342", "raw": "ADPF 342"}],
+            "has_process_ref": True,
+            "relevance_track": "A",
+        }
+    ]
     with (raw_dir / "2024-03.jsonl").open("w") as f:
         for e in events:
             f.write(json.dumps(e) + "\n")
@@ -36,10 +43,17 @@ def raw_events(tmp_dirs):
 def process_data(tmp_dirs):
     _, curated_dir = tmp_dirs
     with (curated_dir / "process.jsonl").open("w") as f:
-        f.write(json.dumps({
-            "process_id": "proc_001", "process_number": "ADPF 342",
-            "process_class": "ADPF", "rapporteur_slug": "ZANIN",
-        }) + "\n")
+        f.write(
+            json.dumps(
+                {
+                    "process_id": "proc_001",
+                    "process_number": "ADPF 342",
+                    "process_class": "ADPF",
+                    "rapporteur_slug": "ZANIN",
+                }
+            )
+            + "\n"
+        )
 
 
 class TestBuildAgendaEvents:

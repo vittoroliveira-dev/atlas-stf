@@ -8,11 +8,13 @@ from typing import cast
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..serving.models import ServingCounselDonationProfile, ServingDonationMatch
+from ..serving.models import ServingCounselDonationProfile, ServingDonationEvent, ServingDonationMatch
 from .schemas import (
     CounselDonationProfileItem,
+    DonationEventItem,
     DonationMatchItem,
     DonationRedFlagsResponse,
+    PaginatedDonationEventsResponse,
     PaginatedDonationsResponse,
 )
 
@@ -22,18 +24,22 @@ def _parse_json_list(raw: str | None) -> list:
         return []
     try:
         return json.loads(raw)
-    except json.JSONDecodeError, TypeError:
+    except (json.JSONDecodeError, TypeError):
         return []
 
 
 def _row_to_match_item(row: ServingDonationMatch) -> DonationMatchItem:
+    entity_id = row.entity_id or row.party_id
     return DonationMatchItem(
         match_id=row.match_id,
         entity_type=row.entity_type,
+        entity_id=entity_id,
         party_id=row.party_id,
-        counsel_id=row.party_id if row.entity_type == "counsel" else None,
+        counsel_id=entity_id if row.entity_type == "counsel" else None,
         party_name_normalized=row.party_name_normalized,
         donor_cpf_cnpj=row.donor_cpf_cnpj,
+        donor_name_normalized=row.donor_name_normalized,
+        donor_name_originator=row.donor_name_originator,
         total_donated_brl=row.total_donated_brl,
         donation_count=row.donation_count,
         election_years=_parse_json_list(row.election_years_json),
@@ -42,12 +48,18 @@ def _row_to_match_item(row: ServingDonationMatch) -> DonationMatchItem:
         positions_donated_to=_parse_json_list(row.positions_donated_to_json),
         stf_case_count=row.stf_case_count,
         favorable_rate=row.favorable_rate,
+        favorable_rate_substantive=row.favorable_rate_substantive,
+        substantive_decision_count=row.substantive_decision_count,
         baseline_favorable_rate=row.baseline_favorable_rate,
         favorable_rate_delta=row.favorable_rate_delta,
         red_flag=row.red_flag,
+        red_flag_substantive=row.red_flag_substantive,
         match_strategy=row.match_strategy,
         match_score=row.match_score,
         match_confidence=row.match_confidence,
+        matched_alias=row.matched_alias or None,
+        matched_tax_id=row.matched_tax_id or None,
+        uncertainty_note=row.uncertainty_note or None,
     )
 
 
@@ -166,4 +178,51 @@ def get_donation_red_flags(session: Session, *, limit: int = 100) -> DonationRed
         counsel_flags=[_row_to_counsel_item(r) for r in counsel_flags],
         total_party_flags=total_party_flags,
         total_counsel_flags=total_counsel_flags,
+    )
+
+
+def _row_to_event_item(row: ServingDonationEvent) -> DonationEventItem:
+    return DonationEventItem(
+        event_id=row.event_id,
+        match_id=row.match_id,
+        election_year=row.election_year,
+        donation_date=row.donation_date.isoformat() if row.donation_date else None,
+        donation_amount=row.donation_amount,
+        candidate_name=row.candidate_name,
+        party_abbrev=row.party_abbrev,
+        position=row.position,
+        state=row.state,
+        donor_name=row.donor_name,
+        donor_name_originator=row.donor_name_originator,
+        donor_cpf_cnpj=row.donor_cpf_cnpj,
+        donation_description=row.donation_description,
+    )
+
+
+def get_donation_events(
+    session: Session,
+    match_id: str,
+    page: int,
+    page_size: int,
+) -> PaginatedDonationEventsResponse:
+    stmt = select(ServingDonationEvent).where(ServingDonationEvent.match_id == match_id)
+    count_stmt = select(func.count()).select_from(ServingDonationEvent).where(ServingDonationEvent.match_id == match_id)
+    total = session.execute(count_stmt).scalar_one()
+    rows = cast(
+        list[ServingDonationEvent],
+        session.scalars(
+            stmt.order_by(
+                ServingDonationEvent.election_year.desc(),
+                ServingDonationEvent.donation_date.desc(),
+                ServingDonationEvent.event_id.asc(),
+            )
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all(),
+    )
+    return PaginatedDonationEventsResponse(
+        total=total,
+        page=page,
+        page_size=page_size,
+        items=[_row_to_event_item(r) for r in rows],
     )

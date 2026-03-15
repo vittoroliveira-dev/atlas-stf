@@ -11,9 +11,7 @@ CONCLUSIVE_BASELINE_EVENT_COUNT = 10
 _NOISE_PROBABILITY_THRESHOLD = 0.40
 
 # Classes processuais de competência originária do Plenário
-_COMPETENCIA_ORIGINARIA_PLENARIO: frozenset[str] = frozenset(
-    {"ADI", "ADC", "ADPF", "ADO"}
-)
+_COMPETENCIA_ORIGINARIA_PLENARIO: frozenset[str] = frozenset({"ADI", "ADC", "ADPF", "ADO"})
 
 # Classes processuais de repercussão geral (Plenário Virtual)
 _REPERCUSSAO_GERAL_CLASSES: frozenset[str] = frozenset({"RE", "ARE"})
@@ -48,23 +46,17 @@ def _apply_procedural_suppressions(
     # Rule 1: RE/ARE in Plenário Virtual → suppress judging_body
     if process_class in _REPERCUSSAO_GERAL_CLASSES and _RE_PLENARIO_VIRTUAL.search(judging_body):
         suppressed_dims.add("judging_body")
-        explanations.append(
-            "Repercussão geral é encaminhada ao Plenário Virtual por regra regimental"
-        )
+        explanations.append("Repercussão geral é encaminhada ao Plenário Virtual por regra regimental")
 
     # Rule 2: ADI/ADC/ADPF/ADO in Plenário/Tribunal Pleno → suppress judging_body
     if process_class in _COMPETENCIA_ORIGINARIA_PLENARIO and _RE_PLENARIO.search(judging_body):
         suppressed_dims.add("judging_body")
-        explanations.append(
-            "Ações de controle concentrado são de competência originária do Plenário"
-        )
+        explanations.append("Ações de controle concentrado são de competência originária do Plenário")
 
     # Rule 3: decision_progress mentions "repercussão geral"
     if _RE_REPERCUSSAO_GERAL.search(decision_progress):
         suppressed_dims.update(("decision_progress", "judging_body"))
-        explanations.append(
-            "Decisão sobre repercussão geral segue rito próprio e não é comparável ao grupo geral"
-        )
+        explanations.append("Decisão sobre repercussão geral segue rito próprio e não é comparável ao grupo geral")
 
     if not suppressed_dims:
         return scoring_components, []
@@ -219,14 +211,10 @@ def _resolve_loo_baseline(
         or {}
     )
     merged["expected_rapporteur_distribution"] = (
-        loo_data.get("expected_rapporteur_distribution")
-        or baseline.get("expected_rapporteur_distribution")
-        or {}
+        loo_data.get("expected_rapporteur_distribution") or baseline.get("expected_rapporteur_distribution") or {}
     )
     merged["expected_judging_body_distribution"] = (
-        loo_data.get("expected_judging_body_distribution")
-        or baseline.get("expected_judging_body_distribution")
-        or {}
+        loo_data.get("expected_judging_body_distribution") or baseline.get("expected_judging_body_distribution") or {}
     )
     return merged
 

@@ -6,6 +6,40 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-03-15
+
+### Added
+
+- **tse/_parser.py**: campo `donor_name_originator` separado de `donor_name` — `NM_DOADOR_ORIGINARIO` deixa de ser alias de `donor_name` e passa a campo autônomo com normalização independente (P1)
+- **tse/_parser.py**: campo `donation_date` com alias `DT_RECEITA`/`DATA_RECEITA` e parser `_parse_donation_date` para formatos `dd/MM/yyyy` e ISO (P3)
+- **analytics/donation_match.py**: chave de agregação estável por `donor_cpf_cnpj` quando disponível, fallback para `donor_name_normalized` — previne fusão de homônimos (P2)
+- **analytics/donation_match.py**: escrita de `donation_event.jsonl` com doações individuais dos doadores matched, preservando data, candidato, partido, cargo e descrição (P3)
+- **analytics/donation_match.py**: campos `donor_name_normalized`, `donor_name_originator` e `donor_identity_key` nos registros de match (P1)
+- **serving/_models_analytics.py**: colunas `entity_id`, `donor_name_normalized`, `donor_name_originator`, `favorable_rate_substantive`, `substantive_decision_count`, `red_flag_substantive`, `matched_alias`, `matched_tax_id`, `uncertainty_note` em `ServingDonationMatch` (P4, P5)
+- **serving/_models_analytics.py**: nova tabela `ServingDonationEvent` com 13 campos para doações individuais (P3)
+- **api/_donations.py**: endpoint `GET /donations/{match_id}/events` com paginação para consultar doações individuais de um match (P3)
+- **api/_schemas_risk.py**: schemas `DonationEventItem` e `PaginatedDonationEventsResponse` (P3)
+- **api/_schemas_risk.py**: campos de auditabilidade (`favorable_rate_substantive`, `red_flag_substantive`, `matched_alias`, `matched_tax_id`, `uncertainty_note`, `entity_id`, `donor_name_normalized`, `donor_name_originator`) em `DonationMatchItem` (P4, P5)
+- **tse/_config.py**: opção `force_refresh` em `TseFetchConfig` (P6)
+- **tse/_runner.py**: suporte a `force_refresh` — limpa checkpoint dos anos solicitados antes de re-baixar (P6)
+- **cli/_parsers_external.py**: flag `--force-refresh` no subcomando `tse fetch` (P6)
+
+### Changed
+
+- **serving/_builder_schema.py**: schema version 7 → 8 (nova tabela + novos campos). **Upgrade destrutivo**: o serving builder detecta incompatibilidade de schema e faz DROP + CREATE ALL de todas as tabelas gerenciadas antes de reconstruir. O serving é uma visão materializada — a fonte de verdade são os artefatos JSONL. Executar `make serving-build` após o upgrade reconstrói toda a base
+- **tse/_runner.py**: checkpoint agora é salvo **após** o rename atômico do JSONL — previne inconsistência checkpoint-vs-dados se o processo cair no meio da escrita
+- **serving/_builder_loaders_analytics.py**: `load_donation_matches` carrega todos os campos de auditabilidade; nova função `load_donation_events` (P3, P4)
+- **api/_donations.py**: `_row_to_match_item` usa `entity_id` nativo em vez de reusar `party_id` para counsel (P5)
+- **serving/builder.py**: carrega e persiste `donation_events` durante o build do serving
+- **tse/_runner.py**: copy loop do JSONL agora exclui registros de anos sendo re-baixados — previne duplicação em force-refresh e cenários de remote-change (P6)
+- **analytics/donation_match.py**: `_donor_identity_key` usa `normalize_tax_id()` para sanitizar CPF/CNPJ antes da chave — mascarados (`***-**`) e vazios caem no fallback por nome (P2)
+- **tse/_parser.py**: fallback para `donor_name_originator` quando `donor_name` está vazio em variantes antigas de CSV (P1)
+- **api/_donations.py**: corrigido `except ValueError, TypeError` → `except (ValueError, TypeError)` (sintaxe Python 3)
+- **README.md**: seção de instalação atualizada — Docker via ghcr.io e wheel via release asset substituem referência ao registro PyPI do GitHub Packages (descontinuado)
+- **CHANGELOG.md**: entradas v1.0.4, v1.0.3 e v1.0.1 revisadas com acentuação gráfica correta em português brasileiro
+- **CI unificado**: workflow `publish.yml` removido; job `publish` integrado ao `ci.yml` — um único workflow por release, com upload de assets e push Docker condicionais em tags `v*`
+- **Dockerfile**: adicionado `README.md` ao `COPY` do builder (exigido pelo hatchling para build do wheel)
+
 ## [1.0.4] - 2026-03-15
 
 ### Added

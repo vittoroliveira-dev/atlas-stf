@@ -12,7 +12,8 @@ from atlas_stf.curated.build_movement import (
 def _write_portal_json(portal_dir: Path, filename: str, doc: dict) -> None:
     portal_dir.mkdir(parents=True, exist_ok=True)
     (portal_dir / filename).write_text(
-        json.dumps(doc, ensure_ascii=False), encoding="utf-8",
+        json.dumps(doc, ensure_ascii=False),
+        encoding="utf-8",
     )
 
 
@@ -58,10 +59,7 @@ def test_build_movements_from_andamentos(tmp_path: Path):
     records = build_movement_records(portal_dir=portal_dir)
 
     assert len(records) == 2
-    dist = next(
-        r for r in records
-        if "sorteio" in (r["movement_raw_description"] or "").lower()
-    )
+    dist = next(r for r in records if "sorteio" in (r["movement_raw_description"] or "").lower())
     assert dist["movement_category"] == "distribuicao"
     assert dist["process_id"].startswith("proc_")
     assert dist["source_system"] == "stf_portal"
@@ -69,23 +67,22 @@ def test_build_movements_from_andamentos(tmp_path: Path):
     assert dist["movement_detail"] == "Classe ADI"
     assert dist["rapporteur_at_event"] == "Min. X"
 
-    julg = next(
-        r for r in records
-        if "julgamento" in (r["movement_raw_description"] or "").lower()
-    )
+    julg = next(r for r in records if "julgamento" in (r["movement_raw_description"] or "").lower())
     assert julg["movement_category"] == "decisao"
 
 
 def test_build_movements_from_deslocamentos(tmp_path: Path):
     portal_dir = tmp_path / "stf_portal"
     doc = _sample_portal_doc(
-        deslocamentos=[{
-            "date": "2020-05-01",
-            "origin": "Gabinete Min. X",
-            "destination": "Gabinete Min. Y",
-            "reason": "Redistribuição",
-            "tab_name": "Deslocamentos",
-        }],
+        deslocamentos=[
+            {
+                "date": "2020-05-01",
+                "origin": "Gabinete Min. X",
+                "destination": "Gabinete Min. Y",
+                "reason": "Redistribuição",
+                "tab_name": "Deslocamentos",
+            }
+        ],
     )
     _write_portal_json(portal_dir, "ADI_1234.json", doc)
 

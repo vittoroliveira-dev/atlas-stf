@@ -168,7 +168,11 @@ def test_alert_enriched_with_compound_risk(tmp_path: Path):
     )
 
     build_alerts(
-        baseline_path, link_path, event_path, output_path, summary_path,
+        baseline_path,
+        link_path,
+        event_path,
+        output_path,
+        summary_path,
         compound_risk_path=compound_risk_path,
     )
 
@@ -243,7 +247,11 @@ def test_alert_without_compound_risk_file(tmp_path: Path):
 
     # compound_risk file does NOT exist
     build_alerts(
-        baseline_path, link_path, event_path, output_path, summary_path,
+        baseline_path,
+        link_path,
+        event_path,
+        output_path,
+        summary_path,
         compound_risk_path=tmp_path / "nonexistent.jsonl",
     )
 

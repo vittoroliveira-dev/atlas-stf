@@ -248,9 +248,12 @@ class ServingDonationMatch(Base):
 
     match_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     entity_type: Mapped[str] = mapped_column(String(16), default="party", index=True)
+    entity_id: Mapped[str] = mapped_column(String(64), index=True, default="")
     party_id: Mapped[str] = mapped_column(String(64), index=True)
     party_name_normalized: Mapped[str] = mapped_column(String(512))
     donor_cpf_cnpj: Mapped[str] = mapped_column(String(20))
+    donor_name_normalized: Mapped[str | None] = mapped_column(String(512))
+    donor_name_originator: Mapped[str | None] = mapped_column(String(512))
     total_donated_brl: Mapped[float] = mapped_column(Float)
     donation_count: Mapped[int] = mapped_column(Integer)
     election_years_json: Mapped[str | None] = mapped_column(Text())
@@ -259,12 +262,18 @@ class ServingDonationMatch(Base):
     positions_donated_to_json: Mapped[str | None] = mapped_column(Text())
     stf_case_count: Mapped[int] = mapped_column(Integer, default=0)
     favorable_rate: Mapped[float | None] = mapped_column(Float)
+    favorable_rate_substantive: Mapped[float | None] = mapped_column(Float)
+    substantive_decision_count: Mapped[int | None] = mapped_column(Integer)
     baseline_favorable_rate: Mapped[float | None] = mapped_column(Float)
     favorable_rate_delta: Mapped[float | None] = mapped_column(Float)
     red_flag: Mapped[bool] = mapped_column(Boolean, index=True, default=False)
+    red_flag_substantive: Mapped[bool | None] = mapped_column(Boolean)
     match_strategy: Mapped[str | None] = mapped_column(String(64))
     match_score: Mapped[float | None] = mapped_column(Float)
     match_confidence: Mapped[str | None] = mapped_column(String(64))
+    matched_alias: Mapped[str | None] = mapped_column(String(512))
+    matched_tax_id: Mapped[str | None] = mapped_column(String(20))
+    uncertainty_note: Mapped[str | None] = mapped_column(String(256))
     matched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -279,6 +288,24 @@ class ServingCounselDonationProfile(Base):
     donor_client_favorable_rate: Mapped[float | None] = mapped_column(Float)
     overall_favorable_rate: Mapped[float | None] = mapped_column(Float)
     red_flag: Mapped[bool] = mapped_column(Boolean, index=True, default=False)
+
+
+class ServingDonationEvent(Base):
+    __tablename__ = "serving_donation_event"
+
+    event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    match_id: Mapped[str] = mapped_column(String(64), index=True)
+    election_year: Mapped[int | None] = mapped_column(Integer)
+    donation_date: Mapped[date | None] = mapped_column(Date)
+    donation_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    candidate_name: Mapped[str | None] = mapped_column(String(512))
+    party_abbrev: Mapped[str | None] = mapped_column(String(32))
+    position: Mapped[str | None] = mapped_column(String(128))
+    state: Mapped[str | None] = mapped_column(String(4))
+    donor_name: Mapped[str | None] = mapped_column(String(512))
+    donor_name_originator: Mapped[str | None] = mapped_column(String(512))
+    donor_cpf_cnpj: Mapped[str | None] = mapped_column(String(20))
+    donation_description: Mapped[str | None] = mapped_column(String(512))
 
 
 class ServingCorporateConflict(Base):

@@ -239,9 +239,7 @@ def build_counsel_network(
                 "shared_client_count": len(all_clients),
                 "shared_process_count": len(cluster_processes),
                 "minister_names": sorted(cluster_ministers),
-                "cluster_favorable_rate": (
-                    round(cluster_rate, 6) if cluster_rate is not None else None
-                ),
+                "cluster_favorable_rate": (round(cluster_rate, 6) if cluster_rate is not None else None),
                 "cluster_case_count": cluster_case_count,
                 "red_flag": red_flag,
                 "generated_at": now_iso,

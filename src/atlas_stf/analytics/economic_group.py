@@ -65,9 +65,7 @@ def _derive_pj_partner_basico(
         return digits[:8]
     if len(digits) == 8:
         return digits
-    discard_counter["invalid_pj_cpf_cnpj_length"] = (
-        discard_counter.get("invalid_pj_cpf_cnpj_length", 0) + 1
-    )
+    discard_counter["invalid_pj_cpf_cnpj_length"] = discard_counter.get("invalid_pj_cpf_cnpj_length", 0) + 1
     logger.debug(
         "Discarding PJ partner with invalid cpf_cnpj length: %d digits",
         len(digits),
@@ -280,19 +278,13 @@ def build_economic_groups(
         "total_groups": len(groups),
         "singleton_count": sum(1 for g in groups if g["member_count"] == 1),
         "multi_member_count": len(multi_member),
-        "avg_member_count": (
-            sum(g["member_count"] for g in multi_member) / len(multi_member)
-            if multi_member
-            else 0
-        ),
+        "avg_member_count": (sum(g["member_count"] for g in multi_member) / len(multi_member) if multi_member else 0),
         "max_member_count": max((g["member_count"] for g in groups), default=0),
         "law_firm_groups": sum(1 for g in groups if g["is_law_firm_group"]),
         "generated_at": now_iso,
     }
     summary_path = output_dir / "economic_group_summary.json"
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
     logger.info(
         "Built economic groups: %d total (%d multi-member, %d law firm groups)",

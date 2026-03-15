@@ -107,10 +107,7 @@ class TestRunDocExtraction:
         assert result == 0
 
     def test_max_documents_limit(self, tmp_path: Path) -> None:
-        edges = [
-            {"edge_id": f"e{i}", "confidence": 0.1}
-            for i in range(10)
-        ]
+        edges = [{"edge_id": f"e{i}", "confidence": 0.1} for i in range(10)]
         _write_jsonl(tmp_path / "representation_edge.jsonl", edges)
         config = DocExtractorConfig(
             curated_dir=tmp_path,

@@ -152,7 +152,7 @@ def _enrich_with_portal(
     for json_path in sorted(portal_dir.glob("*.json")):
         try:
             doc = json.loads(json_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError):
+        except json.JSONDecodeError, UnicodeDecodeError:
             logger.warning("Skipping corrupted portal JSON: %s", json_path.name)
             continue
         process_number = doc.get("process_number", "")

@@ -180,8 +180,7 @@ class TestRunOabValidation:
         output = tmp_path / "output"
         curated.mkdir()
         records = [
-            {"name": f"LAWYER_{i}", "oab_number": str(i), "oab_state": "SP", "oab_status": None}
-            for i in range(75)
+            {"name": f"LAWYER_{i}", "oab_number": str(i), "oab_state": "SP", "oab_status": None} for i in range(75)
         ]
         _write_lawyer_jsonl(curated / "lawyer_entity.jsonl", records)
         config = OabValidationConfig(

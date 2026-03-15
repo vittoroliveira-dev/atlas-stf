@@ -83,7 +83,10 @@ class PortalExtractor:
                     wait = self._retry_delay * (2**attempt)
                     logger.warning(
                         "Request failed (attempt %d/%d): %s — retrying in %.1fs",
-                        attempt + 1, self._max_retries, exc, wait,
+                        attempt + 1,
+                        self._max_retries,
+                        exc,
+                        wait,
                     )
                     time.sleep(wait)
                 else:

@@ -253,7 +253,7 @@ def _load_portal_docs(portal_dir: Path) -> list[dict[str, Any]]:
         try:
             with path.open(encoding="utf-8") as fh:
                 docs.append(json.load(fh))
-        except (json.JSONDecodeError, ValueError):
+        except json.JSONDecodeError, ValueError:
             logger.warning("Skipping invalid portal file: %s", path)
     return docs
 
@@ -298,22 +298,24 @@ def build_representation_event_records(
                 event_desc += f" (representando {oral['party_represented']})"
             composite = f"{process_id}:oral_argument:{event_date}:{lawyer_name}"
             event_id = stable_id("evt_", composite)
-            records.append({
-                "event_id": event_id,
-                "process_id": process_id,
-                "edge_id": None,
-                "lawyer_id": None,
-                "firm_id": None,
-                "event_type": "oral_argument",
-                "event_date": event_date,
-                "event_description": event_desc,
-                "protocol_number": None,
-                "document_type": oral.get("session_type"),
-                "source_system": "portal_stf",
-                "source_url": source_url,
-                "source_evidence_id": None,
-                "confidence": 0.8,
-            })
+            records.append(
+                {
+                    "event_id": event_id,
+                    "process_id": process_id,
+                    "edge_id": None,
+                    "lawyer_id": None,
+                    "firm_id": None,
+                    "event_type": "oral_argument",
+                    "event_date": event_date,
+                    "event_description": event_desc,
+                    "protocol_number": None,
+                    "document_type": oral.get("session_type"),
+                    "source_system": "portal_stf",
+                    "source_url": source_url,
+                    "source_evidence_id": None,
+                    "confidence": 0.8,
+                }
+            )
 
         # Detailed petitions
         for pet in doc.get("peticoes_detailed", []):
@@ -328,22 +330,24 @@ def build_representation_event_records(
                 event_desc += f" ({doc_type})"
             composite = f"{process_id}:petition:{event_date}:{petitioner_name}"
             event_id = stable_id("evt_", composite)
-            records.append({
-                "event_id": event_id,
-                "process_id": process_id,
-                "edge_id": None,
-                "lawyer_id": None,
-                "firm_id": None,
-                "event_type": "petition",
-                "event_date": event_date,
-                "event_description": event_desc,
-                "protocol_number": protocol,
-                "document_type": doc_type,
-                "source_system": "portal_stf",
-                "source_url": source_url,
-                "source_evidence_id": None,
-                "confidence": 0.7,
-            })
+            records.append(
+                {
+                    "event_id": event_id,
+                    "process_id": process_id,
+                    "edge_id": None,
+                    "lawyer_id": None,
+                    "firm_id": None,
+                    "event_type": "petition",
+                    "event_date": event_date,
+                    "event_description": event_desc,
+                    "protocol_number": protocol,
+                    "document_type": doc_type,
+                    "source_system": "portal_stf",
+                    "source_url": source_url,
+                    "source_evidence_id": None,
+                    "confidence": 0.7,
+                }
+            )
 
     validate_records(records, EVENT_SCHEMA_PATH)
     return records
@@ -379,22 +383,24 @@ def build_source_evidence_records(
             field_hash = _sha256_short(snippet)
             composite = f"portal_stf:{process_number}:representantes:{field_hash}"
             evidence_id = stable_id("evi_", composite)
-            records.append({
-                "evidence_id": evidence_id,
-                "source_system": "portal_stf",
-                "source_url": source_url,
-                "entity_id": None,
-                "edge_id": None,
-                "event_id": None,
-                "source_tab": "Partes",
-                "process_number": process_number,
-                "process_id": None,
-                "snippet_text": snippet,
-                "raw_field_name": "representantes",
-                "parser_version": "representation-v1",
-                "extraction_confidence": 0.8,
-                "fetched_at": fetched_at,
-            })
+            records.append(
+                {
+                    "evidence_id": evidence_id,
+                    "source_system": "portal_stf",
+                    "source_url": source_url,
+                    "entity_id": None,
+                    "edge_id": None,
+                    "event_id": None,
+                    "source_tab": "Partes",
+                    "process_number": process_number,
+                    "process_id": None,
+                    "snippet_text": snippet,
+                    "raw_field_name": "representantes",
+                    "parser_version": "representation-v1",
+                    "extraction_confidence": 0.8,
+                    "fetched_at": fetched_at,
+                }
+            )
 
         # Evidence for oral arguments
         for oral in doc.get("oral_arguments", []):
@@ -403,22 +409,24 @@ def build_source_evidence_records(
             field_hash = _sha256_short(snippet)
             composite = f"portal_stf:{process_number}:oral_arguments:{field_hash}"
             evidence_id = stable_id("evi_", composite)
-            records.append({
-                "evidence_id": evidence_id,
-                "source_system": "portal_stf",
-                "source_url": source_url,
-                "entity_id": None,
-                "edge_id": None,
-                "event_id": None,
-                "source_tab": "Sustentacao Oral",
-                "process_number": process_number,
-                "process_id": None,
-                "snippet_text": snippet,
-                "raw_field_name": "oral_arguments",
-                "parser_version": "representation-v1",
-                "extraction_confidence": 0.8,
-                "fetched_at": fetched_at,
-            })
+            records.append(
+                {
+                    "evidence_id": evidence_id,
+                    "source_system": "portal_stf",
+                    "source_url": source_url,
+                    "entity_id": None,
+                    "edge_id": None,
+                    "event_id": None,
+                    "source_tab": "Sustentacao Oral",
+                    "process_number": process_number,
+                    "process_id": None,
+                    "snippet_text": snippet,
+                    "raw_field_name": "oral_arguments",
+                    "parser_version": "representation-v1",
+                    "extraction_confidence": 0.8,
+                    "fetched_at": fetched_at,
+                }
+            )
 
         # Evidence for detailed petitions
         for pet in doc.get("peticoes_detailed", []):
@@ -427,22 +435,24 @@ def build_source_evidence_records(
             field_hash = _sha256_short(snippet)
             composite = f"portal_stf:{process_number}:peticoes_detailed:{field_hash}"
             evidence_id = stable_id("evi_", composite)
-            records.append({
-                "evidence_id": evidence_id,
-                "source_system": "portal_stf",
-                "source_url": source_url,
-                "entity_id": None,
-                "edge_id": None,
-                "event_id": None,
-                "source_tab": "Peticoes",
-                "process_number": process_number,
-                "process_id": None,
-                "snippet_text": snippet,
-                "raw_field_name": "peticoes_detailed",
-                "parser_version": "representation-v1",
-                "extraction_confidence": 0.7,
-                "fetched_at": fetched_at,
-            })
+            records.append(
+                {
+                    "evidence_id": evidence_id,
+                    "source_system": "portal_stf",
+                    "source_url": source_url,
+                    "entity_id": None,
+                    "edge_id": None,
+                    "event_id": None,
+                    "source_tab": "Peticoes",
+                    "process_number": process_number,
+                    "process_id": None,
+                    "snippet_text": snippet,
+                    "raw_field_name": "peticoes_detailed",
+                    "parser_version": "representation-v1",
+                    "extraction_confidence": 0.7,
+                    "fetched_at": fetched_at,
+                }
+            )
 
     validate_records(records, EVIDENCE_SCHEMA_PATH)
     return records

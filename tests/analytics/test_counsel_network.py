@@ -73,16 +73,22 @@ def test_build_counsel_network_produces_clusters(tmp_path: Path):
         curated_dir / "decision_event.jsonl",
         [
             {
-                "decision_event_id": "de_1", "process_id": "p1",
-                "decision_progress": "Provido", "current_rapporteur": "MIN X",
+                "decision_event_id": "de_1",
+                "process_id": "p1",
+                "decision_progress": "Provido",
+                "current_rapporteur": "MIN X",
             },
             {
-                "decision_event_id": "de_2", "process_id": "p2",
-                "decision_progress": "Provido", "current_rapporteur": "MIN X",
+                "decision_event_id": "de_2",
+                "process_id": "p2",
+                "decision_progress": "Provido",
+                "current_rapporteur": "MIN X",
             },
             {
-                "decision_event_id": "de_3", "process_id": "p3",
-                "decision_progress": "Provido", "current_rapporteur": "MIN Y",
+                "decision_event_id": "de_3",
+                "process_id": "p3",
+                "decision_progress": "Provido",
+                "current_rapporteur": "MIN Y",
             },
         ],
     )

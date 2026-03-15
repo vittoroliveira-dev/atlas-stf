@@ -24,7 +24,7 @@ def _parse_json_list(raw: str | None) -> list:
         return []
     try:
         return json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         logger.warning("Failed to parse JSON list: %r", raw[:200] if raw else raw)
         return []
 
@@ -77,9 +77,7 @@ def get_counsel_network_clusters(
     )
 
 
-def get_counsel_network_red_flags(
-    session: Session, *, limit: int = 100
-) -> CounselNetworkRedFlagsResponse:
+def get_counsel_network_red_flags(session: Session, *, limit: int = 100) -> CounselNetworkRedFlagsResponse:
     total = (
         session.scalar(
             select(func.count())

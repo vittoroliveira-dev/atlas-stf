@@ -23,6 +23,7 @@ from .schemas import (
     PaginatedCounselAffinityResponse,
     PaginatedCounselNetworkResponse,
     PaginatedDecisionVelocityResponse,
+    PaginatedDonationEventsResponse,
     PaginatedDonationsResponse,
     PaginatedEconomicGroupResponse,
     PaginatedRapporteurChangeResponse,
@@ -119,6 +120,17 @@ def register_risk_routes(
         if result is None:
             raise HTTPException(status_code=404, detail="counsel_donation_profile_not_found")
         return result
+
+    @app.get("/donations/{match_id}/events", response_model=PaginatedDonationEventsResponse)
+    def donation_events(
+        match_id: str,
+        page: PositiveInt = 1,
+        page_size: PageSize = 20,
+    ) -> PaginatedDonationEventsResponse:
+        from ._donations import get_donation_events
+
+        with factory() as session:
+            return get_donation_events(session, match_id, page, page_size)
 
     @app.get("/corporate-network", response_model=PaginatedCorporateConflictsResponse)
     def corporate_network(
@@ -249,9 +261,7 @@ def register_risk_routes(
         page_size: PageSize = 20,
         minister: str | None = Query(default=None),
         flag_only: bool = Query(default=False),
-        velocity_flag: str | None = Query(
-            default=None, pattern="^(queue_jump|stalled)$"
-        ),
+        velocity_flag: str | None = Query(default=None, pattern="^(queue_jump|stalled)$"),
         process_class: str | None = Query(default=None),
     ) -> PaginatedDecisionVelocityResponse:
         from ._decision_velocity import get_decision_velocities

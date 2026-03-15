@@ -75,6 +75,12 @@ from ._schemas_risk import (
     SanctionRedFlagsResponse,
     SourcesAuditResponse,
 )
+from ._schemas_risk import (
+    DonationEventItem as DonationEventItem,
+)
+from ._schemas_risk import (
+    PaginatedDonationEventsResponse as PaginatedDonationEventsResponse,
+)
 from ._schemas_velocity import (
     CounselNetworkClusterItem,
     CounselNetworkRedFlagsResponse,

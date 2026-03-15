@@ -54,9 +54,7 @@ def get_decision_velocities(
 
     if minister:
         stmt = stmt.where(_normalized_like(ServingDecisionVelocity.current_rapporteur, minister))
-        count_stmt = count_stmt.where(
-            _normalized_like(ServingDecisionVelocity.current_rapporteur, minister)
-        )
+        count_stmt = count_stmt.where(_normalized_like(ServingDecisionVelocity.current_rapporteur, minister))
     if flag_only:
         stmt = stmt.where(ServingDecisionVelocity.velocity_flag.is_not(None))
         count_stmt = count_stmt.where(ServingDecisionVelocity.velocity_flag.is_not(None))
@@ -85,9 +83,7 @@ def get_decision_velocities(
     )
 
 
-def get_decision_velocity_flags(
-    session: Session, *, limit: int = 100
-) -> DecisionVelocityRedFlagsResponse:
+def get_decision_velocity_flags(session: Session, *, limit: int = 100) -> DecisionVelocityRedFlagsResponse:
     total = (
         session.scalar(
             select(func.count())

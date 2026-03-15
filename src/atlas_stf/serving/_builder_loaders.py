@@ -19,6 +19,9 @@ from ._builder_loaders_analytics import (
     load_decision_velocities as load_decision_velocities,
 )
 from ._builder_loaders_analytics import (
+    load_donation_events as load_donation_events,
+)
+from ._builder_loaders_analytics import (
     load_donation_matches as load_donation_matches,
 )
 from ._builder_loaders_analytics import (

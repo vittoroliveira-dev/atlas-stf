@@ -37,7 +37,11 @@ def run_agenda_fetch(config: AgendaFetchConfig) -> int:
 
     logger.info(
         "Agenda fetch: %d months (%04d-%02d to %04d-%02d)",
-        len(months), months[0][0], months[0][1], months[-1][0], months[-1][1],
+        len(months),
+        months[0][0],
+        months[0][1],
+        months[-1][0],
+        months[-1][1],
     )
 
     if config.dry_run:

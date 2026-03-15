@@ -101,11 +101,16 @@ def build_agenda_exposure(
                 cc = cv.get("comparability_tier", "low")
 
         common = {
-            "aeid": ev.get("agenda_event_id", ""), "slug": slug,
-            "name": ev.get("minister_name", ""), "ad": ev.get("event_date"),
-            "title": ev.get("title", ""), "cat": ev.get("event_category", ""),
-            "nat": ev.get("meeting_nature"), "bias": ev.get("institutional_role_bias_flag", False),
-            "cc": cc, "ts": ts,
+            "aeid": ev.get("agenda_event_id", ""),
+            "slug": slug,
+            "name": ev.get("minister_name", ""),
+            "ad": ev.get("event_date"),
+            "title": ev.get("title", ""),
+            "cat": ev.get("event_category", ""),
+            "nat": ev.get("meeting_nature"),
+            "bias": ev.get("institutional_role_bias_flag", False),
+            "cc": cc,
+            "ts": ts,
         }
 
         if not refs:
@@ -114,8 +119,12 @@ def build_agenda_exposure(
 
         for ref in refs:
             pid = ref.get("process_id")
-            re = {"pid": pid, "pcls": ref.get("process_class"), "own": ref.get("is_own_process", False),
-                   "role": ref.get("minister_case_role")}
+            re = {
+                "pid": pid,
+                "pcls": ref.get("process_class"),
+                "own": ref.get("is_own_process", False),
+                "role": ref.get("minister_case_role"),
+            }
             if not pid or not ad:
                 records.append(_mk(common, re))
                 continue
@@ -129,10 +138,19 @@ def build_agenda_exposure(
                 if w is None:
                     continue
                 found = True
-                records.append(_mk(common, re, {
-                    "deid": dec.get("decision_event_id"), "dd": dec.get("decision_date"),
-                    "dt": dec.get("decision_type"), "db": diff, "w": w,
-                }))
+                records.append(
+                    _mk(
+                        common,
+                        re,
+                        {
+                            "deid": dec.get("decision_event_id"),
+                            "dd": dec.get("decision_date"),
+                            "dt": dec.get("decision_type"),
+                            "db": diff,
+                            "w": w,
+                        },
+                    )
+                )
             if not found:
                 records.append(_mk(common, re))
 
@@ -161,17 +179,25 @@ def build_agenda_exposure(
             ds.append(str(r["agenda_date"]))
 
     summary = {
-        "total_relevant_events": len(relevant), "total_exposures": len(records),
-        "track_a_events": len(relevant), "track_b_events_stored": tb,
-        "exposures_by_minister": dict(bm), "exposures_by_window": dict(bw),
-        "exposures_by_priority": dict(bp), "coverage_scope": "public_agenda_partial",
+        "total_relevant_events": len(relevant),
+        "total_exposures": len(records),
+        "track_a_events": len(relevant),
+        "track_b_events_stored": tb,
+        "exposures_by_minister": dict(bm),
+        "exposures_by_window": dict(bw),
+        "exposures_by_priority": dict(bp),
+        "coverage_scope": "public_agenda_partial",
         "coverage_minister_set": sorted(ms),
         "coverage_start_date": sorted(ds)[0] if ds else None,
-        "within_minister_only": True, "cross_minister_allowed": False,
-        "historical_claims_pre_2024": False, "methodology_note": _NOTE, "generated_at": ts,
+        "within_minister_only": True,
+        "cross_minister_allowed": False,
+        "historical_claims_pre_2024": False,
+        "methodology_note": _NOTE,
+        "generated_at": ts,
     }
     (analytics_dir / "agenda_exposure_summary.json").write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8",
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
     )
     tick("Exposicao: Concluido")
     return out
@@ -182,25 +208,39 @@ def _mk(c: dict[str, Any], r: dict[str, Any] | None = None, d: dict[str, Any] | 
     deid = (d or {}).get("deid")
     return {
         "exposure_id": stable_id("aex_", f"{c['aeid']}:{pid or 'x'}:{deid or 'x'}"),
-        "agenda_event_id": c["aeid"], "minister_slug": c["slug"], "minister_name": c["name"],
-        "process_id": pid, "process_class": (r or {}).get("pcls"),
-        "agenda_date": c["ad"], "agenda_event_title": c["title"],
-        "agenda_event_category": c["cat"], "agenda_meeting_nature": c["nat"],
-        "decision_event_id": deid, "decision_date": (d or {}).get("dd"),
-        "decision_type": (d or {}).get("dt"), "days_between": (d or {}).get("db"),
+        "agenda_event_id": c["aeid"],
+        "minister_slug": c["slug"],
+        "minister_name": c["name"],
+        "process_id": pid,
+        "process_class": (r or {}).get("pcls"),
+        "agenda_date": c["ad"],
+        "agenda_event_title": c["title"],
+        "agenda_event_category": c["cat"],
+        "agenda_meeting_nature": c["nat"],
+        "decision_event_id": deid,
+        "decision_date": (d or {}).get("dd"),
+        "decision_type": (d or {}).get("dt"),
+        "days_between": (d or {}).get("db"),
         "window": (d or {}).get("w", "none"),
         "is_own_process": (r or {}).get("own", False),
         "minister_case_role": (r or {}).get("role"),
         "institutional_role_bias_flag": c.get("bias", False),
-        "baseline_rate": None, "observed_rate": None, "rate_ratio": None,
-        "priority_score": None, "priority_tier": None, "priority_tier_override_reason": None,
-        "coverage_comparability": c["cc"], "relevance_track": "A",
-        "within_minister_only": True, "generated_at": c["ts"],
+        "baseline_rate": None,
+        "observed_rate": None,
+        "rate_ratio": None,
+        "priority_score": None,
+        "priority_tier": None,
+        "priority_tier_override_reason": None,
+        "coverage_comparability": c["cc"],
+        "relevance_track": "A",
+        "within_minister_only": True,
+        "generated_at": c["ts"],
     }
 
 
 def _baselines(
-    recs: list[dict[str, Any]], cidx: dict[tuple[str, int, int], dict[str, Any]],
+    recs: list[dict[str, Any]],
+    cidx: dict[tuple[str, int, int], dict[str, Any]],
 ) -> dict[tuple[str, str | None, str | None], dict[str, float | int]]:
     gc: dict[tuple[str, str | None, str | None], int] = defaultdict(int)
     for r in recs:

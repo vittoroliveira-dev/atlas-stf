@@ -95,20 +95,32 @@ class AgendaClient:
                     wait = self._config.retry_delay_seconds * (2**attempt)
                     logger.warning(
                         "Agenda fetch %04d-%02d attempt %d/%d failed: %s — retry in %.1fs",
-                        year, month, attempt + 1, self._config.max_retries, exc, wait,
+                        year,
+                        month,
+                        attempt + 1,
+                        self._config.max_retries,
+                        exc,
+                        wait,
                     )
                     time.sleep(wait)
                 else:
                     logger.error(
                         "Agenda fetch %04d-%02d failed after %d attempts: %s",
-                        year, month, self._config.max_retries, exc,
+                        year,
+                        month,
+                        self._config.max_retries,
+                        exc,
                     )
                     raise
 
         return {}, meta  # unreachable
 
     def _try_fetch(
-        self, url: str, query: str, query_hash: str, meta: dict[str, Any],
+        self,
+        url: str,
+        query: str,
+        query_hash: str,
+        meta: dict[str, Any],
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         client = self._get_client()
         resp = client.get(url, params={"query": query})
@@ -134,9 +146,7 @@ class AgendaClient:
         meta["http_status"] = resp.status_code
         meta["response_sha256"] = _sha256(body_text)
         meta["response_size_bytes"] = len(body_text.encode("utf-8"))
-        meta["response_headers_subset"] = {
-            k: resp.headers.get(k, "") for k in _HEADER_KEYS if resp.headers.get(k)
-        }
+        meta["response_headers_subset"] = {k: resp.headers.get(k, "") for k in _HEADER_KEYS if resp.headers.get(k)}
         meta["query_hash"] = query_hash
 
         data_payload = raw_data.get("data", {})

@@ -19,26 +19,64 @@ def tmp_dirs(tmp_path):
 @pytest.fixture
 def sample(tmp_dirs):
     c, _ = tmp_dirs
-    (c / "agenda_event.jsonl").write_text(json.dumps({
-        "agenda_event_id": "agd_t1", "minister_slug": "zanin",
-        "minister_name": "MIN. CRISTIANO ZANIN", "owner_scope": "ministerial",
-        "event_date": "2024-03-02", "title": "Reuniao ADPF 342",
-        "event_category": "private_advocacy", "meeting_nature": "private_meeting",
-        "process_refs_matched": [{"process_id": "p1", "process_class": "ADPF",
-            "is_own_process": True, "minister_case_role": "relator"}],
-        "institutional_role_bias_flag": False, "relevance_track": "A",
-    }) + "\n")
-    (c / "agenda_coverage.jsonl").write_text(json.dumps({
-        "coverage_id": "ac1", "minister_slug": "zanin", "year": 2024,
-        "month": 3, "comparability_tier": "high", "business_days_in_month": 21,
-    }) + "\n")
-    (c / "decision_event.jsonl").write_text(json.dumps({
-        "decision_event_id": "d1", "process_id": "p1",
-        "decision_date": "2024-03-05", "decision_type": "acordao",
-    }) + "\n")
-    (c / "process.jsonl").write_text(json.dumps({
-        "process_id": "p1", "process_class": "ADPF",
-    }) + "\n")
+    (c / "agenda_event.jsonl").write_text(
+        json.dumps(
+            {
+                "agenda_event_id": "agd_t1",
+                "minister_slug": "zanin",
+                "minister_name": "MIN. CRISTIANO ZANIN",
+                "owner_scope": "ministerial",
+                "event_date": "2024-03-02",
+                "title": "Reuniao ADPF 342",
+                "event_category": "private_advocacy",
+                "meeting_nature": "private_meeting",
+                "process_refs_matched": [
+                    {
+                        "process_id": "p1",
+                        "process_class": "ADPF",
+                        "is_own_process": True,
+                        "minister_case_role": "relator",
+                    }
+                ],
+                "institutional_role_bias_flag": False,
+                "relevance_track": "A",
+            }
+        )
+        + "\n"
+    )
+    (c / "agenda_coverage.jsonl").write_text(
+        json.dumps(
+            {
+                "coverage_id": "ac1",
+                "minister_slug": "zanin",
+                "year": 2024,
+                "month": 3,
+                "comparability_tier": "high",
+                "business_days_in_month": 21,
+            }
+        )
+        + "\n"
+    )
+    (c / "decision_event.jsonl").write_text(
+        json.dumps(
+            {
+                "decision_event_id": "d1",
+                "process_id": "p1",
+                "decision_date": "2024-03-05",
+                "decision_type": "acordao",
+            }
+        )
+        + "\n"
+    )
+    (c / "process.jsonl").write_text(
+        json.dumps(
+            {
+                "process_id": "p1",
+                "process_class": "ADPF",
+            }
+        )
+        + "\n"
+    )
 
 
 class TestAgendaExposure:

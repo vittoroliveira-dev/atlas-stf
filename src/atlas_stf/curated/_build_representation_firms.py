@@ -47,12 +47,14 @@ def _load_portal_firm_names(portal_dir: Path) -> list[dict[str, Any]]:
             for rep in doc.get("representantes", []):
                 firm_name = rep.get("firm_name")
                 if firm_name:
-                    records.append({
-                        "firm_name": firm_name,
-                        "affiliation_confidence": rep.get("affiliation_confidence", "low"),
-                        "_portal_process_number": doc.get("process_number"),
-                    })
-        except (json.JSONDecodeError, ValueError):
+                    records.append(
+                        {
+                            "firm_name": firm_name,
+                            "affiliation_confidence": rep.get("affiliation_confidence", "low"),
+                            "_portal_process_number": doc.get("process_number"),
+                        }
+                    )
+        except json.JSONDecodeError, ValueError:
             logger.warning("Skipping invalid portal file: %s", path)
     return records
 

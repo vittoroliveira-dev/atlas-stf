@@ -13,6 +13,7 @@ from atlas_stf.api.app import create_app
 from atlas_stf.serving.models import (
     Base,
     ServingCounselDonationProfile,
+    ServingDonationEvent,
     ServingDonationMatch,
     ServingMetric,
     ServingSchemaMeta,
@@ -99,6 +100,35 @@ def client(tmp_path) -> TestClient:
                         donor_client_favorable_rate=0.9,
                         overall_favorable_rate=0.6,
                         red_flag=True,
+                    )
+                )
+                session.add(
+                    ServingDonationEvent(
+                        event_id="de-evt1",
+                        match_id="dm-abc123",
+                        election_year=2022,
+                        donation_amount=30000.0,
+                        candidate_name="FULANO",
+                        party_abbrev="PT",
+                        position="SENADOR",
+                        state="SP",
+                        donor_name="ACME CORP",
+                        donor_cpf_cnpj="12345678000199",
+                        donation_description="Doacao em dinheiro",
+                    )
+                )
+                session.add(
+                    ServingDonationEvent(
+                        event_id="de-evt2",
+                        match_id="dm-abc123",
+                        election_year=2018,
+                        donation_amount=20000.0,
+                        candidate_name="CICLANO",
+                        party_abbrev="MDB",
+                        position="DEPUTADO",
+                        state="RJ",
+                        donor_name="ACME CORP",
+                        donor_cpf_cnpj="12345678000199",
                     )
                 )
                 session.add(ServingMetric(key="alert_count", value_integer=0))
@@ -196,3 +226,80 @@ class TestDonationsEndpoints:
     def test_counsel_donation_profile_not_found(self, client: TestClient) -> None:
         resp = client.get("/counsels/unknown/donation-profile")
         assert resp.status_code == 404
+
+    def test_donation_events(self, client: TestClient) -> None:
+        resp = client.get("/donations/dm-abc123/events", params={"page": 1, "page_size": 10})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
+        # Ordered by year desc
+        assert data["items"][0]["election_year"] == 2022
+        assert data["items"][0]["donation_amount"] == 30000.0
+        assert data["items"][1]["election_year"] == 2018
+
+    def test_donation_events_empty(self, client: TestClient) -> None:
+        resp = client.get("/donations/nonexistent/events")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []
+
+    def test_donation_match_has_audit_fields(self, client: TestClient) -> None:
+        """P4: audit fields should be exposed in the API response."""
+        resp = client.get("/donations", params={"page": 1, "page_size": 10})
+        data = resp.json()
+        item = data["items"][0]
+        # These fields exist in the schema even if null
+        assert "favorable_rate_substantive" in item
+        assert "substantive_decision_count" in item
+        assert "red_flag_substantive" in item
+        assert "matched_alias" in item
+        assert "matched_tax_id" in item
+        assert "uncertainty_note" in item
+        assert "entity_id" in item
+        assert "donor_name_normalized" in item
+        assert "donor_name_originator" in item
+
+    def test_entity_id_does_not_break_entity_type_filter(self, client: TestClient) -> None:
+        """P5: entity_id column must not break entity_type filters or serialization."""
+        for et in ("party", "counsel"):
+            resp = client.get("/donations", params={"page": 1, "page_size": 10, "entity_type": et})
+            assert resp.status_code == 200
+            data = resp.json()
+            for item in data["items"]:
+                assert item["entity_type"] == et
+                assert item["entity_id"]  # never empty
+
+    def test_counsel_entity_id_equals_counsel_id(self, client: TestClient) -> None:
+        """P5: for counsel matches, entity_id and counsel_id must be the same."""
+        resp = client.get("/donations", params={"entity_type": "counsel"})
+        data = resp.json()
+        for item in data["items"]:
+            assert item["counsel_id"] == item["entity_id"]
+
+    def test_donation_events_pagination(self, client: TestClient) -> None:
+        """P3: events endpoint must paginate correctly."""
+        # Page 1, size 1 — should get 1 item, total 2
+        resp = client.get("/donations/dm-abc123/events", params={"page": 1, "page_size": 1})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 2
+        assert len(data["items"]) == 1
+        assert data["page"] == 1
+
+        # Page 2, size 1 — should get 1 item
+        resp2 = client.get("/donations/dm-abc123/events", params={"page": 2, "page_size": 1})
+        data2 = resp2.json()
+        assert len(data2["items"]) == 1
+        assert data2["items"][0]["event_id"] != data["items"][0]["event_id"]
+
+    def test_donation_events_only_returns_own_match(self, client: TestClient) -> None:
+        """P3: events endpoint must only return events for the given match_id."""
+        resp = client.get("/donations/dm-abc123/events")
+        data = resp.json()
+        for item in data["items"]:
+            assert item["match_id"] == "dm-abc123"
+
+        resp2 = client.get("/donations/dm-def456/events")
+        assert resp2.json()["total"] == 0

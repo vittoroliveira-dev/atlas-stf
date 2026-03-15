@@ -17,3 +17,4 @@ class TseFetchConfig:
     years: tuple[int, ...] = TSE_ELECTION_YEARS
     timeout_seconds: int = 120
     dry_run: bool = False
+    force_refresh: bool = False

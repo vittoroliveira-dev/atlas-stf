@@ -204,6 +204,11 @@ def _add_external_parsers(subparsers: Any) -> None:
     )
     tse_fetch.add_argument("--years", nargs="*", type=int, default=None, help="Election years to fetch")
     tse_fetch.add_argument("--dry-run", action="store_true", help="List URLs without downloading")
+    tse_fetch.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Re-download all requested years even if already cached",
+    )
     tse_build = tse_sub.add_parser("build-matches", help="Build donation match analytics")
     tse_build.add_argument(
         "--tse-dir",
@@ -259,19 +264,27 @@ def _add_external_parsers(subparsers: Any) -> None:
     stf_portal_sub = stf_portal.add_subparsers(dest="stf_portal_target", required=True)
     stf_portal_fetch = stf_portal_sub.add_parser("fetch", help="Fetch process timeline from STF portal")
     stf_portal_fetch.add_argument(
-        "--output-dir", type=Path, default=Path("data/raw/stf_portal"),
+        "--output-dir",
+        type=Path,
+        default=Path("data/raw/stf_portal"),
         help="Output directory for raw portal data",
     )
     stf_portal_fetch.add_argument(
-        "--curated-dir", type=Path, default=DEFAULT_CURATED_DIR,
+        "--curated-dir",
+        type=Path,
+        default=DEFAULT_CURATED_DIR,
         help="Curated JSONL directory (for process list)",
     )
     stf_portal_fetch.add_argument(
-        "--max-processes", type=int, default=None,
+        "--max-processes",
+        type=int,
+        default=None,
         help="Limit number of processes to fetch",
     )
     stf_portal_fetch.add_argument(
-        "--rate-limit", type=float, default=2.0,
+        "--rate-limit",
+        type=float,
+        default=2.0,
         help="Seconds between requests (default: 2.0)",
     )
     stf_portal_fetch.add_argument("--dry-run", action="store_true", help="List processes without fetching")
@@ -320,7 +333,10 @@ def _add_external_parsers(subparsers: Any) -> None:
     agenda_fetch.add_argument("--dry-run", action="store_true", help="List months without fetching")
     agenda_build = agenda_sub.add_parser("build-events", help="Build curated agenda events and coverage")
     agenda_build.add_argument(
-        "--raw-dir", type=Path, default=Path("data/raw/agenda"), help="Raw agenda JSONL directory",
+        "--raw-dir",
+        type=Path,
+        default=Path("data/raw/agenda"),
+        help="Raw agenda JSONL directory",
     )
     agenda_build.add_argument("--curated-dir", type=Path, default=DEFAULT_CURATED_DIR, help="Curated output directory")
 

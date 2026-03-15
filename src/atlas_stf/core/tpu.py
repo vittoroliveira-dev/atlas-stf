@@ -90,38 +90,97 @@ def tpu_version(reference_dir: Path = DEFAULT_REFERENCE_DIR) -> str:
 _CATEGORY_PATTERNS: list[tuple[str, list[str]]] = [
     # Order matters: more specific patterns MUST come before general ones.
     # "redistribu" before "distribuí"; "trânsito em julgado" before "julgado".
-    ("deslocamento", [
-        "deslocamento", "redistribu", "remessa", "remessa a",
-        "remetido", "encaminhado", "prevenção", "prevencao",
-    ]),
-    ("baixa", [
-        "baixa", "trânsito em julgado", "transito em julgado",
-        "arquivado", "arquivamento",
-    ]),
-    ("distribuicao", [
-        "distribuí", "distribui", "sorteio", "sorteado",
-        "distribuição", "distribuido",
-    ]),
-    ("vista", [
-        "vista", "devolvidos autos",
-    ]),
-    ("pauta", [
-        "pauta", "incluído em pauta", "retirado de pauta",
-        "incluido em pauta", "retirada de pauta",
-    ]),
-    ("recurso", [
-        "embargos", "agravo", "recurso",
-    ]),
-    ("decisao", [
-        "julgamento", "julgado", "decisão", "decisao",
-        "provido", "provimento", "improvido", "negado",
-        "deferido", "indeferido", "procedente", "improcedente",
-        "concedido", "prejudicado", "extinto",
-    ]),
-    ("publicacao", [
-        "publicação", "publicacao", "publicado", "diário", "diario",
-        "intimação", "intimacao",
-    ]),
+    (
+        "deslocamento",
+        [
+            "deslocamento",
+            "redistribu",
+            "remessa",
+            "remessa a",
+            "remetido",
+            "encaminhado",
+            "prevenção",
+            "prevencao",
+        ],
+    ),
+    (
+        "baixa",
+        [
+            "baixa",
+            "trânsito em julgado",
+            "transito em julgado",
+            "arquivado",
+            "arquivamento",
+        ],
+    ),
+    (
+        "distribuicao",
+        [
+            "distribuí",
+            "distribui",
+            "sorteio",
+            "sorteado",
+            "distribuição",
+            "distribuido",
+        ],
+    ),
+    (
+        "vista",
+        [
+            "vista",
+            "devolvidos autos",
+        ],
+    ),
+    (
+        "pauta",
+        [
+            "pauta",
+            "incluído em pauta",
+            "retirado de pauta",
+            "incluido em pauta",
+            "retirada de pauta",
+        ],
+    ),
+    (
+        "recurso",
+        [
+            "embargos",
+            "agravo",
+            "recurso",
+        ],
+    ),
+    (
+        "decisao",
+        [
+            "julgamento",
+            "julgado",
+            "decisão",
+            "decisao",
+            "provido",
+            "provimento",
+            "improvido",
+            "negado",
+            "deferido",
+            "indeferido",
+            "procedente",
+            "improcedente",
+            "concedido",
+            "prejudicado",
+            "extinto",
+        ],
+    ),
+    (
+        "publicacao",
+        [
+            "publicação",
+            "publicacao",
+            "publicado",
+            "diário",
+            "diario",
+            "intimação",
+            "intimacao",
+        ],
+    ),
 ]
 
 
@@ -145,35 +204,64 @@ def categorize_movement_text(description: str | None) -> str:
 # Semantic boolean classifiers
 # ---------------------------------------------------------------------------
 
-_REDISTRIBUTION_KEYWORDS = frozenset({
-    "redistribu", "redistribuição", "redistribuicao",
-    "redistribuído", "redistribuido",
-})
+_REDISTRIBUTION_KEYWORDS = frozenset(
+    {
+        "redistribu",
+        "redistribuição",
+        "redistribuicao",
+        "redistribuído",
+        "redistribuido",
+    }
+)
 
-_VISTA_KEYWORDS = frozenset({
-    "pedido de vista", "vista dos autos", "vista ao",
-})
+_VISTA_KEYWORDS = frozenset(
+    {
+        "pedido de vista",
+        "vista dos autos",
+        "vista ao",
+    }
+)
 
-_DEVOLVIDO_VISTA_KEYWORDS = frozenset({
-    "devolvidos autos", "devolução de vista", "devolvido vista",
-    "devolvidos os autos", "devolucao de vista",
-})
+_DEVOLVIDO_VISTA_KEYWORDS = frozenset(
+    {
+        "devolvidos autos",
+        "devolução de vista",
+        "devolvido vista",
+        "devolvidos os autos",
+        "devolucao de vista",
+    }
+)
 
-_PAUTA_INCLUSION_KEYWORDS = frozenset({
-    "incluído em pauta", "incluido em pauta",
-    "incluída em pauta", "incluida em pauta",
-    "inclusão em pauta", "inclusao em pauta",
-})
+_PAUTA_INCLUSION_KEYWORDS = frozenset(
+    {
+        "incluído em pauta",
+        "incluido em pauta",
+        "incluída em pauta",
+        "incluida em pauta",
+        "inclusão em pauta",
+        "inclusao em pauta",
+    }
+)
 
-_PAUTA_WITHDRAWAL_KEYWORDS = frozenset({
-    "retirado de pauta", "retirada de pauta",
-    "retirado da pauta", "retirada da pauta",
-    "exclusão de pauta", "exclusao de pauta",
-})
+_PAUTA_WITHDRAWAL_KEYWORDS = frozenset(
+    {
+        "retirado de pauta",
+        "retirada de pauta",
+        "retirado da pauta",
+        "retirada da pauta",
+        "exclusão de pauta",
+        "exclusao de pauta",
+    }
+)
 
-_PREVENCAO_KEYWORDS = frozenset({
-    "prevenção", "prevencao", "prevento", "prevenido",
-})
+_PREVENCAO_KEYWORDS = frozenset(
+    {
+        "prevenção",
+        "prevencao",
+        "prevento",
+        "prevenido",
+    }
+)
 
 
 def _matches_any(text_lower: str, keywords: frozenset[str]) -> bool:
@@ -225,6 +313,7 @@ def is_prevencao(description: str | None) -> bool:
 # ---------------------------------------------------------------------------
 # TPU code lookup
 # ---------------------------------------------------------------------------
+
 
 def tpu_class_name(code: int, reference_dir: Path = DEFAULT_REFERENCE_DIR) -> str | None:
     """Return the official TPU class name for a numeric code, or None."""
@@ -310,7 +399,8 @@ def _build_sigla_index(reference_dir: Path = DEFAULT_REFERENCE_DIR) -> dict[str,
 
 
 def normalize_class_sigla_to_tpu(
-    sigla: str, reference_dir: Path = DEFAULT_REFERENCE_DIR,
+    sigla: str,
+    reference_dir: Path = DEFAULT_REFERENCE_DIR,
 ) -> int | None:
     """Try to resolve a process class abbreviation to a TPU code.
 

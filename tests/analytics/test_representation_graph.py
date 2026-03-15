@@ -473,9 +473,7 @@ def test_progress_callback(tmp_path: Path):
     def on_progress(current: int, total: int, desc: str) -> None:
         calls.append((current, total, desc))
 
-    build_representation_graph(
-        curated_dir=curated_dir, output_dir=output_dir, on_progress=on_progress
-    )
+    build_representation_graph(curated_dir=curated_dir, output_dir=output_dir, on_progress=on_progress)
 
     assert len(calls) == 5
     assert all(t == 5 for _, t, _ in calls)

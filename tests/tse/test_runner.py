@@ -284,6 +284,76 @@ class TestFetchDonationData:
         assert cp.year_meta[2022].content_length == len(zip_bytes)
 
     @patch("atlas_stf.tse._runner._download_year_zip")
+    def test_force_refresh_does_not_duplicate_records(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
+        """P6: force_refresh must replace (not duplicate) records from refreshed years."""
+        output_dir = tmp_path / "output"
+        csv_content = _make_receitas_csv_content()
+        zip_bytes = _make_zip_with_csv("receitas_candidatos_2022_BRASIL.csv", csv_content)
+        zip_path = output_dir / "tse_2022.zip"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Pre-populate: 2022 already done with 3 old records
+        cp = _Checkpoint(completed_years={2022}, year_meta={2022: _FAKE_META})
+        cp.save(output_dir)
+        raw_path = output_dir / "donations_raw.jsonl"
+        old_records = [
+            json.dumps({"donor_name": "OLD_A", "election_year": 2022}),
+            json.dumps({"donor_name": "OLD_B", "election_year": 2022}),
+            json.dumps({"donor_name": "OLD_C", "election_year": 2022}),
+        ]
+        raw_path.write_text("\n".join(old_records) + "\n")
+
+        zip_path.write_bytes(zip_bytes)
+        mock_download_year_zip.return_value = (zip_path, _FAKE_META)
+
+        config = TseFetchConfig(output_dir=output_dir, years=(2022,), force_refresh=True)
+        fetch_donation_data(config)
+
+        assert mock_download_year_zip.call_count == 1
+        records = [json.loads(line) for line in raw_path.read_text().strip().split("\n") if line.strip()]
+        # Must have exactly 1 new record (from ZIP), NOT 1 + 3 old
+        assert len(records) == 1
+        assert records[0]["donor_name"] == "ACME LTDA"
+        # No OLD_ records surviving
+        assert all("OLD_" not in r["donor_name"] for r in records)
+
+    @patch("atlas_stf.tse._runner._download_year_zip")
+    def test_force_refresh_preserves_other_years(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
+        """P6: force_refresh of one year must not discard records from other completed years."""
+        output_dir = tmp_path / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Pre-populate: 2020 completed + 2022 completed
+        cp = _Checkpoint(completed_years={2020, 2022}, year_meta={2020: _FAKE_META, 2022: _FAKE_META})
+        cp.save(output_dir)
+        raw_path = output_dir / "donations_raw.jsonl"
+        existing = [
+            json.dumps({"donor_name": "KEEP_2020", "election_year": 2020}),
+            json.dumps({"donor_name": "OLD_2022", "election_year": 2022}),
+        ]
+        raw_path.write_text("\n".join(existing) + "\n")
+
+        # Force-refresh only 2022 (2020 is NOT in the years list)
+        csv_content = _make_receitas_csv_content()  # produces election_year=2022
+        zip_bytes = _make_zip_with_csv("receitas_candidatos_2022_BRASIL.csv", csv_content)
+        zip_path = output_dir / "tse_2022.zip"
+        zip_path.write_bytes(zip_bytes)
+        mock_download_year_zip.return_value = (zip_path, _FAKE_META)
+
+        config = TseFetchConfig(output_dir=output_dir, years=(2022,), force_refresh=True)
+        fetch_donation_data(config)
+
+        records = [json.loads(line) for line in raw_path.read_text().strip().split("\n") if line.strip()]
+        names = [r["donor_name"] for r in records]
+        years = [r["election_year"] for r in records]
+        # 2020 record preserved (not in force_refresh scope), old 2022 replaced
+        assert "KEEP_2020" in names
+        assert "OLD_2022" not in names
+        assert "ACME LTDA" in names
+        assert years.count(2022) == 1  # no duplication
+        assert years.count(2020) == 1  # preserved
+
+    @patch("atlas_stf.tse._runner._download_year_zip")
     def test_unchanged_file_skipped(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
         """If _download_year_zip returns (None, None), year is skipped without error."""
         output_dir = tmp_path / "output"

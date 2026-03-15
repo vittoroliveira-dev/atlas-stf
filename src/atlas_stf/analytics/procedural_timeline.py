@@ -44,7 +44,7 @@ def _parse_date(date_str: str | None) -> datetime | None:
         return None
     try:
         return datetime.strptime(date_str[:10], "%Y-%m-%d")
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         return None
 
 
@@ -207,12 +207,8 @@ def build_procedural_timeline(
                     vista_total_days += int(vd)
 
         # Pauta metrics from session events
-        pauta_inclusion_count = sum(
-            1 for se in session_events if se.get("event_type") == "pauta_inclusion"
-        )
-        pauta_withdrawal_count = sum(
-            1 for se in session_events if se.get("event_type") == "pauta_withdrawal"
-        )
+        pauta_inclusion_count = sum(1 for se in session_events if se.get("event_type") == "pauta_inclusion")
+        pauta_withdrawal_count = sum(1 for se in session_events if se.get("event_type") == "pauta_withdrawal")
         pauta_cycle_count = min(pauta_inclusion_count, pauta_withdrawal_count)
 
         # Redistribution count
@@ -275,12 +271,8 @@ def build_procedural_timeline(
                 "median_days": round(_percentile(days_values, 50), 1),
                 "p5_days": round(_percentile(days_values, PERCENTILE_LOW), 1),
                 "p95_days": round(_percentile(days_values, PERCENTILE_HIGH), 1),
-                "vista_p95": round(
-                    _percentile([float(v) for v in vista_values], PERCENTILE_HIGH), 1
-                ),
-                "cycle_p95": round(
-                    _percentile([float(c) for c in cycle_values], PERCENTILE_HIGH), 1
-                ),
+                "vista_p95": round(_percentile([float(v) for v in vista_values], PERCENTILE_HIGH), 1),
+                "cycle_p95": round(_percentile([float(c) for c in cycle_values], PERCENTILE_HIGH), 1),
             }
 
     if on_progress:

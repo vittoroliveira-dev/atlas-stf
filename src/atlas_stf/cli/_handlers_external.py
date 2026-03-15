@@ -96,7 +96,12 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
         from ._progress import cli_progress
 
         years = tuple(args.years) if args.years else TSE_ELECTION_YEARS
-        config = TseFetchConfig(output_dir=args.output_dir, years=years, dry_run=args.dry_run)
+        config = TseFetchConfig(
+            output_dir=args.output_dir,
+            years=years,
+            dry_run=args.dry_run,
+            force_refresh=getattr(args, "force_refresh", False),
+        )
         if config.dry_run:
             fetch_donation_data(config)
         else:

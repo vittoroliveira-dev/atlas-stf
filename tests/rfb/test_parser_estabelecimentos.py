@@ -20,26 +20,26 @@ class TestParseEstabelecimentosCsvFilteredText:
         """Build a 21-column establishment row with sensible defaults."""
         defaults = [
             "12345678",  # 0  cnpj_basico
-            "0001",      # 1  cnpj_ordem
-            "95",        # 2  cnpj_dv
-            "1",         # 3  matriz_filial
+            "0001",  # 1  cnpj_ordem
+            "95",  # 2  cnpj_dv
+            "1",  # 3  matriz_filial
             "NOME FANTASIA",  # 4 nome_fantasia
-            "02",        # 5  situacao_cadastral
+            "02",  # 5  situacao_cadastral
             "20200101",  # 6  data_situacao_cadastral
-            "01",        # 7  motivo_situacao_cadastral
-            "",          # 8  (unused)
-            "",          # 9  (unused)
+            "01",  # 7  motivo_situacao_cadastral
+            "",  # 8  (unused)
+            "",  # 9  (unused)
             "20100315",  # 10 data_inicio_atividade
-            "6911701",   # 11 cnae_fiscal
+            "6911701",  # 11 cnae_fiscal
             "6920601,7020400",  # 12 cnae_fiscal_secundaria
-            "",          # 13 (unused)
+            "",  # 13 (unused)
             "RUA EXEMPLO",  # 14 logradouro
-            "100",       # 15 numero
-            "",          # 16 (unused)
-            "CENTRO",    # 17 bairro
+            "100",  # 15 numero
+            "",  # 16 (unused)
+            "CENTRO",  # 17 bairro
             "01000000",  # 18 cep
-            "SP",        # 19 uf
-            "7107",      # 20 municipio
+            "SP",  # 19 uf
+            "7107",  # 20 municipio
         ]
         for key, value in overrides.items():
             idx = int(key.replace("col", ""))

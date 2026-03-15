@@ -52,6 +52,7 @@ def _prioritize_processes(
     alert_ids: set[str],
 ) -> list[dict[str, Any]]:
     """Sort processes: alerts first, then by filing_date descending."""
+
     def sort_key(proc: dict[str, Any]) -> tuple[int, str]:
         has_alert = 0 if proc.get("process_id") in alert_ids else 1
         filing_date = proc.get("filing_date") or "0000-00-00"
@@ -74,7 +75,7 @@ def _should_refetch(output_path: Path, refetch_after_days: int) -> bool:
         fetched_dt = datetime.fromisoformat(fetched_at)
         age_days = (datetime.now(timezone.utc) - fetched_dt).days
         return age_days >= refetch_after_days
-    except (json.JSONDecodeError, ValueError, KeyError):
+    except json.JSONDecodeError, ValueError, KeyError:
         return True
 
 

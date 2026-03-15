@@ -34,33 +34,41 @@ def reference_dir(tmp_path: Path) -> Path:
     ref = tmp_path / "reference"
     ref.mkdir()
     (ref / "tpu_classes.json").write_text(
-        json.dumps({
-            "1314": "Ação Direta de Inconstitucionalidade",
-            "1331": "Habeas Corpus",
-            "1348": "Recurso Extraordinário",
-        }),
+        json.dumps(
+            {
+                "1314": "Ação Direta de Inconstitucionalidade",
+                "1331": "Habeas Corpus",
+                "1348": "Recurso Extraordinário",
+            }
+        ),
         encoding="utf-8",
     )
     (ref / "tpu_movements.json").write_text(
-        json.dumps({
-            "26": "Distribuição por sorteio",
-            "12204": "Pedido de vista",
-            "12112": "Inclusão em pauta",
-        }),
+        json.dumps(
+            {
+                "26": "Distribuição por sorteio",
+                "12204": "Pedido de vista",
+                "12112": "Inclusão em pauta",
+            }
+        ),
         encoding="utf-8",
     )
     (ref / "tpu_subjects.json").write_text(
-        json.dumps({
-            "14781": "Direito Constitucional",
-            "14782": "Direito Administrativo",
-        }),
+        json.dumps(
+            {
+                "14781": "Direito Constitucional",
+                "14782": "Direito Administrativo",
+            }
+        ),
         encoding="utf-8",
     )
     (ref / "tpu_version.json").write_text(
-        json.dumps({
-            "sgt_version": "sgt-2025",
-            "generated_at": "2026-03-15T00:00:00Z",
-        }),
+        json.dumps(
+            {
+                "sgt_version": "sgt-2025",
+                "generated_at": "2026-03-15T00:00:00Z",
+            }
+        ),
         encoding="utf-8",
     )
     return ref

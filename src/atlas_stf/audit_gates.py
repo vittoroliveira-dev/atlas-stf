@@ -469,7 +469,11 @@ def audit_representation(
     data: dict[str, list[dict[str, Any]]] = {}
 
     def _check_artifact(
-        label: str, fpath: Path, schema: Path, *, is_required: bool,
+        label: str,
+        fpath: Path,
+        schema: Path,
+        *,
+        is_required: bool,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         if not fpath.exists():
             status = "missing" if is_required else "optional_missing"
@@ -480,8 +484,12 @@ def audit_representation(
             return {"artifact": label, "path": str(fpath), "exists": True, "row_count": len(rows), "status": "ok"}, rows
         except Exception as exc:
             return {
-                "artifact": label, "path": str(fpath), "exists": True,
-                "row_count": len(rows), "status": "validation_error", "error": str(exc),
+                "artifact": label,
+                "path": str(fpath),
+                "exists": True,
+                "row_count": len(rows),
+                "status": "validation_error",
+                "error": str(exc),
             }, rows
 
     for label, fpath, schema in required:
@@ -526,15 +534,24 @@ def audit_representation(
     graph_path = analytics_dir / "representation_graph.jsonl"
     if graph_path.exists():
         graph_rows = _read_jsonl(graph_path)
-        reports.append({
-            "artifact": "representation_graph", "path": str(graph_path),
-            "exists": True, "row_count": len(graph_rows), "status": "ok",
-        })
+        reports.append(
+            {
+                "artifact": "representation_graph",
+                "path": str(graph_path),
+                "exists": True,
+                "row_count": len(graph_rows),
+                "status": "ok",
+            }
+        )
     else:
-        reports.append({
-            "artifact": "representation_graph", "path": str(graph_path),
-            "exists": False, "status": "optional_missing",
-        })
+        reports.append(
+            {
+                "artifact": "representation_graph",
+                "path": str(graph_path),
+                "exists": False,
+                "status": "optional_missing",
+            }
+        )
 
     thresholds = {
         "oab_coverage_pct": {"value": round(oab_pct, 2), "target": 95.0, "passes": oab_pct >= 95.0},

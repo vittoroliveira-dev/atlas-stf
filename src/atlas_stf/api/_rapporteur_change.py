@@ -72,14 +72,10 @@ def get_rapporteur_changes(
     )
 
 
-def get_rapporteur_change_red_flags(
-    session: Session, *, limit: int = 100
-) -> RapporteurChangeRedFlagsResponse:
+def get_rapporteur_change_red_flags(session: Session, *, limit: int = 100) -> RapporteurChangeRedFlagsResponse:
     total = (
         session.scalar(
-            select(func.count())
-            .select_from(ServingRapporteurChange)
-            .where(ServingRapporteurChange.red_flag.is_(True))
+            select(func.count()).select_from(ServingRapporteurChange).where(ServingRapporteurChange.red_flag.is_(True))
         )
         or 0
     )

@@ -5,7 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from atlas_stf.analytics.donation_match import _stream_aggregate_donations, build_donation_matches
+from atlas_stf.analytics.donation_match import (
+    _donor_identity_key,
+    _stream_aggregate_donations,
+    build_donation_matches,
+)
 
 
 def _write_jsonl(path: Path, records: list[dict]) -> None:
@@ -140,9 +144,42 @@ class TestStreamAggregation:
         agg, raw_count, all_years = _stream_aggregate_donations(path)
         assert raw_count == 3
         assert len(agg) == 2
-        assert agg["A"]["total_donated_brl"] == 300.0
-        assert agg["A"]["donation_count"] == 2
+        # Keys are now stable identity keys (cpf:NNN or name:NNN)
+        assert agg["cpf:111"]["total_donated_brl"] == 300.0
+        assert agg["cpf:111"]["donation_count"] == 2
+        assert agg["cpf:111"]["donor_name_normalized"] == "A"
         assert all_years == {2018, 2022}
+
+    def test_aggregation_by_cpf_prevents_homonym_fusion(self, tmp_path: Path) -> None:
+        """Donors with same name but different CPF/CNPJ should NOT be merged."""
+        path = tmp_path / "donations.jsonl"
+        _write_jsonl(
+            path,
+            [
+                {"donor_name_normalized": "JOAO SILVA", "donor_cpf_cnpj": "111", "donation_amount": 100.0},
+                {"donor_name_normalized": "JOAO SILVA", "donor_cpf_cnpj": "222", "donation_amount": 200.0},
+            ],
+        )
+        agg, raw_count, _ = _stream_aggregate_donations(path)
+        assert raw_count == 2
+        assert len(agg) == 2
+        assert agg["cpf:111"]["total_donated_brl"] == 100.0
+        assert agg["cpf:222"]["total_donated_brl"] == 200.0
+
+    def test_aggregation_falls_back_to_name_when_no_cpf(self, tmp_path: Path) -> None:
+        """Donors without CPF/CNPJ should be aggregated by name."""
+        path = tmp_path / "donations.jsonl"
+        _write_jsonl(
+            path,
+            [
+                {"donor_name_normalized": "ACME", "donor_cpf_cnpj": "", "donation_amount": 100.0},
+                {"donor_name_normalized": "ACME", "donor_cpf_cnpj": "", "donation_amount": 50.0},
+            ],
+        )
+        agg, raw_count, _ = _stream_aggregate_donations(path)
+        assert raw_count == 2
+        assert len(agg) == 1
+        assert agg["name:ACME"]["total_donated_brl"] == 150.0
 
     def test_empty_file(self, tmp_path: Path) -> None:
         path = tmp_path / "empty.jsonl"
@@ -496,3 +533,168 @@ class TestCounselDonationMatch:
         summary = json.loads((paths["output_dir"] / "donation_match_summary.json").read_text())
         assert "counsel_match_count" in summary
         assert "matched_counsel_count" in summary
+
+
+class TestDonationEvents:
+    """P3: individual donation events should be written for matched donors."""
+
+    def test_events_written_for_matched_donors(self, tmp_path: Path) -> None:
+        paths = _setup_test_data(tmp_path)
+        build_donation_matches(**paths)
+
+        event_path = paths["output_dir"] / "donation_event.jsonl"
+        assert event_path.exists()
+        events = [json.loads(line) for line in event_path.read_text().strip().split("\n") if line.strip()]
+        assert len(events) >= 1
+        assert events[0]["event_id"]
+        assert events[0]["match_id"]
+        assert events[0]["donor_cpf_cnpj"] == "12345678000199"
+
+    def test_events_include_date_field(self, tmp_path: Path) -> None:
+        paths = _setup_test_data(tmp_path)
+        # Add a donation with a date
+        _write_jsonl(
+            paths["tse_dir"] / "donations_raw.jsonl",
+            [
+                {
+                    "election_year": 2022,
+                    "donor_name_normalized": "ACME CORP",
+                    "donor_cpf_cnpj": "12345678000199",
+                    "donation_amount": 50000.0,
+                    "donation_date": "2022-06-15",
+                    "party_abbrev": "PT",
+                    "candidate_name": "FULANO",
+                    "position": "SENADOR",
+                },
+            ],
+        )
+        build_donation_matches(**paths)
+
+        event_path = paths["output_dir"] / "donation_event.jsonl"
+        events = [json.loads(line) for line in event_path.read_text().strip().split("\n") if line.strip()]
+        assert len(events) == 1
+        assert events[0]["donation_date"] == "2022-06-15"
+
+    def test_summary_includes_event_count(self, tmp_path: Path) -> None:
+        paths = _setup_test_data(tmp_path)
+        build_donation_matches(**paths)
+
+        summary = json.loads((paths["output_dir"] / "donation_match_summary.json").read_text())
+        assert "donation_event_count" in summary
+        assert summary["donation_event_count"] >= 1
+
+
+class TestDonorOriginatorInMatch:
+    """P1: originator info should be preserved through the match pipeline."""
+
+    def test_match_includes_originator(self, tmp_path: Path) -> None:
+        paths = _setup_test_data(tmp_path)
+        _write_jsonl(
+            paths["tse_dir"] / "donations_raw.jsonl",
+            [
+                {
+                    "election_year": 2022,
+                    "donor_name_normalized": "ACME CORP",
+                    "donor_cpf_cnpj": "12345678000199",
+                    "donor_name_originator_normalized": "REAL CORP",
+                    "donation_amount": 50000.0,
+                    "party_abbrev": "PT",
+                    "candidate_name": "FULANO",
+                    "position": "SENADOR",
+                },
+            ],
+        )
+        build_donation_matches(**paths)
+
+        match_path = paths["output_dir"] / "donation_match.jsonl"
+        matches = [json.loads(line) for line in match_path.read_text().strip().split("\n") if line.strip()]
+        party_matches = [m for m in matches if m["entity_type"] == "party"]
+        assert len(party_matches) == 1
+        assert party_matches[0]["donor_name_originator"] == "REAL CORP"
+        assert party_matches[0]["donor_name_normalized"] == "ACME CORP"
+
+    def test_match_includes_identity_key(self, tmp_path: Path) -> None:
+        paths = _setup_test_data(tmp_path)
+        build_donation_matches(**paths)
+
+        match_path = paths["output_dir"] / "donation_match.jsonl"
+        matches = [json.loads(line) for line in match_path.read_text().strip().split("\n") if line.strip()]
+        party_matches = [m for m in matches if m["entity_type"] == "party"]
+        assert len(party_matches) == 1
+        assert party_matches[0]["donor_identity_key"] == "cpf:12345678000199"
+
+
+class TestDonorIdentityKey:
+    """P2: identity key normalization, formatting, masking, and fallback."""
+
+    def test_same_cpf_different_formatting_same_key(self) -> None:
+        """CPFs with dots/dashes must produce the same identity key."""
+        assert _donor_identity_key("X", "12.345.678/0001-99") == _donor_identity_key("X", "12345678000199")
+        assert _donor_identity_key("X", "123.456.789-01") == _donor_identity_key("X", "12345678901")
+
+    def test_masked_cpf_falls_back_to_name(self) -> None:
+        """Masked CPFs (***.***.***-**) contain no digits and must fallback."""
+        key = _donor_identity_key("ACME CORP", "***.***.***-**")
+        assert key == "name:ACME CORP"
+
+    def test_empty_cpf_falls_back_to_name(self) -> None:
+        key = _donor_identity_key("ACME CORP", "")
+        assert key == "name:ACME CORP"
+
+    def test_none_equivalent_cpf_falls_back_to_name(self) -> None:
+        key = _donor_identity_key("ACME CORP", "---")
+        assert key == "name:ACME CORP"
+
+    def test_valid_cpf_produces_normalized_key(self) -> None:
+        key = _donor_identity_key("IRRELEVANT", "12345678000199")
+        assert key == "cpf:12345678000199"
+
+    def test_same_cpf_different_masks_in_aggregation(self, tmp_path: Path) -> None:
+        """Same CPF with different formatting must be aggregated together."""
+        path = tmp_path / "donations.jsonl"
+        _write_jsonl(
+            path,
+            [
+                {"donor_name_normalized": "ACME", "donor_cpf_cnpj": "12.345.678/0001-99", "donation_amount": 100.0},
+                {"donor_name_normalized": "ACME", "donor_cpf_cnpj": "12345678000199", "donation_amount": 200.0},
+            ],
+        )
+        agg, raw_count, _ = _stream_aggregate_donations(path)
+        assert raw_count == 2
+        assert len(agg) == 1
+        assert agg["cpf:12345678000199"]["total_donated_brl"] == 300.0
+
+    def test_masked_cpf_aggregates_by_name(self, tmp_path: Path) -> None:
+        """Masked CPFs should aggregate by name, not by mask string."""
+        path = tmp_path / "donations.jsonl"
+        _write_jsonl(
+            path,
+            [
+                {"donor_name_normalized": "JOAO", "donor_cpf_cnpj": "***.***.***-**", "donation_amount": 100.0},
+                {"donor_name_normalized": "JOAO", "donor_cpf_cnpj": "", "donation_amount": 200.0},
+            ],
+        )
+        agg, raw_count, _ = _stream_aggregate_donations(path)
+        assert raw_count == 2
+        assert len(agg) == 1
+        assert agg["name:JOAO"]["total_donated_brl"] == 300.0
+
+
+class TestMatchIdStability:
+    """P3: match_id must be deterministic across rebuilds with same code."""
+
+    def test_match_id_deterministic_on_rebuild(self, tmp_path: Path) -> None:
+        paths = _setup_test_data(tmp_path)
+        build_donation_matches(**paths)
+        match_path = paths["output_dir"] / "donation_match.jsonl"
+        first_ids = [
+            json.loads(line)["match_id"] for line in match_path.read_text().strip().split("\n") if line.strip()
+        ]
+
+        # Rebuild
+        build_donation_matches(**paths)
+        second_ids = [
+            json.loads(line)["match_id"] for line in match_path.read_text().strip().split("\n") if line.strip()
+        ]
+
+        assert first_ids == second_ids

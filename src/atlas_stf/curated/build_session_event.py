@@ -122,7 +122,7 @@ def _compute_vista_durations(
 def _read_portal_json(path: Path) -> dict[str, Any] | None:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError):
+    except json.JSONDecodeError, UnicodeDecodeError:
         logger.warning("Skipping corrupted portal JSON: %s", path.name)
         return None
 
@@ -159,18 +159,20 @@ def _build_sessao_virtual_events(
                 continue
             seen_ids.add(se_id)
 
-            records.append({
-                "session_event_id": se_id,
-                "process_id": process_id,
-                "movement_id": None,
-                "source_system": "stf_portal",
-                "session_type": "plenario_virtual",
-                "event_type": event_type,
-                "event_date": event_date,
-                "rapporteur_at_event": rapporteur,
-                "vista_duration_days": None,
-                "created_at": timestamp,
-            })
+            records.append(
+                {
+                    "session_event_id": se_id,
+                    "process_id": process_id,
+                    "movement_id": None,
+                    "source_system": "stf_portal",
+                    "session_type": "plenario_virtual",
+                    "event_type": event_type,
+                    "event_date": event_date,
+                    "rapporteur_at_event": rapporteur,
+                    "vista_duration_days": None,
+                    "created_at": timestamp,
+                }
+            )
 
     return records
 
@@ -207,18 +209,20 @@ def build_session_event_records(
                 continue
             seen_ids.add(se_id)
 
-            records.append({
-                "session_event_id": se_id,
-                "process_id": process_id,
-                "movement_id": movement.get("movement_id"),
-                "source_system": "stf_portal",
-                "session_type": session_type,
-                "event_type": event_type,
-                "event_date": event_date,
-                "rapporteur_at_event": movement.get("rapporteur_at_event"),
-                "vista_duration_days": None,
-                "created_at": timestamp,
-            })
+            records.append(
+                {
+                    "session_event_id": se_id,
+                    "process_id": process_id,
+                    "movement_id": movement.get("movement_id"),
+                    "source_system": "stf_portal",
+                    "session_type": session_type,
+                    "event_type": event_type,
+                    "event_date": event_date,
+                    "rapporteur_at_event": movement.get("rapporteur_at_event"),
+                    "vista_duration_days": None,
+                    "created_at": timestamp,
+                }
+            )
 
     # Phase 2: session events from sessao_virtual portal entries
     records.extend(

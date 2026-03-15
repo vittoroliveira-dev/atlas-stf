@@ -106,8 +106,7 @@ def build_rapporteur_changes(
                 rapporteur_outcomes[str(rapporteur)].append(str(progress))
 
     rapporteur_baselines: dict[str, float | None] = {
-        rap: _compute_favorable_rate(outcomes)
-        for rap, outcomes in rapporteur_outcomes.items()
+        rap: _compute_favorable_rate(outcomes) for rap, outcomes in rapporteur_outcomes.items()
     }
 
     for pid, events in process_events.items():
@@ -136,11 +135,7 @@ def build_rapporteur_changes(
                 if post_change_rate is not None and new_rapporteur_baseline is not None:
                     delta_vs_baseline = post_change_rate - new_rapporteur_baseline
 
-                red_flag = (
-                    delta_vs_baseline is not None
-                    and delta_vs_baseline > 0.15
-                    and len(post_change_outcomes) >= 2
-                )
+                red_flag = delta_vs_baseline is not None and delta_vs_baseline > 0.15 and len(post_change_outcomes) >= 2
 
                 change_id = stable_id(
                     "rchg-",
@@ -158,9 +153,7 @@ def build_rapporteur_changes(
                         "post_change_decision_count": len(post_change_outcomes),
                         "post_change_favorable_rate": post_change_rate,
                         "new_rapporteur_baseline_rate": new_rapporteur_baseline,
-                        "delta_vs_baseline": (
-                            round(delta_vs_baseline, 6) if delta_vs_baseline is not None else None
-                        ),
+                        "delta_vs_baseline": (round(delta_vs_baseline, 6) if delta_vs_baseline is not None else None),
                         "red_flag": red_flag,
                         "generated_at": now_iso,
                     }

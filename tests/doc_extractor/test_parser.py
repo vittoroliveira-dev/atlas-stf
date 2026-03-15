@@ -153,11 +153,7 @@ class TestParseProcuracaoText:
 
 class TestParsePetitionHeader:
     def test_recurso_extraordinario(self) -> None:
-        text = (
-            "RECURSO EXTRAORDINARIO\n"
-            "RECORRENTE: ESTADO DE SAO PAULO, representado\n"
-            "Advogado OAB/SP 111222"
-        )
+        text = "RECURSO EXTRAORDINARIO\nRECORRENTE: ESTADO DE SAO PAULO, representado\nAdvogado OAB/SP 111222"
         result = parse_petition_header(text)
         assert result["document_type"] == "RECURSO EXTRAORDINARIO"
         assert result["petitioner_name"] == "ESTADO DE SAO PAULO"

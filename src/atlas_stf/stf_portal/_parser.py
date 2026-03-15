@@ -82,12 +82,14 @@ def parse_andamentos_html(html: str) -> list[dict[str, Any]]:
         if not parsed_date or not desc_text:
             continue
 
-        events.append({
-            "date": parsed_date,
-            "description": desc_text,
-            "detail": detail_text,
-            "tab_name": "Andamentos",
-        })
+        events.append(
+            {
+                "date": parsed_date,
+                "description": desc_text,
+                "detail": detail_text,
+                "tab_name": "Andamentos",
+            }
+        )
 
     return events
 
@@ -115,13 +117,15 @@ def parse_deslocamentos_html(html: str) -> list[dict[str, Any]]:
         if not parsed_date:
             continue
 
-        events.append({
-            "date": parsed_date,
-            "origin": origin,
-            "destination": destination,
-            "reason": reason,
-            "tab_name": "Deslocamentos",
-        })
+        events.append(
+            {
+                "date": parsed_date,
+                "origin": origin,
+                "destination": destination,
+                "reason": reason,
+                "tab_name": "Deslocamentos",
+            }
+        )
 
     return events
 
@@ -148,12 +152,14 @@ def parse_peticoes_html(html: str) -> list[dict[str, Any]]:
         if not parsed_date:
             continue
 
-        events.append({
-            "date": parsed_date,
-            "type": doc_type,
-            "protocol": protocol,
-            "tab_name": "Peticoes",
-        })
+        events.append(
+            {
+                "date": parsed_date,
+                "type": doc_type,
+                "protocol": protocol,
+                "tab_name": "Peticoes",
+            }
+        )
 
     return events
 
@@ -181,12 +187,14 @@ def parse_sessao_virtual_html(html: str) -> list[dict[str, Any]]:
         if not start_date:
             continue
 
-        events.append({
-            "start_date": start_date,
-            "end_date": end_date,
-            "result": result_text,
-            "tab_name": "Sessao Virtual",
-        })
+        events.append(
+            {
+                "start_date": start_date,
+                "end_date": end_date,
+                "result": result_text,
+                "tab_name": "Sessao Virtual",
+            }
+        )
 
     return events
 
@@ -326,13 +334,15 @@ def parse_peticoes_detailed_html(html: str) -> list[dict[str, Any]]:
         if not parsed_date or not petitioner_name:
             continue
 
-        results.append({
-            "date": parsed_date,
-            "petitioner_name": petitioner_name,
-            "document_type": doc_type,
-            "protocol": protocol,
-            "tab_name": "Peticoes",
-        })
+        results.append(
+            {
+                "date": parsed_date,
+                "petitioner_name": petitioner_name,
+                "document_type": doc_type,
+                "protocol": protocol,
+                "tab_name": "Peticoes",
+            }
+        )
 
     return results
 
@@ -362,13 +372,15 @@ def parse_oral_argument_html(html: str) -> list[dict[str, Any]]:
         if not lawyer_name or not session_date:
             continue
 
-        results.append({
-            "lawyer_name": lawyer_name,
-            "party_represented": party_represented,
-            "session_date": session_date,
-            "session_type": session_type,
-            "tab_name": "Sustentacao Oral",
-        })
+        results.append(
+            {
+                "lawyer_name": lawyer_name,
+                "party_represented": party_represented,
+                "session_date": session_date,
+                "session_type": session_type,
+                "tab_name": "Sustentacao Oral",
+            }
+        )
 
     return results
 

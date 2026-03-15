@@ -76,8 +76,13 @@ class TestDerivePjPartnerBasico:
 # ---------------------------------------------------------------------------
 
 
-def _setup_rfb(tmp_path: Path, *, partners: list[dict], companies: list[dict] | None = None,
-               establishments: list[dict] | None = None) -> Path:
+def _setup_rfb(
+    tmp_path: Path,
+    *,
+    partners: list[dict],
+    companies: list[dict] | None = None,
+    establishments: list[dict] | None = None,
+) -> Path:
     rfb_dir = tmp_path / "rfb"
     write_jsonl(rfb_dir / "partners_raw.jsonl", partners)
     if companies is not None:
@@ -87,9 +92,13 @@ def _setup_rfb(tmp_path: Path, *, partners: list[dict], companies: list[dict] | 
     return rfb_dir
 
 
-def _setup_curated(tmp_path: Path, *, minister_bio: dict | None = None,
-                   parties: list[dict] | None = None,
-                   counsels: list[dict] | None = None) -> Path:
+def _setup_curated(
+    tmp_path: Path,
+    *,
+    minister_bio: dict | None = None,
+    parties: list[dict] | None = None,
+    counsels: list[dict] | None = None,
+) -> Path:
     curated_dir = tmp_path / "curated"
     write_json(curated_dir / "minister_bio.json", minister_bio or {})
     write_jsonl(curated_dir / "party.jsonl", parties or [])
@@ -128,7 +137,8 @@ class TestBuildEconomicGroups:
         output_dir = tmp_path / "analytics"
 
         build_economic_groups(
-            rfb_dir=rfb_dir, output_dir=output_dir,
+            rfb_dir=rfb_dir,
+            output_dir=output_dir,
             minister_bio_path=curated_dir / "minister_bio.json",
             party_path=curated_dir / "party.jsonl",
             counsel_path=curated_dir / "counsel.jsonl",
@@ -162,7 +172,8 @@ class TestBuildEconomicGroups:
         output_dir = tmp_path / "analytics"
 
         build_economic_groups(
-            rfb_dir=rfb_dir, output_dir=output_dir,
+            rfb_dir=rfb_dir,
+            output_dir=output_dir,
             minister_bio_path=curated_dir / "minister_bio.json",
             party_path=curated_dir / "party.jsonl",
             counsel_path=curated_dir / "counsel.jsonl",
@@ -197,7 +208,8 @@ class TestBuildEconomicGroups:
         output_dir = tmp_path / "analytics"
 
         build_economic_groups(
-            rfb_dir=rfb_dir, output_dir=output_dir,
+            rfb_dir=rfb_dir,
+            output_dir=output_dir,
             minister_bio_path=curated_dir / "minister_bio.json",
             party_path=curated_dir / "party.jsonl",
             counsel_path=curated_dir / "counsel.jsonl",
@@ -250,7 +262,8 @@ class TestBuildEconomicGroups:
         output_dir = tmp_path / "analytics"
 
         build_economic_groups(
-            rfb_dir=rfb_dir, output_dir=output_dir,
+            rfb_dir=rfb_dir,
+            output_dir=output_dir,
             minister_bio_path=curated_dir / "minister_bio.json",
             party_path=curated_dir / "party.jsonl",
             counsel_path=curated_dir / "counsel.jsonl",
@@ -289,7 +302,8 @@ class TestBuildEconomicGroups:
         output_dir = tmp_path / "analytics"
 
         build_economic_groups(
-            rfb_dir=rfb_dir, output_dir=output_dir,
+            rfb_dir=rfb_dir,
+            output_dir=output_dir,
             minister_bio_path=curated_dir / "minister_bio.json",
             party_path=curated_dir / "party.jsonl",
             counsel_path=curated_dir / "counsel.jsonl",
@@ -315,7 +329,7 @@ class TestBuildEconomicGroups:
         partners: list[dict] = []
         companies: list[dict] = [{"cnpj_basico": hub_cnpj, "razao_social": "HUB LTDA"}]
         for i in range(201):
-            cnpj = f"{i+1:08d}"
+            cnpj = f"{i + 1:08d}"
             partners.append(
                 {
                     "cnpj_basico": cnpj,
@@ -334,7 +348,8 @@ class TestBuildEconomicGroups:
 
         with caplog.at_level(logging.WARNING, logger="atlas_stf.analytics.economic_group"):
             build_economic_groups(
-                rfb_dir=rfb_dir, output_dir=output_dir,
+                rfb_dir=rfb_dir,
+                output_dir=output_dir,
                 minister_bio_path=curated_dir / "minister_bio.json",
                 party_path=curated_dir / "party.jsonl",
                 counsel_path=curated_dir / "counsel.jsonl",

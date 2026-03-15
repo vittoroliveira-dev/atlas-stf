@@ -80,12 +80,7 @@ def _build_group_key(decision_event: dict[str, Any], process_ctx: dict[str, Any]
     decision_type = decision_event.get("decision_type")
     decision_year = decision_event.get("decision_year")
 
-    if (
-        process_class is None
-        or thematic_key is None
-        or decision_type is None
-        or decision_year is None
-    ):
+    if process_class is None or thematic_key is None or decision_type is None or decision_year is None:
         return None
 
     judging_body_category = classify_judging_body_category(

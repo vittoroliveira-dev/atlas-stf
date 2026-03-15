@@ -42,7 +42,7 @@ def _parse_json_list(raw: str | None) -> list[Any]:
         return []
     try:
         return json.loads(raw)
-    except (TypeError, json.JSONDecodeError):
+    except TypeError, json.JSONDecodeError:
         return []
 
 
@@ -52,7 +52,7 @@ def _parse_signal_details(raw: str | None) -> dict[str, dict[str, Any]] | None:
     try:
         parsed = json.loads(raw)
         return parsed if isinstance(parsed, dict) and parsed else None
-    except (TypeError, json.JSONDecodeError):
+    except TypeError, json.JSONDecodeError:
         return None
 
 

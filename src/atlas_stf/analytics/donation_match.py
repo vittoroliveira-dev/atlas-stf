@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..core.identity import normalize_entity_name, stable_id
+from ..core.identity import normalize_entity_name, normalize_tax_id, stable_id
 from ._match_helpers import (
     DEFAULT_ALIAS_PATH,
     build_baseline_rates,
@@ -41,12 +41,33 @@ RED_FLAG_DELTA_THRESHOLD = 0.15
 MIN_CASES_FOR_RED_FLAG = 3
 
 
+def _donor_identity_key(name: str, cpf_cnpj: str) -> str:
+    """Build a stable identity key for a donor.
+
+    Uses ``normalize_tax_id(donor_cpf_cnpj)`` when it produces a valid
+    digit-only string (prevents homonym fusion and normalizes formatting).
+    Masked documents (``***.***-**``) and empty strings resolve to ``None``
+    and fall back to ``donor_name_normalized``.
+
+    Note: the name fallback still carries residual homonymy risk when
+    two distinct people share the same normalized name and neither has
+    a CPF/CNPJ on file.  This is a known limitation documented in the
+    audit (section E.1).
+    """
+    normalized_id = normalize_tax_id(cpf_cnpj)
+    if normalized_id:
+        return f"cpf:{normalized_id}"
+    return f"name:{name}"
+
+
 def _stream_aggregate_donations(
     path: Path,
 ) -> tuple[dict[str, dict[str, Any]], int, set[int]]:
     """Aggregate donations line by line without loading the full file.
 
     Returns (donor_agg, raw_count, election_years_seen).
+    The aggregation key is a stable identity key (CPF/CNPJ when available,
+    else normalized name) to avoid homonym fusion.
     """
     agg: dict[str, dict[str, Any]] = {}
     raw_count = 0
@@ -57,9 +78,14 @@ def _stream_aggregate_donations(
         name = d.get("donor_name_normalized", "")
         if not name:
             continue
-        if name not in agg:
-            agg[name] = {
-                "donor_cpf_cnpj": d.get("donor_cpf_cnpj", ""),
+        cpf_cnpj = d.get("donor_cpf_cnpj", "")
+        key = _donor_identity_key(name, cpf_cnpj)
+        if key not in agg:
+            agg[key] = {
+                "donor_cpf_cnpj": cpf_cnpj,
+                "donor_name_normalized": name,
+                "donor_names_seen": set(),
+                "donor_name_originator": d.get("donor_name_originator_normalized", ""),
                 "total_donated_brl": 0.0,
                 "donation_count": 0,
                 "election_years": set(),
@@ -67,9 +93,13 @@ def _stream_aggregate_donations(
                 "candidates_donated_to": set(),
                 "positions_donated_to": set(),
             }
-        entry = agg[name]
+        entry = agg[key]
+        entry["donor_names_seen"].add(name)
         entry["total_donated_brl"] += d.get("donation_amount", 0.0)
         entry["donation_count"] += 1
+        originator = d.get("donor_name_originator_normalized", "")
+        if originator and not entry["donor_name_originator"]:
+            entry["donor_name_originator"] = originator
         year = d.get("election_year")
         if year is not None:
             entry["election_years"].add(year)
@@ -90,11 +120,12 @@ def _stream_aggregate_donations(
         entry["parties_donated_to"] = sorted(entry["parties_donated_to"])
         entry["candidates_donated_to"] = sorted(entry["candidates_donated_to"])
         entry["positions_donated_to"] = sorted(entry["positions_donated_to"])
+        entry["donor_names_seen"] = sorted(entry["donor_names_seen"])
 
     return agg, raw_count, all_years
 
 
-def build_donation_matches(
+def build_donation_matches(  # noqa: C901
     *,
     tse_dir: Path = DEFAULT_TSE_DIR,
     party_path: Path = DEFAULT_PARTY_PATH,
@@ -147,7 +178,7 @@ def build_donation_matches(
 
     # --- Match donors to parties (parallel across CPU cores) ---
     match_items: list[tuple[str, str | None]] = [
-        (donor_name, donor_info.get("donor_cpf_cnpj")) for donor_name, donor_info in donor_agg.items()
+        (donor_info["donor_name_normalized"], donor_info.get("donor_cpf_cnpj")) for donor_info in donor_agg.values()
     ]
     match_results = match_entities_parallel(
         match_items,
@@ -161,7 +192,8 @@ def build_donation_matches(
     match_strategy_counts: dict[str, int] = defaultdict(int)
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    for donor_name, donor_info in donor_agg.items():
+    for donor_key, donor_info in donor_agg.items():
+        donor_name = donor_info["donor_name_normalized"]
         match = match_results.get(donor_name)
         if match is None:
             continue
@@ -206,7 +238,7 @@ def build_donation_matches(
         if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
             red_flag_substantive = (favorable_rate_sub - baseline_rate) > RED_FLAG_DELTA_THRESHOLD
 
-        match_id = stable_id("dm-", f"{party_id}:{donor_name}:{donor_info['donor_cpf_cnpj']}")
+        match_id = stable_id("dm-", f"{party_id}:{donor_key}")
         matches.append(
             {
                 "match_id": match_id,
@@ -216,6 +248,9 @@ def build_donation_matches(
                 "party_id": party_id,
                 "party_name_normalized": party_name,
                 "donor_cpf_cnpj": donor_info["donor_cpf_cnpj"],
+                "donor_name_normalized": donor_name,
+                "donor_name_originator": donor_info.get("donor_name_originator", ""),
+                "donor_identity_key": donor_key,
                 "match_strategy": match.strategy,
                 "match_score": match.score,
                 "matched_alias": match.matched_alias,
@@ -259,7 +294,7 @@ def build_donation_matches(
     )
 
     counsel_match_items: list[tuple[str, str | None]] = [
-        (donor_name, donor_info.get("donor_cpf_cnpj")) for donor_name, donor_info in donor_agg.items()
+        (donor_info["donor_name_normalized"], donor_info.get("donor_cpf_cnpj")) for donor_info in donor_agg.values()
     ]
     counsel_match_results = match_entities_parallel(
         counsel_match_items,
@@ -272,7 +307,8 @@ def build_donation_matches(
     counsel_ambiguous_count = 0
     counsel_match_strategy_counts: dict[str, int] = defaultdict(int)
 
-    for donor_name, donor_info in donor_agg.items():
+    for donor_key, donor_info in donor_agg.items():
+        donor_name = donor_info["donor_name_normalized"]
         match = counsel_match_results.get(donor_name)
         if match is None:
             continue
@@ -317,7 +353,7 @@ def build_donation_matches(
         if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
             red_flag_substantive = (favorable_rate_sub - baseline_rate) > RED_FLAG_DELTA_THRESHOLD
 
-        match_id = stable_id("dm-", f"counsel:{counsel_id}:{donor_name}:{donor_info['donor_cpf_cnpj']}")
+        match_id = stable_id("dm-", f"counsel:{counsel_id}:{donor_key}")
         matches.append(
             {
                 "match_id": match_id,
@@ -325,6 +361,9 @@ def build_donation_matches(
                 "entity_id": counsel_id,
                 "entity_name_normalized": counsel_name,
                 "donor_cpf_cnpj": donor_info["donor_cpf_cnpj"],
+                "donor_name_normalized": donor_name,
+                "donor_name_originator": donor_info.get("donor_name_originator", ""),
+                "donor_identity_key": donor_key,
                 "match_strategy": match.strategy,
                 "match_score": match.score,
                 "matched_alias": match.matched_alias,
@@ -353,6 +392,51 @@ def build_donation_matches(
     with match_path.open("w", encoding="utf-8") as fh:
         for m in matches:
             fh.write(json.dumps(m, ensure_ascii=False) + "\n")
+
+    # Build matched donor identity keys for event extraction
+    matched_identity_keys: dict[str, str] = {}
+    for m in matches:
+        dk = m.get("donor_identity_key", "")
+        if dk:
+            matched_identity_keys[dk] = m["match_id"]
+
+    # Write individual donation events for matched donors (P3: temporal granularity)
+    event_path = output_dir / "donation_event.jsonl"
+    event_count = 0
+    with event_path.open("w", encoding="utf-8") as efh:
+        for d in iter_jsonl(donations_path):
+            name = d.get("donor_name_normalized", "")
+            if not name:
+                continue
+            cpf_cnpj = d.get("donor_cpf_cnpj", "")
+            dk = _donor_identity_key(name, cpf_cnpj)
+            match_id = matched_identity_keys.get(dk)
+            if match_id is None:
+                continue
+            event_id = stable_id(
+                "de-",
+                f"{dk}:{d.get('election_year', '')}:{d.get('donation_date', '')}:"
+                f"{d.get('donation_amount', '')}:{d.get('candidate_name', '')}",
+            )
+            event = {
+                "event_id": event_id,
+                "match_id": match_id,
+                "donor_identity_key": dk,
+                "election_year": d.get("election_year"),
+                "donation_date": d.get("donation_date", ""),
+                "donation_amount": d.get("donation_amount", 0.0),
+                "candidate_name": d.get("candidate_name", ""),
+                "party_abbrev": d.get("party_abbrev", ""),
+                "position": d.get("position", ""),
+                "state": d.get("state", ""),
+                "donor_name": d.get("donor_name", ""),
+                "donor_name_originator": d.get("donor_name_originator", ""),
+                "donor_cpf_cnpj": cpf_cnpj,
+                "donation_description": d.get("donation_description", ""),
+            }
+            efh.write(json.dumps(event, ensure_ascii=False) + "\n")
+            event_count += 1
+    logger.info("Wrote %d individual donation events to %s", event_count, event_path)
 
     # Build counsel donation profiles (indirect, via party clients)
     counsel_client_map = build_counsel_client_map_from_links(
@@ -412,6 +496,7 @@ def build_donation_matches(
             match_strategy_counts.get("jaccard", 0) + match_strategy_counts.get("levenshtein", 0)
         ),
         "ambiguous_candidate_count": ambiguous_candidate_count,
+        "donation_event_count": event_count,
         "election_years_covered": sorted(all_years),
         "generated_at": now_iso,
     }

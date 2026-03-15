@@ -66,9 +66,7 @@ def load_corporate_conflicts(analytics_dir: Path) -> list[ServingCorporateConfli
                 establishment_cnae_labels_json=json.dumps(
                     record.get("establishment_cnae_labels", []), ensure_ascii=False
                 ),
-                key_establishments_json=json.dumps(
-                    record.get("key_establishments", []), ensure_ascii=False
-                ),
+                key_establishments_json=json.dumps(record.get("key_establishments", []), ensure_ascii=False),
                 # Economic group
                 economic_group_id=record.get("economic_group_id"),
                 economic_group_member_count=record.get("economic_group_member_count"),

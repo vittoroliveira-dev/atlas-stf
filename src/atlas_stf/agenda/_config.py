@@ -28,23 +28,27 @@ class AgendaFetchConfig:
 
 GRAPHQL_BASE_URL = "https://noticias.stf.jus.br/"
 
-USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-)
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
 # Fixed national holidays (month, day)
 FIXED_HOLIDAYS: list[tuple[int, int]] = [
-    (1, 1), (4, 21), (5, 1), (9, 7), (10, 12), (11, 2), (11, 15), (12, 25),
+    (1, 1),
+    (4, 21),
+    (5, 1),
+    (9, 7),
+    (10, 12),
+    (11, 2),
+    (11, 15),
+    (12, 25),
 ]
 
 # Court recess periods by year — (start_month, start_day, end_month, end_day)
 # Fallback when official calendar unavailable
 RECESS_PERIODS: dict[str, list[tuple[int, int, int, int]]] = {
     "default": [
-        (7, 2, 7, 31),    # recesso forense
-        (12, 20, 12, 31), # recesso fim de ano
-        (1, 1, 1, 31),    # recesso janeiro
+        (7, 2, 7, 31),  # recesso forense
+        (12, 20, 12, 31),  # recesso fim de ano
+        (1, 1, 1, 31),  # recesso janeiro
     ],
 }
 

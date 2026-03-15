@@ -136,21 +136,23 @@ def build_representation_recurrence(
                 pass
 
         recurrence_id = stable_id("rec_", f"{lawyer_id}:{party_id}")
-        records.append({
-            "recurrence_id": recurrence_id,
-            "lawyer_id": lawyer_id,
-            "party_id": party_id,
-            "lawyer_name": lawyer_lookup.get(lawyer_id, ""),
-            "party_name": party_lookup.get(party_id, ""),
-            "process_count": process_count,
-            "edge_count": len(edge_list),
-            "first_seen_date": first_seen,
-            "last_seen_date": last_seen,
-            "span_days": span_days,
-            "process_classes": dict(class_counts),
-            "role_types": dict(role_counts),
-            "generated_at": timestamp,
-        })
+        records.append(
+            {
+                "recurrence_id": recurrence_id,
+                "lawyer_id": lawyer_id,
+                "party_id": party_id,
+                "lawyer_name": lawyer_lookup.get(lawyer_id, ""),
+                "party_name": party_lookup.get(party_id, ""),
+                "process_count": process_count,
+                "edge_count": len(edge_list),
+                "first_seen_date": first_seen,
+                "last_seen_date": last_seen,
+                "span_days": span_days,
+                "process_classes": dict(class_counts),
+                "role_types": dict(role_counts),
+                "generated_at": timestamp,
+            }
+        )
 
     tick("Recorrencia: Escrevendo resultados...")
 
@@ -165,9 +167,7 @@ def build_representation_recurrence(
         "generated_at": timestamp,
     }
     summary_path = output_dir / "representation_recurrence_summary.json"
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
     tick("Recorrencia: Concluido")
     logger.info(

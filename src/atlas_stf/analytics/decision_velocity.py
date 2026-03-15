@@ -87,7 +87,7 @@ def _parse_date(date_str: str | None) -> datetime | None:
         return None
     try:
         return datetime.strptime(date_str[:10], "%Y-%m-%d")
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         return None
 
 
@@ -238,9 +238,7 @@ def build_decision_velocity(
                 "p90_days": group_stats["p90_days"],
                 "p95_days": group_stats["p95_days"],
                 "velocity_flag": velocity_flag,
-                "velocity_z_score": (
-                    round((days - median) / max(p95 - p5, 1), 4)
-                ),
+                "velocity_z_score": (round((days - median) / max(p95 - p5, 1), 4)),
                 "generated_at": now_iso,
             }
             if "days_in_vista_deducted" in ev:

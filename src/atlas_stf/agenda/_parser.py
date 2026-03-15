@@ -21,17 +21,39 @@ _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _WHITESPACE_RE = re.compile(r"\s+")
 
 _CORE_KW = [
-    "sessao plenaria", "sessao administrativa", "sessao virtual",
-    "plenario virtual", "julgamento", "sessao do tse",
+    "sessao plenaria",
+    "sessao administrativa",
+    "sessao virtual",
+    "plenario virtual",
+    "julgamento",
+    "sessao do tse",
 ]
 _EXTERNAL_KW = [
-    "agu", "pgr", "procurador-geral", "embaixador", "onu",
-    "posse", "homenagem", "seminario", "congresso", "oab", "secretaria-geral",
+    "agu",
+    "pgr",
+    "procurador-geral",
+    "embaixador",
+    "onu",
+    "posse",
+    "homenagem",
+    "seminario",
+    "congresso",
+    "oab",
+    "secretaria-geral",
 ]
 _PRIVATE_KW = ["assunto:", "dr.", "dra.", "escritorio", "advogad"]
 _PUBLIC_ACTOR_KW = [
-    "agu", "pgr", "procurador-geral", "ministerio", "secretaria",
-    "embaixador", "onu", "oab", "tribunal", "orgao", "governo",
+    "agu",
+    "pgr",
+    "procurador-geral",
+    "ministerio",
+    "secretaria",
+    "embaixador",
+    "onu",
+    "oab",
+    "tribunal",
+    "orgao",
+    "governo",
 ]
 _PRIVATE_ACTOR_KW = ["dr.", "dra.", "escritorio", "advogad", "banca"]
 _CEREMONY_KW = ["posse", "homenagem", "titulo", "cerimonia", "entrega"]
@@ -100,7 +122,8 @@ def _has_keyword(text: str, keywords: list[str]) -> bool:
 
 
 def classify_event_category(
-    title: str, description: str,
+    title: str,
+    description: str,
 ) -> tuple[str, str, float, bool, bool]:
     combined = f"{title} {description}".strip()
     contains_public = _has_keyword(combined, _PUBLIC_ACTOR_KW)
@@ -162,8 +185,11 @@ def determine_owner_scope_and_role(
 ) -> tuple[str, str, str, str]:
     name_upper = minister_name_raw.strip().upper()
     non_ministerial = [
-        "CENTRO DE ESTUDOS", "SECRETARIO-GERAL", "SECRETARIA-GERAL",
-        "DIRETORA-GERAL", "DIRETOR-GERAL",
+        "CENTRO DE ESTUDOS",
+        "SECRETARIO-GERAL",
+        "SECRETARIA-GERAL",
+        "DIRETORA-GERAL",
+        "DIRETOR-GERAL",
     ]
     for marker in non_ministerial:
         if marker in name_upper:
@@ -200,7 +226,9 @@ def normalize_raw_day(
     if date_match:
         try:
             event_date = date_type(
-                int(date_match.group(3)), int(date_match.group(2)), int(date_match.group(1)),
+                int(date_match.group(3)),
+                int(date_match.group(2)),
+                int(date_match.group(1)),
             )
         except ValueError:
             pass
@@ -210,8 +238,8 @@ def normalize_raw_day(
 
     for ministro in day_data.get("ministro") or []:
         minister_name_raw = ministro.get("nomeMinistro", "")
-        minister_slug, owner_scope, owner_role, resolved_name = (
-            determine_owner_scope_and_role(minister_name_raw, event_date, president_mapping)
+        minister_slug, owner_scope, owner_role, resolved_name = determine_owner_scope_and_role(
+            minister_name_raw, event_date, president_mapping
         )
         for evento in ministro.get("evento") or []:
             titulo = _clean_html(evento.get("titulo", ""))
@@ -228,34 +256,37 @@ def normalize_raw_day(
             title_norm = titulo[:80].lower().strip()
             desc_short = descricao[:40].lower().strip()
             event_id = stable_id(
-                "agd_", f"{minister_slug}:{date_str}:{hora_raw}:{title_norm}:{desc_short}",
+                "agd_",
+                f"{minister_slug}:{date_str}:{hora_raw}:{title_norm}:{desc_short}",
             )
-            events.append({
-                "event_id": event_id,
-                "minister_name": resolved_name,
-                "minister_slug": minister_slug,
-                "owner_scope": owner_scope,
-                "owner_role": owner_role,
-                "event_date": date_str,
-                "event_time_local": str(time_obj) if time_obj else None,
-                "source_time_raw": hora_raw or None,
-                "event_title": titulo,
-                "event_description": descricao or None,
-                "event_category": cat,
-                "meeting_nature": nature,
-                "process_refs": process_refs,
-                "has_process_ref": has_process_ref,
-                "contains_public_actor": pub,
-                "contains_private_actor": priv,
-                "actor_count": len(participants_raw) + len(organizations_raw),
-                "classification_confidence": conf,
-                "participants_raw": participants_raw,
-                "participant_entities": [],
-                "participant_resolution_confidence": 0.0,
-                "organizations_raw": organizations_raw,
-                "relevance_track": relevance_track,
-                "source_date_raw": date_raw,
-                "fetched_at": fetched_at,
-                "coverage_scope": "public_agenda_partial",
-            })
+            events.append(
+                {
+                    "event_id": event_id,
+                    "minister_name": resolved_name,
+                    "minister_slug": minister_slug,
+                    "owner_scope": owner_scope,
+                    "owner_role": owner_role,
+                    "event_date": date_str,
+                    "event_time_local": str(time_obj) if time_obj else None,
+                    "source_time_raw": hora_raw or None,
+                    "event_title": titulo,
+                    "event_description": descricao or None,
+                    "event_category": cat,
+                    "meeting_nature": nature,
+                    "process_refs": process_refs,
+                    "has_process_ref": has_process_ref,
+                    "contains_public_actor": pub,
+                    "contains_private_actor": priv,
+                    "actor_count": len(participants_raw) + len(organizations_raw),
+                    "classification_confidence": conf,
+                    "participants_raw": participants_raw,
+                    "participant_entities": [],
+                    "participant_resolution_confidence": 0.0,
+                    "organizations_raw": organizations_raw,
+                    "relevance_track": relevance_track,
+                    "source_date_raw": date_raw,
+                    "fetched_at": fetched_at,
+                    "coverage_scope": "public_agenda_partial",
+                }
+            )
     return events

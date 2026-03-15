@@ -158,9 +158,7 @@ def test_peer_group_percentiles(tmp_path: Path):
     _write_jsonl(curated / "process.jsonl", processes)
     _write_jsonl(curated / "decision_event.jsonl", decisions)
 
-    result = build_procedural_timeline(
-        curated_dir=curated, output_dir=output_dir, min_peer_group_size=5
-    )
+    result = build_procedural_timeline(curated_dir=curated, output_dir=output_dir, min_peer_group_size=5)
 
     records = [json.loads(line) for line in result.read_text().strip().split("\n") if line]
     assert len(records) == 10
@@ -237,9 +235,7 @@ def test_red_flag_vista_above_p95(tmp_path: Path):
     _write_jsonl(curated / "process.jsonl", processes)
     _write_jsonl(curated / "decision_event.jsonl", decisions)
 
-    result = build_procedural_timeline(
-        curated_dir=curated, output_dir=output_dir, min_peer_group_size=5
-    )
+    result = build_procedural_timeline(curated_dir=curated, output_dir=output_dir, min_peer_group_size=5)
 
     records = [json.loads(line) for line in result.read_text().strip().split("\n") if line]
     flagged = [r for r in records if r["vista_flag"]]
@@ -313,9 +309,7 @@ def test_red_flag_pauta_cycles(tmp_path: Path):
     _write_jsonl(curated / "process.jsonl", processes)
     _write_jsonl(curated / "decision_event.jsonl", decisions)
 
-    result = build_procedural_timeline(
-        curated_dir=curated, output_dir=output_dir, min_peer_group_size=5
-    )
+    result = build_procedural_timeline(curated_dir=curated, output_dir=output_dir, min_peer_group_size=5)
 
     records = [json.loads(line) for line in result.read_text().strip().split("\n") if line]
     proc0 = [r for r in records if r["process_id"] == "proc_0"]

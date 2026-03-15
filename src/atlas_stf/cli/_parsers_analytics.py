@@ -278,9 +278,7 @@ def _add_analytics_parsers(subparsers: Any) -> None:
         help="Output directory for analytics artifacts",
     )
 
-    analytics_ptl = analytics_sub.add_parser(
-        "procedural-timeline", help="Build procedural timeline analytics"
-    )
+    analytics_ptl = analytics_sub.add_parser("procedural-timeline", help="Build procedural timeline analytics")
     analytics_ptl.add_argument(
         "--curated-dir",
         type=Path,
@@ -294,9 +292,7 @@ def _add_analytics_parsers(subparsers: Any) -> None:
         help="Output directory for analytics artifacts",
     )
 
-    analytics_pa = analytics_sub.add_parser(
-        "pauta-anomaly", help="Build pauta anomaly analytics"
-    )
+    analytics_pa = analytics_sub.add_parser("pauta-anomaly", help="Build pauta anomaly analytics")
     analytics_pa.add_argument(
         "--session-event-path",
         type=Path,
@@ -340,9 +336,7 @@ def _add_analytics_parsers(subparsers: Any) -> None:
         help="Output directory for analytics artifacts",
     )
 
-    analytics_repgraph = analytics_sub.add_parser(
-        "representation-graph", help="Build representation graph analytics"
-    )
+    analytics_repgraph = analytics_sub.add_parser("representation-graph", help="Build representation graph analytics")
     analytics_repgraph.add_argument(
         "--curated-dir",
         type=Path,
@@ -388,9 +382,7 @@ def _add_analytics_parsers(subparsers: Any) -> None:
         help="Output directory for analytics artifacts",
     )
 
-    analytics_amicus = analytics_sub.add_parser(
-        "amicus-network", help="Build amicus network analytics"
-    )
+    analytics_amicus = analytics_sub.add_parser("amicus-network", help="Build amicus network analytics")
     analytics_amicus.add_argument(
         "--curated-dir",
         type=Path,
@@ -404,9 +396,7 @@ def _add_analytics_parsers(subparsers: Any) -> None:
         help="Output directory for analytics artifacts",
     )
 
-    analytics_firmcluster = analytics_sub.add_parser(
-        "firm-cluster", help="Build firm cluster analytics"
-    )
+    analytics_firmcluster = analytics_sub.add_parser("firm-cluster", help="Build firm cluster analytics")
     analytics_firmcluster.add_argument(
         "--curated-dir",
         type=Path,
@@ -420,9 +410,7 @@ def _add_analytics_parsers(subparsers: Any) -> None:
         help="Output directory for analytics artifacts",
     )
 
-    analytics_agenda_exp = analytics_sub.add_parser(
-        "agenda-exposure", help="Build agenda exposure analytics"
-    )
+    analytics_agenda_exp = analytics_sub.add_parser("agenda-exposure", help="Build agenda exposure analytics")
     analytics_agenda_exp.add_argument(
         "--curated-dir",
         type=Path,

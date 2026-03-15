@@ -31,10 +31,14 @@ _COLUMN_ALIASES: dict[str, list[str]] = {
     ],
     "donor_name": [
         "NM_DOADOR",
-        "NM_DOADOR_ORIGINARIO",
         "Nome do doador",
         "NO_DOADOR",
         "NOME_DOADOR",
+    ],
+    "donor_name_originator": [
+        "NM_DOADOR_ORIGINARIO",
+        "Nome do doador originario",
+        "NOME_DOADOR_ORIGINARIO",
     ],
     "donor_name_rfb": ["NM_DOADOR_RFB", "Nome do doador (Receita Federal)"],
     "donor_state": ["SG_UF_DOADOR", "UF_DOADOR", "UF do doador", "UNIDADE_ELEITORAL_DOADOR"],
@@ -66,6 +70,7 @@ _COLUMN_ALIASES: dict[str, list[str]] = {
     "description": ["DS_RECEITA", "Descricao receita", "TP_RECURSO", "TIPO_RECEITA"],
     "election_year": ["ANO_ELEICAO", "Ano eleicao"],
     "state": ["SG_UF", "UF", "SG_UE", "UNIDADE_ELEITORAL_CANDIDATO"],
+    "donation_date": ["DT_RECEITA", "Data da receita", "DATA_RECEITA", "Data receita"],
 }
 
 
@@ -114,6 +119,29 @@ def _parse_amount(raw: str) -> float:
         return 0.0
 
 
+def _parse_donation_date(raw: str) -> str:
+    """Parse a TSE donation date string into ISO format (YYYY-MM-DD).
+
+    Handles ``dd/MM/yyyy`` (common in TSE files) and ISO ``yyyy-MM-dd``.
+    Returns empty string when the input cannot be parsed.
+    """
+    if not raw:
+        return ""
+    stripped = raw.strip()
+    # Try dd/MM/yyyy first (most common in TSE CSVs)
+    if "/" in stripped:
+        parts = stripped.split("/")
+        if len(parts) == 3 and len(parts[2]) == 4:
+            try:
+                return f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
+            except (ValueError, IndexError):
+                return ""
+    # Already ISO?
+    if len(stripped) == 10 and stripped[4] == "-":
+        return stripped
+    return ""
+
+
 def _iter_receitas_csv(csv_path: Path) -> Iterator[dict[str, Any]]:
     """Yield donation dicts one by one from a receitas CSV (';' separator).
 
@@ -129,8 +157,15 @@ def _iter_receitas_csv(csv_path: Path) -> Iterator[dict[str, Any]]:
 
         for row in reader:
             donor_name = _safe_get(row, header, "donor_name")
+            donor_name_originator = _safe_get(row, header, "donor_name_originator")
+            # Fallback: if donor_name is empty but originator exists
+            # (can happen in old TSE formats where only NM_DOADOR_ORIGINARIO
+            # is populated), use originator as the direct donor name.
             if not donor_name:
-                continue
+                if donor_name_originator:
+                    donor_name = donor_name_originator
+                else:
+                    continue
 
             amount_raw = _safe_get(row, header, "amount")
             year_raw = _safe_get(row, header, "election_year")
@@ -146,11 +181,13 @@ def _iter_receitas_csv(csv_path: Path) -> Iterator[dict[str, Any]]:
                 "party_name": _safe_get(row, header, "party_name"),
                 "donor_name": donor_name,
                 "donor_name_rfb": _safe_get(row, header, "donor_name_rfb"),
+                "donor_name_originator": donor_name_originator,
                 "donor_cpf_cnpj": _safe_get(row, header, "donor_cpf_cnpj"),
                 "donor_cnae_code": _safe_get(row, header, "donor_cnae_code"),
                 "donor_cnae_description": _safe_get(row, header, "donor_cnae_desc"),
                 "donor_state": _safe_get(row, header, "donor_state"),
                 "donation_amount_raw": amount_raw,
+                "donation_date_raw": _safe_get(row, header, "donation_date"),
                 "donation_description": _safe_get(row, header, "description"),
             }
 
@@ -168,6 +205,7 @@ def normalize_donation_record(raw: dict[str, Any], year: int) -> dict[str, Any]:
     """Normalize a raw donation record into the canonical schema."""
     donor_name = raw.get("donor_name", "")
     donor_name_rfb = raw.get("donor_name_rfb", "")
+    donor_name_originator = raw.get("donor_name_originator", "")
 
     return {
         "election_year": year,
@@ -180,9 +218,12 @@ def normalize_donation_record(raw: dict[str, Any], year: int) -> dict[str, Any]:
         "party_name": raw.get("party_name", ""),
         "donor_name": donor_name,
         "donor_name_rfb": donor_name_rfb,
+        "donor_name_originator": donor_name_originator,
         "donor_cpf_cnpj": raw.get("donor_cpf_cnpj", ""),
         "donor_name_normalized": normalize_entity_name(donor_name_rfb or donor_name),
+        "donor_name_originator_normalized": normalize_entity_name(donor_name_originator) or "",
         "donation_amount": _parse_amount(raw.get("donation_amount_raw", "")),
+        "donation_date": _parse_donation_date(raw.get("donation_date_raw", "")),
         "donation_description": raw.get("donation_description", ""),
         "donor_cnae_code": raw.get("donor_cnae_code", ""),
         "donor_cnae_description": raw.get("donor_cnae_description", ""),

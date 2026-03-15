@@ -64,12 +64,8 @@ def build_representation_graph(
 
     tick("Grafo: Calculando metricas por aresta...")
 
-    lawyer_lookup: dict[str, dict[str, Any]] = {
-        rec["lawyer_id"]: rec for rec in lawyers if "lawyer_id" in rec
-    }
-    firm_lookup: dict[str, dict[str, Any]] = {
-        rec["firm_id"]: rec for rec in firms if "firm_id" in rec
-    }
+    lawyer_lookup: dict[str, dict[str, Any]] = {rec["lawyer_id"]: rec for rec in lawyers if "lawyer_id" in rec}
+    firm_lookup: dict[str, dict[str, Any]] = {rec["firm_id"]: rec for rec in firms if "firm_id" in rec}
 
     # Group edges by process for co-lawyer detection
     edges_by_process: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -120,11 +116,7 @@ def build_representation_graph(
         co_lawyer_ids: list[str] = []
         for other_edge in edges_by_process.get(process_id, []):
             other_lawyer = other_edge.get("lawyer_id")
-            if (
-                other_lawyer
-                and other_lawyer != lawyer_id
-                and other_edge.get("party_id") == party_id
-            ):
+            if other_lawyer and other_lawyer != lawyer_id and other_edge.get("party_id") == party_id:
                 co_lawyer_ids.append(other_lawyer)
 
         evidence_count = int(edge.get("evidence_count", 0))
@@ -161,9 +153,7 @@ def build_representation_graph(
         "generated_at": timestamp,
     }
     summary_path = output_dir / "representation_graph_summary.json"
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
     tick("Grafo: Concluido")
     logger.info(

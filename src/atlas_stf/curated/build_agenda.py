@@ -84,34 +84,43 @@ def build_agenda_events(
             proc = _match_ref(ref, pidx)
             if proc:
                 rap = proc.get("rapporteur_slug") or proc.get("rapporteur", "")
-                matched.append({
-                    "process_id": proc.get("process_id"),
-                    "process_class": proc.get("process_class"),
-                    "process_rapporteur": rap,
-                    "is_own_process": bool(rap and slug and _slugs_eq(rap, slug)),
-                    "minister_case_role": "relator" if rap and slug and _slugs_eq(rap, slug) else None,
-                })
+                matched.append(
+                    {
+                        "process_id": proc.get("process_id"),
+                        "process_class": proc.get("process_class"),
+                        "process_rapporteur": rap,
+                        "is_own_process": bool(rap and slug and _slugs_eq(rap, slug)),
+                        "minister_case_role": "relator" if rap and slug and _slugs_eq(rap, slug) else None,
+                    }
+                )
             else:
-                matched.append({
-                    "process_id": None, "process_class": ref.get("class"),
-                    "process_rapporteur": None, "is_own_process": False, "minister_case_role": None,
-                })
+                matched.append(
+                    {
+                        "process_id": None,
+                        "process_class": ref.get("class"),
+                        "process_rapporteur": None,
+                        "is_own_process": False,
+                        "minister_case_role": None,
+                    }
+                )
 
-        curated.append({
-            "agenda_event_id": ev.get("event_id") or stable_id("aev_", f"{slug}:{ev.get('event_date','')}"),
-            "minister_slug": slug,
-            "minister_name": ev.get("minister_name", ""),
-            "event_date": ev.get("event_date"),
-            "title": ev.get("event_title", ""),
-            "event_category": ev.get("event_category", ""),
-            "owner_scope": ev.get("owner_scope", ""),
-            "meeting_nature": ev.get("meeting_nature"),
-            "relevance_track": ev.get("relevance_track"),
-            "process_refs_matched": matched,
-            "process_refs_raw": refs,
-            "institutional_role_bias_flag": bool(ev.get("institutional_role_bias_flag")),
-            "generated_at": ts,
-        })
+        curated.append(
+            {
+                "agenda_event_id": ev.get("event_id") or stable_id("aev_", f"{slug}:{ev.get('event_date', '')}"),
+                "minister_slug": slug,
+                "minister_name": ev.get("minister_name", ""),
+                "event_date": ev.get("event_date"),
+                "title": ev.get("event_title", ""),
+                "event_category": ev.get("event_category", ""),
+                "owner_scope": ev.get("owner_scope", ""),
+                "meeting_nature": ev.get("meeting_nature"),
+                "relevance_track": ev.get("relevance_track"),
+                "process_refs_matched": matched,
+                "process_refs_raw": refs,
+                "institutional_role_bias_flag": bool(ev.get("institutional_role_bias_flag")),
+                "generated_at": ts,
+            }
+        )
 
     tick("Agenda: Escrevendo eventos...")
     curated_dir.mkdir(parents=True, exist_ok=True)
@@ -192,22 +201,31 @@ def _coverage(events: list[dict[str, Any]], ts: str) -> list[dict[str, Any]]:
         if len(prior_r) >= 3 and ratio < 0.3 and sum(prior_r) / len(prior_r) > 0.5:
             gap = True
 
-        records.append({
-            "coverage_id": stable_id("acov_", f"{slug}:{y}-{m:02d}"),
-            "minister_slug": slug,
-            "minister_name": evts[0].get("minister_name", "") if evts else "",
-            "owner_scope": "ministerial",
-            "year": y, "month": m, "publication_observed": True,
-            "event_count": len(evts), "days_with_events": len(days),
-            "business_days_in_month": biz, "coverage_ratio": round(ratio, 4),
-            "institutional_core_count": cats.get("institutional_core", 0),
-            "institutional_external_actor_count": cats.get("institutional_external_actor", 0),
-            "private_advocacy_count": cats.get("private_advocacy", 0),
-            "unclear_count": cats.get("unclear", 0),
-            "track_a_count": ta, "track_b_count": tb,
-            "court_recess_flag": recess, "vacation_or_leave_flag": vac,
-            "publication_gap_flag": gap, "comparability_tier": tier,
-            "coverage_quality_note": "recess_from_heuristic" if recess else None,
-            "generated_at": ts,
-        })
+        records.append(
+            {
+                "coverage_id": stable_id("acov_", f"{slug}:{y}-{m:02d}"),
+                "minister_slug": slug,
+                "minister_name": evts[0].get("minister_name", "") if evts else "",
+                "owner_scope": "ministerial",
+                "year": y,
+                "month": m,
+                "publication_observed": True,
+                "event_count": len(evts),
+                "days_with_events": len(days),
+                "business_days_in_month": biz,
+                "coverage_ratio": round(ratio, 4),
+                "institutional_core_count": cats.get("institutional_core", 0),
+                "institutional_external_actor_count": cats.get("institutional_external_actor", 0),
+                "private_advocacy_count": cats.get("private_advocacy", 0),
+                "unclear_count": cats.get("unclear", 0),
+                "track_a_count": ta,
+                "track_b_count": tb,
+                "court_recess_flag": recess,
+                "vacation_or_leave_flag": vac,
+                "publication_gap_flag": gap,
+                "comparability_tier": tier,
+                "coverage_quality_note": "recess_from_heuristic" if recess else None,
+                "generated_at": ts,
+            }
+        )
     return records

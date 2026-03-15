@@ -77,7 +77,7 @@ def _load_portal_records(portal_dir: Path) -> list[dict[str, Any]]:
                 rep["_portal_process_number"] = doc.get("process_number")
                 rep["_portal_source_url"] = doc.get("source_url")
                 records.append(rep)
-        except (json.JSONDecodeError, ValueError):
+        except json.JSONDecodeError, ValueError:
             logger.warning("Skipping invalid portal file: %s", path)
     return records
 
@@ -149,8 +149,12 @@ def _merge_lawyer_into(target: dict[str, Any], source: dict[str, Any]) -> None:
 
     # OAB fields: keep target if populated, else fill from source
     for field in (
-        "oab_number", "oab_state", "oab_source",
-        "oab_validation_method", "oab_status", "oab_last_checked_at",
+        "oab_number",
+        "oab_state",
+        "oab_source",
+        "oab_validation_method",
+        "oab_status",
+        "oab_last_checked_at",
     ):
         if not target.get(field) and source.get(field):
             target[field] = source[field]

@@ -224,9 +224,7 @@ def get_firm_detail(session: Session, firm_id: str) -> FirmDetailResponse | None
     )
 
 
-def get_process_representation(
-    session: Session, process_id: str
-) -> ProcessRepresentationResponse:
+def get_process_representation(session: Session, process_id: str) -> ProcessRepresentationResponse:
     edges = cast(
         list[ServingRepresentationEdge],
         session.scalars(
@@ -295,17 +293,13 @@ def get_representation_summary(session: Session) -> RepresentationNetworkSummary
     total_events = session.scalar(select(func.count()).select_from(ServingRepresentationEvent)) or 0
     lawyers_with_oab = (
         session.scalar(
-            select(func.count())
-            .select_from(ServingLawyerEntity)
-            .where(ServingLawyerEntity.oab_number.is_not(None))
+            select(func.count()).select_from(ServingLawyerEntity).where(ServingLawyerEntity.oab_number.is_not(None))
         )
         or 0
     )
     lawyers_with_firm = (
         session.scalar(
-            select(func.count())
-            .select_from(ServingLawyerEntity)
-            .where(ServingLawyerEntity.firm_id.is_not(None))
+            select(func.count()).select_from(ServingLawyerEntity).where(ServingLawyerEntity.firm_id.is_not(None))
         )
         or 0
     )

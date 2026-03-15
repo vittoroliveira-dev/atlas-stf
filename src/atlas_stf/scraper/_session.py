@@ -42,9 +42,12 @@ class ApiSession:
     @classmethod
     def create(cls, *, headless: bool = True, timeout_ms: int = 30_000) -> ApiSession:
         """Launch browser, navigate to site to solve WAF challenge, return ready session."""
-        ignore_https_errors = (
-            os.getenv(DEFAULT_IGNORE_HTTPS_ERRORS_ENV, "false").strip().lower() in {"1", "true", "yes", "on"}
-        )
+        ignore_https_errors = os.getenv(DEFAULT_IGNORE_HTTPS_ERRORS_ENV, "false").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if ignore_https_errors:
             logger.warning(
                 "TLS verification disabled for jurisprudencia session via %s",

@@ -6,9 +6,7 @@ from sqlalchemy.orm import Session
 from ..serving.models import ServingMovement, ServingSessionEvent
 
 
-def get_process_timeline(
-    session: Session, process_id: str
-) -> tuple[list[ServingMovement], list[ServingSessionEvent]]:
+def get_process_timeline(session: Session, process_id: str) -> tuple[list[ServingMovement], list[ServingSessionEvent]]:
     movements = list(
         session.scalars(
             select(ServingMovement)
@@ -26,9 +24,7 @@ def get_process_timeline(
     return movements, session_events
 
 
-def get_process_sessions(
-    session: Session, process_id: str
-) -> list[ServingSessionEvent]:
+def get_process_sessions(session: Session, process_id: str) -> list[ServingSessionEvent]:
     return list(
         session.scalars(
             select(ServingSessionEvent)

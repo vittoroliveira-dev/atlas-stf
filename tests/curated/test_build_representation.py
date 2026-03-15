@@ -40,12 +40,15 @@ def _write_portal_json(portal_dir: Path, doc: dict[str, Any], filename: str = "A
 
 def test_build_lawyer_entity_records_with_juris_partes(tmp_path: Path):
     process_path = tmp_path / "process.jsonl"
-    _write_process_jsonl(process_path, [
-        {
-            "process_id": "proc_1",
-            "juris_partes": "REQTE.(S): ESTADO X ADV.(A/S): JOAO DA SILVA",
-        },
-    ])
+    _write_process_jsonl(
+        process_path,
+        [
+            {
+                "process_id": "proc_1",
+                "juris_partes": "REQTE.(S): ESTADO X ADV.(A/S): JOAO DA SILVA",
+            },
+        ],
+    )
 
     records = build_lawyer_entity_records(process_path, tmp_path / "portal", tmp_path)
 
@@ -65,12 +68,15 @@ def test_build_lawyer_entity_records_empty_data(tmp_path: Path):
 
 def test_build_lawyer_entity_records_with_counsel_source_fields(tmp_path: Path):
     process_path = tmp_path / "process.jsonl"
-    _write_process_jsonl(process_path, [
-        {
-            "process_id": "proc_1",
-            "juris_advogados": "MARIA OLIVEIRA; PEDRO SANTOS",
-        },
-    ])
+    _write_process_jsonl(
+        process_path,
+        [
+            {
+                "process_id": "proc_1",
+                "juris_advogados": "MARIA OLIVEIRA; PEDRO SANTOS",
+            },
+        ],
+    )
 
     records = build_lawyer_entity_records(process_path, tmp_path / "portal", tmp_path)
 
@@ -84,17 +90,20 @@ def test_build_lawyer_entity_records_with_portal_oab(tmp_path: Path):
     _write_process_jsonl(process_path, [{"process_id": "proc_1"}])
 
     portal_dir = tmp_path / "portal"
-    _write_portal_json(portal_dir, {
-        "process_number": "ADI 1234",
-        "source_url": "https://portal.stf.jus.br/processos/detalhe.asp?incidente=12345",
-        "representantes": [
-            {
-                "lawyer_name": "Ana Costa",
-                "oab_number": "12345/SP",
-                "oab_state": "SP",
-            },
-        ],
-    })
+    _write_portal_json(
+        portal_dir,
+        {
+            "process_number": "ADI 1234",
+            "source_url": "https://portal.stf.jus.br/processos/detalhe.asp?incidente=12345",
+            "representantes": [
+                {
+                    "lawyer_name": "Ana Costa",
+                    "oab_number": "12345/SP",
+                    "oab_state": "SP",
+                },
+            ],
+        },
+    )
 
     records = build_lawyer_entity_records(process_path, portal_dir, tmp_path)
 
@@ -106,16 +115,19 @@ def test_build_lawyer_entity_records_with_portal_oab(tmp_path: Path):
 
 def test_build_lawyer_entity_dedup_by_identity_key(tmp_path: Path):
     process_path = tmp_path / "process.jsonl"
-    _write_process_jsonl(process_path, [
-        {
-            "process_id": "proc_1",
-            "juris_advogados": "JOAO DA SILVA",
-        },
-        {
-            "process_id": "proc_2",
-            "juris_advogados": "JOAO DA SILVA",
-        },
-    ])
+    _write_process_jsonl(
+        process_path,
+        [
+            {
+                "process_id": "proc_1",
+                "juris_advogados": "JOAO DA SILVA",
+            },
+            {
+                "process_id": "proc_2",
+                "juris_advogados": "JOAO DA SILVA",
+            },
+        ],
+    )
 
     records = build_lawyer_entity_records(process_path, tmp_path / "portal", tmp_path)
 
@@ -125,9 +137,12 @@ def test_build_lawyer_entity_dedup_by_identity_key(tmp_path: Path):
 
 def test_build_lawyer_entity_stable_id_deterministic(tmp_path: Path):
     process_path = tmp_path / "process.jsonl"
-    _write_process_jsonl(process_path, [
-        {"process_id": "proc_1", "juris_advogados": "JOAO DA SILVA"},
-    ])
+    _write_process_jsonl(
+        process_path,
+        [
+            {"process_id": "proc_1", "juris_advogados": "JOAO DA SILVA"},
+        ],
+    )
 
     records_1 = build_lawyer_entity_records(process_path, tmp_path / "portal", tmp_path)
     records_2 = build_lawyer_entity_records(process_path, tmp_path / "portal", tmp_path)
@@ -137,9 +152,12 @@ def test_build_lawyer_entity_stable_id_deterministic(tmp_path: Path):
 
 def test_build_lawyer_entity_identity_strategy_name(tmp_path: Path):
     process_path = tmp_path / "process.jsonl"
-    _write_process_jsonl(process_path, [
-        {"process_id": "proc_1", "juris_advogados": "CARLOS MENDES"},
-    ])
+    _write_process_jsonl(
+        process_path,
+        [
+            {"process_id": "proc_1", "juris_advogados": "CARLOS MENDES"},
+        ],
+    )
 
     records = build_lawyer_entity_records(process_path, tmp_path / "portal", tmp_path)
 
@@ -152,13 +170,16 @@ def test_build_lawyer_entity_identity_strategy_oab(tmp_path: Path):
     _write_process_jsonl(process_path, [{"process_id": "proc_1"}])
 
     portal_dir = tmp_path / "portal"
-    _write_portal_json(portal_dir, {
-        "process_number": "ADI 1234",
-        "source_url": "https://portal.stf.jus.br/x",
-        "representantes": [
-            {"lawyer_name": "Carlos Mendes", "oab_number": "999/RJ", "oab_state": "RJ"},
-        ],
-    })
+    _write_portal_json(
+        portal_dir,
+        {
+            "process_number": "ADI 1234",
+            "source_url": "https://portal.stf.jus.br/x",
+            "representantes": [
+                {"lawyer_name": "Carlos Mendes", "oab_number": "999/RJ", "oab_state": "RJ"},
+            ],
+        },
+    )
 
     records = build_lawyer_entity_records(process_path, portal_dir, tmp_path)
 
@@ -177,17 +198,20 @@ def test_build_law_firm_entity_records_with_portal_data(tmp_path: Path):
     _write_process_jsonl(process_path, [{"process_id": "proc_1"}])
 
     portal_dir = tmp_path / "portal"
-    _write_portal_json(portal_dir, {
-        "process_number": "ADI 1234",
-        "source_url": "https://portal.stf.jus.br/x",
-        "representantes": [
-            {
-                "lawyer_name": "Ana Costa",
-                "firm_name": "Costa e Associados Advogados",
-                "affiliation_confidence": "low",
-            },
-        ],
-    })
+    _write_portal_json(
+        portal_dir,
+        {
+            "process_number": "ADI 1234",
+            "source_url": "https://portal.stf.jus.br/x",
+            "representantes": [
+                {
+                    "lawyer_name": "Ana Costa",
+                    "firm_name": "Costa e Associados Advogados",
+                    "affiliation_confidence": "low",
+                },
+            ],
+        },
+    )
 
     records = build_law_firm_entity_records(process_path, portal_dir, tmp_path)
 
@@ -210,14 +234,17 @@ def test_build_law_firm_entity_dedup(tmp_path: Path):
     _write_process_jsonl(process_path, [{"process_id": "proc_1"}])
 
     portal_dir = tmp_path / "portal"
-    _write_portal_json(portal_dir, {
-        "process_number": "ADI 1234",
-        "source_url": "https://portal.stf.jus.br/x",
-        "representantes": [
-            {"lawyer_name": "A", "firm_name": "Escritorio ABC"},
-            {"lawyer_name": "B", "firm_name": "Escritorio ABC"},
-        ],
-    })
+    _write_portal_json(
+        portal_dir,
+        {
+            "process_number": "ADI 1234",
+            "source_url": "https://portal.stf.jus.br/x",
+            "representantes": [
+                {"lawyer_name": "A", "firm_name": "Escritorio ABC"},
+                {"lawyer_name": "B", "firm_name": "Escritorio ABC"},
+            ],
+        },
+    )
 
     records = build_law_firm_entity_records(process_path, portal_dir, tmp_path)
 
@@ -229,11 +256,14 @@ def test_build_law_firm_entity_stable_id_deterministic(tmp_path: Path):
     _write_process_jsonl(process_path, [{"process_id": "proc_1"}])
 
     portal_dir = tmp_path / "portal"
-    _write_portal_json(portal_dir, {
-        "process_number": "ADI 1234",
-        "source_url": "https://portal.stf.jus.br/x",
-        "representantes": [{"lawyer_name": "A", "firm_name": "Escritorio ABC"}],
-    })
+    _write_portal_json(
+        portal_dir,
+        {
+            "process_number": "ADI 1234",
+            "source_url": "https://portal.stf.jus.br/x",
+            "representantes": [{"lawyer_name": "A", "firm_name": "Escritorio ABC"}],
+        },
+    )
 
     r1 = build_law_firm_entity_records(process_path, portal_dir, tmp_path)
     r2 = build_law_firm_entity_records(process_path, portal_dir, tmp_path)
@@ -248,12 +278,15 @@ def test_build_law_firm_entity_stable_id_deterministic(tmp_path: Path):
 
 def test_build_representation_edge_records(tmp_path: Path):
     process_path = tmp_path / "process.jsonl"
-    _write_process_jsonl(process_path, [
-        {
-            "process_id": "proc_1",
-            "juris_advogados": "JOAO DA SILVA",
-        },
-    ])
+    _write_process_jsonl(
+        process_path,
+        [
+            {
+                "process_id": "proc_1",
+                "juris_advogados": "JOAO DA SILVA",
+            },
+        ],
+    )
 
     normalized = normalize_entity_name("JOAO DA SILVA")
     assert normalized is not None
@@ -306,23 +339,29 @@ def test_build_representation_edge_records_empty(tmp_path: Path):
 
 def test_build_representation_event_records_with_oral_argument(tmp_path: Path):
     process_path = tmp_path / "process.jsonl"
-    _write_process_jsonl(process_path, [
-        {"process_id": "proc_1", "process_number": "ADI 1234"},
-    ])
+    _write_process_jsonl(
+        process_path,
+        [
+            {"process_id": "proc_1", "process_number": "ADI 1234"},
+        ],
+    )
 
     portal_dir = tmp_path / "portal"
-    _write_portal_json(portal_dir, {
-        "process_number": "ADI 1234",
-        "source_url": "https://portal.stf.jus.br/x",
-        "oral_arguments": [
-            {
-                "lawyer_name": "Ana Costa",
-                "party_represented": "Estado X",
-                "session_date": "2026-03-15",
-                "session_type": "Plenario",
-            },
-        ],
-    })
+    _write_portal_json(
+        portal_dir,
+        {
+            "process_number": "ADI 1234",
+            "source_url": "https://portal.stf.jus.br/x",
+            "oral_arguments": [
+                {
+                    "lawyer_name": "Ana Costa",
+                    "party_represented": "Estado X",
+                    "session_date": "2026-03-15",
+                    "session_type": "Plenario",
+                },
+            ],
+        },
+    )
 
     records = build_representation_event_records(
         process_path=process_path,
@@ -337,23 +376,29 @@ def test_build_representation_event_records_with_oral_argument(tmp_path: Path):
 
 def test_build_representation_event_records_with_petition(tmp_path: Path):
     process_path = tmp_path / "process.jsonl"
-    _write_process_jsonl(process_path, [
-        {"process_id": "proc_1", "process_number": "ADI 1234"},
-    ])
+    _write_process_jsonl(
+        process_path,
+        [
+            {"process_id": "proc_1", "process_number": "ADI 1234"},
+        ],
+    )
 
     portal_dir = tmp_path / "portal"
-    _write_portal_json(portal_dir, {
-        "process_number": "ADI 1234",
-        "source_url": "https://portal.stf.jus.br/x",
-        "peticoes_detailed": [
-            {
-                "petitioner_name": "Joao Silva",
-                "date": "2026-02-10",
-                "document_type": "Recurso",
-                "protocol": "123456",
-            },
-        ],
-    })
+    _write_portal_json(
+        portal_dir,
+        {
+            "process_number": "ADI 1234",
+            "source_url": "https://portal.stf.jus.br/x",
+            "peticoes_detailed": [
+                {
+                    "petitioner_name": "Joao Silva",
+                    "date": "2026-02-10",
+                    "document_type": "Recurso",
+                    "protocol": "123456",
+                },
+            ],
+        },
+    )
 
     records = build_representation_event_records(
         process_path=process_path,
@@ -384,14 +429,17 @@ def test_build_representation_event_records_empty(tmp_path: Path):
 
 def test_build_source_evidence_records_with_representantes(tmp_path: Path):
     portal_dir = tmp_path / "portal"
-    _write_portal_json(portal_dir, {
-        "process_number": "ADI 1234",
-        "source_url": "https://portal.stf.jus.br/x",
-        "fetched_at": "2026-03-15T00:00:00+00:00",
-        "representantes": [
-            {"lawyer_name": "Ana Costa", "party_name": "Estado X"},
-        ],
-    })
+    _write_portal_json(
+        portal_dir,
+        {
+            "process_number": "ADI 1234",
+            "source_url": "https://portal.stf.jus.br/x",
+            "fetched_at": "2026-03-15T00:00:00+00:00",
+            "representantes": [
+                {"lawyer_name": "Ana Costa", "party_name": "Estado X"},
+            ],
+        },
+    )
 
     records = build_source_evidence_records(portal_dir=portal_dir)
 
@@ -409,14 +457,17 @@ def test_build_source_evidence_records_empty(tmp_path: Path):
 
 def test_build_source_evidence_records_with_oral_arguments(tmp_path: Path):
     portal_dir = tmp_path / "portal"
-    _write_portal_json(portal_dir, {
-        "process_number": "ADI 5678",
-        "source_url": "https://portal.stf.jus.br/y",
-        "fetched_at": "2026-03-15T00:00:00+00:00",
-        "oral_arguments": [
-            {"lawyer_name": "Carlos Mendes", "party_represented": "Uniao"},
-        ],
-    })
+    _write_portal_json(
+        portal_dir,
+        {
+            "process_number": "ADI 5678",
+            "source_url": "https://portal.stf.jus.br/y",
+            "fetched_at": "2026-03-15T00:00:00+00:00",
+            "oral_arguments": [
+                {"lawyer_name": "Carlos Mendes", "party_represented": "Uniao"},
+            ],
+        },
+    )
 
     records = build_source_evidence_records(portal_dir=portal_dir)
 
@@ -432,39 +483,45 @@ def test_build_source_evidence_records_with_oral_arguments(tmp_path: Path):
 
 def test_build_representation_jsonl_orchestrator(tmp_path: Path):
     process_path = tmp_path / "process.jsonl"
-    _write_process_jsonl(process_path, [
-        {
-            "process_id": "proc_1",
-            "process_number": "ADI 1234",
-            "juris_advogados": "JOAO DA SILVA",
-        },
-    ])
+    _write_process_jsonl(
+        process_path,
+        [
+            {
+                "process_id": "proc_1",
+                "process_number": "ADI 1234",
+                "juris_advogados": "JOAO DA SILVA",
+            },
+        ],
+    )
 
     portal_dir = tmp_path / "portal"
-    _write_portal_json(portal_dir, {
-        "process_number": "ADI 1234",
-        "source_url": "https://portal.stf.jus.br/x",
-        "fetched_at": "2026-03-15T00:00:00+00:00",
-        "representantes": [
-            {
-                "lawyer_name": "Ana Costa",
-                "oab_number": "12345/SP",
-                "oab_state": "SP",
-                "party_name": "Estado X",
-                "party_role": "REQTE",
-                "firm_name": "Costa Advogados",
-                "affiliation_confidence": "low",
-            },
-        ],
-        "oral_arguments": [
-            {
-                "lawyer_name": "Ana Costa",
-                "party_represented": "Estado X",
-                "session_date": "2026-03-15",
-                "session_type": "Plenario",
-            },
-        ],
-    })
+    _write_portal_json(
+        portal_dir,
+        {
+            "process_number": "ADI 1234",
+            "source_url": "https://portal.stf.jus.br/x",
+            "fetched_at": "2026-03-15T00:00:00+00:00",
+            "representantes": [
+                {
+                    "lawyer_name": "Ana Costa",
+                    "oab_number": "12345/SP",
+                    "oab_state": "SP",
+                    "party_name": "Estado X",
+                    "party_role": "REQTE",
+                    "firm_name": "Costa Advogados",
+                    "affiliation_confidence": "low",
+                },
+            ],
+            "oral_arguments": [
+                {
+                    "lawyer_name": "Ana Costa",
+                    "party_represented": "Estado X",
+                    "session_date": "2026-03-15",
+                    "session_type": "Plenario",
+                },
+            ],
+        },
+    )
 
     curated_dir = tmp_path / "curated"
     curated_dir.mkdir()
@@ -514,23 +571,29 @@ def test_lawyer_rekey_no_duplicate(tmp_path: Path):
     """Lawyer enters by name, then OAB upgrades identity → no duplicate."""
     process_path = tmp_path / "process.jsonl"
     # Source 1: name-only entry for "ANA COSTA"
-    _write_process_jsonl(process_path, [
-        {"process_id": "proc_1", "juris_advogados": "ANA COSTA"},
-    ])
+    _write_process_jsonl(
+        process_path,
+        [
+            {"process_id": "proc_1", "juris_advogados": "ANA COSTA"},
+        ],
+    )
 
     # Source 2: portal provides OAB for the same person
     portal_dir = tmp_path / "portal"
-    _write_portal_json(portal_dir, {
-        "process_number": "ADI 1234",
-        "source_url": "https://portal.stf.jus.br/x",
-        "representantes": [
-            {
-                "lawyer_name": "Ana Costa",
-                "oab_number": "12345/SP",
-                "oab_state": "SP",
-            },
-        ],
-    })
+    _write_portal_json(
+        portal_dir,
+        {
+            "process_number": "ADI 1234",
+            "source_url": "https://portal.stf.jus.br/x",
+            "representantes": [
+                {
+                    "lawyer_name": "Ana Costa",
+                    "oab_number": "12345/SP",
+                    "oab_state": "SP",
+                },
+            ],
+        },
+    )
 
     records = build_lawyer_entity_records(process_path, portal_dir, tmp_path)
 
@@ -546,9 +609,12 @@ def test_lawyer_rekey_no_duplicate(tmp_path: Path):
 
 def test_build_representation_jsonl_no_portal(tmp_path: Path):
     process_path = tmp_path / "process.jsonl"
-    _write_process_jsonl(process_path, [
-        {"process_id": "proc_1", "juris_advogados": "JOAO DA SILVA"},
-    ])
+    _write_process_jsonl(
+        process_path,
+        [
+            {"process_id": "proc_1", "juris_advogados": "JOAO DA SILVA"},
+        ],
+    )
 
     curated_dir = tmp_path / "curated"
     curated_dir.mkdir()

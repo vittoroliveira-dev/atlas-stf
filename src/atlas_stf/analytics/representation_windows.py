@@ -185,17 +185,19 @@ def build_representation_windows(
         last_date = sorted_dates[-1] if sorted_dates else None
 
         window_id = stable_id("win_", f"{lawyer_id}:{window_type}")
-        records.append({
-            "window_id": window_id,
-            "lawyer_id": lawyer_id,
-            "lawyer_name": lawyer_lookup.get(lawyer_id, ""),
-            "window_type": window_type,
-            "event_count": stats["event_count"],
-            "process_count": len(stats["process_ids"]),
-            "first_date": first_date,
-            "last_date": last_date,
-            "generated_at": timestamp,
-        })
+        records.append(
+            {
+                "window_id": window_id,
+                "lawyer_id": lawyer_id,
+                "lawyer_name": lawyer_lookup.get(lawyer_id, ""),
+                "window_type": window_type,
+                "event_count": stats["event_count"],
+                "process_count": len(stats["process_ids"]),
+                "first_date": first_date,
+                "last_date": last_date,
+                "generated_at": timestamp,
+            }
+        )
 
     tick("Janelas: Escrevendo resultados...")
 
@@ -214,9 +216,7 @@ def build_representation_windows(
         "generated_at": timestamp,
     }
     summary_path = output_dir / "representation_windows_summary.json"
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
     tick("Janelas: Concluido")
     logger.info(

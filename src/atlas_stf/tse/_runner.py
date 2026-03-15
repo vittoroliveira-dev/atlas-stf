@@ -295,6 +295,13 @@ def fetch_donation_data(
         return config.output_dir
 
     checkpoint = _Checkpoint.load(config.output_dir)
+    if config.force_refresh:
+        logger.info("TSE: force-refresh enabled — clearing checkpoint for requested years")
+        for year in config.years:
+            checkpoint.completed_years.discard(year)
+            checkpoint.year_meta.pop(year, None)
+        checkpoint.save(config.output_dir)
+
     output_path = config.output_dir / "donations_raw.jsonl"
     total_record_count = 0
 
@@ -338,25 +345,43 @@ def fetch_donation_data(
 
     # Stream results to disk incrementally (avoids loading all records in RAM).
     # Keep existing records from completed years, append new ones.
+    # IMPORTANT: records from years being re-downloaded must be excluded
+    # to prevent duplication (e.g. force-refresh or remote-change scenarios).
+    years_being_replaced = set(downloaded.keys())
     tmp_path = output_path.with_suffix(".jsonl.tmp")
     with tmp_path.open("w", encoding="utf-8") as out:
-        # Copy existing records from previously completed years
+        # Copy existing records, excluding years that will be re-processed
         if output_path.exists() and checkpoint.completed_years:
             existing_count = 0
+            excluded_count = 0
             with output_path.open("r", encoding="utf-8") as fh:
                 for line in fh:
                     line = line.strip()
-                    if line:
-                        out.write(line + "\n")
-                        existing_count += 1
+                    if not line:
+                        continue
+                    if years_being_replaced:
+                        try:
+                            record = json.loads(line)
+                            if record.get("election_year") in years_being_replaced:
+                                excluded_count += 1
+                                continue
+                        except json.JSONDecodeError:
+                            pass
+                    out.write(line + "\n")
+                    existing_count += 1
             total_record_count += existing_count
             logger.info(
-                "Copied %d existing records from %d completed years",
+                "Copied %d existing records from %d completed years (excluded %d from refreshed years)",
                 existing_count,
                 len(checkpoint.completed_years),
+                excluded_count,
             )
 
-        # Process downloaded ZIPs one by one, writing directly to disk
+        # Process downloaded ZIPs one by one, writing directly to disk.
+        # Checkpoint updates are collected but NOT persisted until after the
+        # atomic rename — this prevents the checkpoint from getting ahead of
+        # the data file if the process crashes mid-write.
+        checkpoint_pending: list[tuple[int, _YearMeta]] = []
         for year in config.years:
             if year not in downloaded:
                 continue
@@ -375,14 +400,18 @@ def fetch_donation_data(
             if year_count:
                 total_record_count += year_count
                 logger.info("Wrote %d records for year %d", year_count, year)
-                checkpoint.completed_years.add(year)
-                checkpoint.year_meta[year] = meta
-                checkpoint.save(config.output_dir)
+                checkpoint_pending.append((year, meta))
             else:
                 logger.warning("Year %d returned 0 records — not marking as completed", year)
 
-    # Atomic rename
+    # Atomic rename — only after this succeeds do we persist the checkpoint.
     tmp_path.replace(output_path)
+
+    for year, meta in checkpoint_pending:
+        checkpoint.completed_years.add(year)
+        checkpoint.year_meta[year] = meta
+    if checkpoint_pending:
+        checkpoint.save(config.output_dir)
 
     if on_progress:
         on_progress(total_years, total_years, "TSE: Concluído")
