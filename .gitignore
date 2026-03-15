@@ -27,6 +27,10 @@ data/analytics/
 data/evidence/
 data/serving/
 
+# Scripts internos (release, probing)
+scripts/release.sh
+scripts/probe_results/
+
 # Reports e logs de pipeline
 reports/
 data/pipeline.log

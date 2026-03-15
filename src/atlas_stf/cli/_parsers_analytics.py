@@ -340,6 +340,102 @@ def _add_analytics_parsers(subparsers: Any) -> None:
         help="Output directory for analytics artifacts",
     )
 
+    analytics_repgraph = analytics_sub.add_parser(
+        "representation-graph", help="Build representation graph analytics"
+    )
+    analytics_repgraph.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=Path("data/curated"),
+        help="Curated JSONL directory",
+    )
+    analytics_repgraph.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/analytics"),
+        help="Output directory for analytics artifacts",
+    )
+
+    analytics_recurrence = analytics_sub.add_parser(
+        "representation-recurrence", help="Build representation recurrence analytics"
+    )
+    analytics_recurrence.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=Path("data/curated"),
+        help="Curated JSONL directory",
+    )
+    analytics_recurrence.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/analytics"),
+        help="Output directory for analytics artifacts",
+    )
+
+    analytics_windows = analytics_sub.add_parser(
+        "representation-windows", help="Build representation windows analytics"
+    )
+    analytics_windows.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=Path("data/curated"),
+        help="Curated JSONL directory",
+    )
+    analytics_windows.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/analytics"),
+        help="Output directory for analytics artifacts",
+    )
+
+    analytics_amicus = analytics_sub.add_parser(
+        "amicus-network", help="Build amicus network analytics"
+    )
+    analytics_amicus.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=Path("data/curated"),
+        help="Curated JSONL directory",
+    )
+    analytics_amicus.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/analytics"),
+        help="Output directory for analytics artifacts",
+    )
+
+    analytics_firmcluster = analytics_sub.add_parser(
+        "firm-cluster", help="Build firm cluster analytics"
+    )
+    analytics_firmcluster.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=Path("data/curated"),
+        help="Curated JSONL directory",
+    )
+    analytics_firmcluster.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/analytics"),
+        help="Output directory for analytics artifacts",
+    )
+
+    analytics_agenda_exp = analytics_sub.add_parser(
+        "agenda-exposure", help="Build agenda exposure analytics"
+    )
+    analytics_agenda_exp.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=Path("data/curated"),
+        help="Curated JSONL directory",
+    )
+    analytics_agenda_exp.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/analytics"),
+        help="Output directory for analytics artifacts",
+    )
+
     analytics_flow = analytics_sub.add_parser(
         "minister-flow",
         help="Build monthly decision flow summary for a minister",

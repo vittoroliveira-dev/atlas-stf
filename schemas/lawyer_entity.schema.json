@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/lawyer_entity.schema.json",
+  "title": "LawyerEntity",
+  "description": "Entidade canonica que representa um advogado individual, com dados OAB e vinculo a escritorio.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "lawyer_id",
+    "lawyer_name_raw"
+  ],
+  "properties": {
+    "lawyer_id": {
+      "type": "string",
+      "description": "Identificador interno estavel do advogado."
+    },
+    "lawyer_name_raw": {
+      "type": "string",
+      "description": "Nome bruto do advogado conforme a fonte."
+    },
+    "lawyer_name_normalized": {
+      "type": ["string", "null"],
+      "description": "Nome normalizado (uppercase, whitespace colapsado)."
+    },
+    "canonical_name_normalized": {
+      "type": ["string", "null"],
+      "description": "Nome canonico usado para matching e deduplicacao."
+    },
+    "oab_number": {
+      "type": ["string", "null"],
+      "description": "Numero OAB normalizado no formato NNNNNN/UF."
+    },
+    "oab_state": {
+      "type": ["string", "null"],
+      "description": "UF da inscricao OAB (ex: SP, RJ)."
+    },
+    "oab_status": {
+      "type": ["string", "null"],
+      "enum": ["ativo", "inativo", "cancelado", "suspenso", null],
+      "description": "Situacao cadastral OAB quando disponivel."
+    },
+    "oab_source": {
+      "type": ["string", "null"],
+      "description": "Sistema de origem da informacao OAB (ex: portal_stf, cnj_cnsa)."
+    },
+    "oab_validation_method": {
+      "type": ["string", "null"],
+      "description": "Metodo usado para validar a inscricao OAB (ex: regex, cnsa_lookup)."
+    },
+    "oab_last_checked_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Data/hora da ultima verificacao OAB."
+    },
+    "entity_tax_id": {
+      "type": ["string", "null"],
+      "description": "CPF normalizado quando houver evidencia."
+    },
+    "identity_key": {
+      "type": ["string", "null"],
+      "description": "Chave canonica deterministica da identidade (oab:, tax:, ou name:)."
+    },
+    "identity_strategy": {
+      "type": ["string", "null"],
+      "description": "Estrategia usada para definir a identidade canonica."
+    },
+    "firm_id": {
+      "type": ["string", "null"],
+      "description": "Referencia ao escritorio de advocacia vinculado."
+    },
+    "source_systems": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Sistemas de origem que evidenciaram este advogado."
+    },
+    "normalization_confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Nivel de confianca na consolidacao do nome."
+    },
+    "normalization_version": {
+      "type": ["string", "null"],
+      "description": "Versao da regra de normalizacao aplicada."
+    },
+    "first_seen_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Data da primeira aparicao nos dados."
+    },
+    "last_seen_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Data da ultima aparicao nos dados."
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "description": "Observacoes sobre ambiguidade, homonimia ou incerteza."
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  }
+}

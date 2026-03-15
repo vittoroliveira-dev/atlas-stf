@@ -22,19 +22,25 @@ from ._builder_loaders import (
     load_decision_velocities,
     load_donation_matches,
     load_economic_groups,
+    load_law_firm_entities,
+    load_lawyer_entities,
     load_metrics,
     load_minister_bios,
     load_ml_outlier_scores,
     load_movements,
     load_origin_contexts,
     load_parties,
+    load_process_lawyers,
     load_rapporteur_changes,
     load_rapporteur_profiles,
+    load_representation_edges,
+    load_representation_events,
     load_sanction_matches,
     load_sequential_analyses,
     load_session_events,
     load_temporal_analyses,
 )
+from ._builder_loaders_agenda import load_agenda_coverage, load_agenda_events, load_agenda_exposures
 from ._builder_schema import (
     SERVING_SCHEMA_SINGLETON_KEY,
     SERVING_SCHEMA_VERSION,
@@ -43,6 +49,9 @@ from ._builder_schema import (
 )
 from ._builder_utils import ServingBuildResult, SourceFile
 from .models import (
+    ServingAgendaCoverage,
+    ServingAgendaEvent,
+    ServingAgendaExposure,
     ServingAlert,
     ServingAssignmentAudit,
     ServingCase,
@@ -56,6 +65,8 @@ from .models import (
     ServingDecisionVelocity,
     ServingDonationMatch,
     ServingEconomicGroup,
+    ServingLawFirmEntity,
+    ServingLawyerEntity,
     ServingMetric,
     ServingMinisterBio,
     ServingMinisterFlow,
@@ -64,9 +75,12 @@ from .models import (
     ServingOriginContext,
     ServingParty,
     ServingProcessCounsel,
+    ServingProcessLawyer,
     ServingProcessParty,
     ServingRapporteurChange,
     ServingRapporteurProfile,
+    ServingRepresentationEdge,
+    ServingRepresentationEvent,
     ServingSanctionMatch,
     ServingSchemaMeta,
     ServingSequentialAnalysis,
@@ -135,6 +149,13 @@ def build_serving_database(
                 analytics_dir / "counsel_network_cluster_summary.json",
             ),
             SourceFile("economic_group", "analytics", analytics_dir / "economic_group.jsonl"),
+            SourceFile("lawyer_entity", "curated", curated_dir / "lawyer_entity.jsonl"),
+            SourceFile("law_firm_entity", "curated", curated_dir / "law_firm_entity.jsonl"),
+            SourceFile("representation_edge", "curated", curated_dir / "representation_edge.jsonl"),
+            SourceFile("representation_event", "curated", curated_dir / "representation_event.jsonl"),
+            SourceFile("agenda_event", "curated", curated_dir / "agenda_event.jsonl"),
+            SourceFile("agenda_coverage", "curated", curated_dir / "agenda_coverage.jsonl"),
+            SourceFile("agenda_exposure", "analytics", analytics_dir / "agenda_exposure.jsonl"),
         ]
         source_files.extend(source for source in optional_source_files if source.path.exists())
 
@@ -143,7 +164,7 @@ def build_serving_database(
             missing_text = ", ".join(str(path) for path in missing)
             raise FileNotFoundError(f"Serving build requires existing artifacts: {missing_text}")
 
-        _total = 29  # 24 loaders + 5 DB phases
+        _total = 37  # 32 loaders + 5 DB phases
         _step = 0
 
         def _tick(desc: str) -> None:
@@ -198,6 +219,22 @@ def build_serving_database(
         movements = load_movements(curated_dir)
         _tick("Serving: Carregando sessões...")
         session_events = load_session_events(curated_dir)
+        _tick("Serving: Carregando entidades advogados...")
+        lawyer_entities = load_lawyer_entities(curated_dir)
+        _tick("Serving: Carregando escritorios...")
+        law_firm_entities = load_law_firm_entities(curated_dir)
+        _tick("Serving: Carregando vinculos processo-advogado...")
+        process_lawyers = load_process_lawyers(curated_dir)
+        _tick("Serving: Carregando arestas representacao...")
+        representation_edges = load_representation_edges(curated_dir)
+        _tick("Serving: Carregando eventos representacao...")
+        representation_events = load_representation_events(curated_dir)
+        _tick("Serving: Carregando eventos agenda...")
+        agenda_events = load_agenda_events(curated_dir)
+        _tick("Serving: Carregando cobertura agenda...")
+        agenda_coverage = load_agenda_coverage(curated_dir)
+        _tick("Serving: Carregando exposicoes agenda...")
+        agenda_exposures = load_agenda_exposures(analytics_dir)
         _tick("Serving: Calculando auditorias...")
         audits = build_source_audits(source_files)
 
@@ -208,6 +245,14 @@ def build_serving_database(
                     ServingSourceAudit,
                     ServingMetric,
                     ServingSchemaMeta,
+                    ServingAgendaExposure,
+                    ServingAgendaCoverage,
+                    ServingAgendaEvent,
+                    ServingRepresentationEvent,
+                    ServingRepresentationEdge,
+                    ServingProcessLawyer,
+                    ServingLawFirmEntity,
+                    ServingLawyerEntity,
                     ServingSessionEvent,
                     ServingMovement,
                     ServingEconomicGroup,
@@ -269,6 +314,14 @@ def build_serving_database(
                 session.add_all(minister_flows)
                 session.add_all(movements)
                 session.add_all(session_events)
+                session.add_all(lawyer_entities)
+                session.add_all(law_firm_entities)
+                session.add_all(process_lawyers)
+                session.add_all(representation_edges)
+                session.add_all(representation_events)
+                session.add_all(agenda_events)
+                session.add_all(agenda_coverage)
+                session.add_all(agenda_exposures)
                 session.add_all(metrics)
                 session.add_all(audits)
                 _tick("Serving: Finalizando metadados...")

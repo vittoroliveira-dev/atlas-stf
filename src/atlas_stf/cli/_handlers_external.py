@@ -161,6 +161,32 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
         )
         return 0
 
+    if args.command == "oab" and args.oab_target == "validate":
+        from ..oab._config import OAB_API_KEY_ENV, OabValidationConfig
+        from ..oab._runner import run_oab_validation
+
+        api_key = args.api_key or os.getenv(OAB_API_KEY_ENV)
+        config = OabValidationConfig(
+            curated_dir=args.curated_dir,
+            output_dir=args.curated_dir,
+            provider=args.provider,
+            api_key=api_key,
+        )
+        run_oab_validation(config)
+        return 0
+
+    if args.command == "doc-extract" and args.doc_extract_target == "run":
+        from ..doc_extractor._config import DocExtractorConfig
+        from ..doc_extractor._runner import run_doc_extraction
+
+        config = DocExtractorConfig(
+            curated_dir=args.curated_dir,
+            min_confidence_gap=args.min_confidence,
+            max_documents=args.max_documents,
+        )
+        run_doc_extraction(config)
+        return 0
+
     if args.command == "stf-portal" and args.stf_portal_target == "fetch":
         from ..stf_portal._config import StfPortalConfig
         from ..stf_portal._runner import run_extraction
@@ -172,6 +198,26 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
             rate_limit_seconds=args.rate_limit,
         )
         run_extraction(config, dry_run=args.dry_run)
+        return 0
+
+    if args.command == "agenda" and args.agenda_target == "fetch":
+        from ..agenda._config import AgendaFetchConfig
+        from ..agenda._runner import run_agenda_fetch
+
+        config = AgendaFetchConfig(
+            output_dir=args.output_dir,
+            start_year=args.start_year,
+            end_year=args.end_year,
+            rate_limit_seconds=args.rate_limit,
+            dry_run=args.dry_run,
+        )
+        run_agenda_fetch(config)
+        return 0
+
+    if args.command == "agenda" and args.agenda_target == "build-events":
+        from ..curated.build_agenda import build_agenda_events
+
+        build_agenda_events(raw_dir=args.raw_dir, curated_dir=args.curated_dir)
         return 0
 
     return None

@@ -225,4 +225,76 @@ def dispatch_analytics(parser: argparse.ArgumentParser, args: argparse.Namespace
             )
         return 0
 
+    if args.command == "analytics" and args.analytics_target == "representation-graph":
+        from ..analytics.representation_graph import build_representation_graph
+        from ._progress import cli_progress
+
+        with cli_progress("Rep Graph") as on_progress:
+            build_representation_graph(
+                curated_dir=args.curated_dir,
+                output_dir=args.output_dir,
+                on_progress=on_progress,
+            )
+        return 0
+
+    if args.command == "analytics" and args.analytics_target == "representation-recurrence":
+        from ..analytics.representation_recurrence import build_representation_recurrence
+        from ._progress import cli_progress
+
+        with cli_progress("Recurrence") as on_progress:
+            build_representation_recurrence(
+                curated_dir=args.curated_dir,
+                output_dir=args.output_dir,
+                on_progress=on_progress,
+            )
+        return 0
+
+    if args.command == "analytics" and args.analytics_target == "representation-windows":
+        from ..analytics.representation_windows import build_representation_windows
+        from ._progress import cli_progress
+
+        with cli_progress("Windows") as on_progress:
+            build_representation_windows(
+                curated_dir=args.curated_dir,
+                output_dir=args.output_dir,
+                on_progress=on_progress,
+            )
+        return 0
+
+    if args.command == "analytics" and args.analytics_target == "amicus-network":
+        from ..analytics.amicus_network import build_amicus_network
+        from ._progress import cli_progress
+
+        with cli_progress("Amicus") as on_progress:
+            build_amicus_network(
+                curated_dir=args.curated_dir,
+                output_dir=args.output_dir,
+                on_progress=on_progress,
+            )
+        return 0
+
+    if args.command == "analytics" and args.analytics_target == "firm-cluster":
+        from ..analytics.firm_cluster import build_firm_cluster
+        from ._progress import cli_progress
+
+        with cli_progress("Firm Cluster") as on_progress:
+            build_firm_cluster(
+                curated_dir=args.curated_dir,
+                output_dir=args.output_dir,
+                on_progress=on_progress,
+            )
+        return 0
+
+    if args.command == "analytics" and args.analytics_target == "agenda-exposure":
+        from ..analytics.agenda_exposure import build_agenda_exposure
+        from ._progress import cli_progress
+
+        with cli_progress("Agenda Exposure") as on_progress:
+            build_agenda_exposure(
+                curated_dir=args.curated_dir,
+                analytics_dir=args.output_dir,
+                on_progress=on_progress,
+            )
+        return 0
+
     return None

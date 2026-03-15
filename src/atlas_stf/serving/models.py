@@ -136,5 +136,7 @@ class ServingSchemaMeta(Base):
 
 # Re-export analytics and timeline models for backward compatibility.
 # All existing imports from .models continue to work unchanged.
+from ._models_agenda import *  # noqa: E402, F401, F403
 from ._models_analytics import *  # noqa: E402, F401, F403
+from ._models_representation import *  # noqa: E402, F401, F403
 from ._models_timeline import *  # noqa: E402, F401, F403

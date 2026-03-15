@@ -70,6 +70,26 @@ def _add_data_prep_parsers(subparsers: Any) -> None:
         help="Output JSON audit report path",
     )
 
+    audit_representation = audit_sub.add_parser("representation", help="Audit representation network artifacts")
+    audit_representation.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=DEFAULT_CURATED_DIR,
+        help="Curated JSONL directory",
+    )
+    audit_representation.add_argument(
+        "--analytics-dir",
+        type=Path,
+        default=DEFAULT_ANALYTICS_DIR,
+        help="Analytics artifact directory",
+    )
+    audit_representation.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_CURATED_DIR / "_audit_representation_report.json",
+        help="Output JSON audit report path",
+    )
+
     audit_analytics = audit_sub.add_parser("analytics", help="Audit analytics artifacts")
     audit_analytics.add_argument(
         "--comparison-group-path",

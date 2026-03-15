@@ -221,10 +221,12 @@ def create_app(*, database_url: str | None = None) -> FastAPI:
         )
 
     # Register all route groups
+    from ._routes_agenda import register_agenda_routes
     from ._routes_alerts_cases import register_alerts_cases_routes
     from ._routes_analytics import register_analytics_routes
     from ._routes_core import register_core_routes
     from ._routes_entities import register_entities_routes
+    from ._routes_representation import register_representation_routes
     from ._routes_risk import register_risk_routes
     from ._routes_timeline import register_timeline_routes
 
@@ -234,5 +236,7 @@ def create_app(*, database_url: str | None = None) -> FastAPI:
     register_analytics_routes(app, factory, build_filters, get_base_filters)
     register_risk_routes(app, factory, build_filters, get_base_filters)
     register_timeline_routes(app, factory, build_filters, get_base_filters)
+    register_representation_routes(app, factory, build_filters, get_base_filters)
+    register_agenda_routes(app, factory, build_filters, get_base_filters)
 
     return app

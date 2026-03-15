@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/representation_edge.schema.json",
+  "title": "RepresentationEdge",
+  "description": "Aresta de representacao entre um advogado/escritorio e um processo, com papel e periodo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "edge_id",
+    "process_id",
+    "representative_entity_id"
+  ],
+  "properties": {
+    "edge_id": {
+      "type": "string",
+      "description": "Identificador interno estavel da aresta."
+    },
+    "process_id": {
+      "type": "string",
+      "description": "ID do processo associado."
+    },
+    "representative_entity_id": {
+      "type": "string",
+      "description": "ID da entidade representante (lawyer_id ou firm_id)."
+    },
+    "representative_kind": {
+      "type": ["string", "null"],
+      "enum": ["lawyer", "law_firm", null],
+      "description": "Tipo da entidade representante."
+    },
+    "role_type": {
+      "type": ["string", "null"],
+      "enum": [
+        "counsel_of_record",
+        "amicus_representative",
+        "oral_argument_speaker",
+        "memorial_submitter",
+        "power_of_attorney_signatory",
+        "substitute_counsel",
+        "public_attorney",
+        null
+      ],
+      "description": "Papel do representante no processo."
+    },
+    "lawyer_id": {
+      "type": ["string", "null"],
+      "description": "Referencia ao advogado individual quando aplicavel."
+    },
+    "firm_id": {
+      "type": ["string", "null"],
+      "description": "Referencia ao escritorio quando aplicavel."
+    },
+    "party_id": {
+      "type": ["string", "null"],
+      "description": "Referencia a parte representada."
+    },
+    "start_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Data de inicio da representacao."
+    },
+    "end_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Data de encerramento da representacao."
+    },
+    "evidence_count": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Quantidade de evidencias que sustentam esta aresta."
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs das evidencias de origem."
+    },
+    "confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Nivel de confianca agregado da aresta."
+    },
+    "source_systems": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Sistemas de origem que evidenciaram esta representacao."
+    }
+  }
+}

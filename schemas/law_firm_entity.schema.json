@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/law_firm_entity.schema.json",
+  "title": "LawFirmEntity",
+  "description": "Entidade canonica que representa um escritorio de advocacia ou sociedade de advogados.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "firm_id",
+    "firm_name_raw"
+  ],
+  "properties": {
+    "firm_id": {
+      "type": "string",
+      "description": "Identificador interno estavel do escritorio."
+    },
+    "firm_name_raw": {
+      "type": "string",
+      "description": "Nome bruto do escritorio conforme a fonte."
+    },
+    "firm_name_normalized": {
+      "type": ["string", "null"],
+      "description": "Nome normalizado (uppercase, whitespace colapsado)."
+    },
+    "canonical_name_normalized": {
+      "type": ["string", "null"],
+      "description": "Nome canonico usado para matching e deduplicacao."
+    },
+    "cnpj": {
+      "type": ["string", "null"],
+      "description": "CNPJ normalizado (somente digitos)."
+    },
+    "cnpj_valid": {
+      "type": ["boolean", "null"],
+      "description": "Resultado da validacao do digito verificador do CNPJ."
+    },
+    "cnsa_number": {
+      "type": ["string", "null"],
+      "description": "Numero CNSA (Cadastro Nacional de Sociedades de Advogados) normalizado."
+    },
+    "identity_key": {
+      "type": ["string", "null"],
+      "description": "Chave canonica deterministica da identidade (tax:, cnsa:, ou name:)."
+    },
+    "identity_strategy": {
+      "type": ["string", "null"],
+      "description": "Estrategia usada para definir a identidade canonica."
+    },
+    "source_systems": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Sistemas de origem que evidenciaram este escritorio."
+    },
+    "member_lawyer_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs dos advogados membros deste escritorio."
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  }
+}

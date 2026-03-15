@@ -276,6 +276,54 @@ def _add_external_parsers(subparsers: Any) -> None:
     )
     stf_portal_fetch.add_argument("--dry-run", action="store_true", help="List processes without fetching")
 
+    oab = subparsers.add_parser("oab", help="Validate OAB numbers against CNA/CNSA")
+    oab_sub = oab.add_subparsers(dest="oab_target", required=True)
+    oab_validate = oab_sub.add_parser("validate", help="Validate OAB numbers")
+    oab_validate.add_argument(
+        "--provider",
+        choices=["cna", "cnsa", "null", "format"],
+        default="null",
+        help="Validation provider (default: null)",
+    )
+    oab_validate.add_argument("--api-key", default=None, help="OAB API key (or set OAB_API_KEY)")
+    oab_validate.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=DEFAULT_CURATED_DIR,
+        help="Curated JSONL directory containing lawyer_entity.jsonl",
+    )
+
+    doc_extract = subparsers.add_parser("doc-extract", help="Extract representation data from PDF documents")
+    doc_extract_sub = doc_extract.add_subparsers(dest="doc_extract_target", required=True)
+    doc_extract_run = doc_extract_sub.add_parser("run", help="Run selective document extraction")
+    doc_extract_run.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=DEFAULT_CURATED_DIR,
+        help="Curated JSONL directory",
+    )
+    doc_extract_run.add_argument(
+        "--min-confidence",
+        type=float,
+        default=0.7,
+        help="Only process edges below this confidence (default: 0.7)",
+    )
+    doc_extract_run.add_argument("--max-documents", type=int, default=None, help="Limit documents to process")
+
+    agenda = subparsers.add_parser("agenda", help="Fetch and process ministerial agenda data")
+    agenda_sub = agenda.add_subparsers(dest="agenda_target", required=True)
+    agenda_fetch = agenda_sub.add_parser("fetch", help="Fetch agenda data from STF GraphQL API")
+    agenda_fetch.add_argument("--start-year", type=int, default=2024, help="Start year (default: 2024)")
+    agenda_fetch.add_argument("--end-year", type=int, default=None, help="End year (default: current)")
+    agenda_fetch.add_argument("--rate-limit", type=float, default=1.0, help="Seconds between requests")
+    agenda_fetch.add_argument("--output-dir", type=Path, default=Path("data/raw/agenda"), help="Output directory")
+    agenda_fetch.add_argument("--dry-run", action="store_true", help="List months without fetching")
+    agenda_build = agenda_sub.add_parser("build-events", help="Build curated agenda events and coverage")
+    agenda_build.add_argument(
+        "--raw-dir", type=Path, default=Path("data/raw/agenda"), help="Raw agenda JSONL directory",
+    )
+    agenda_build.add_argument("--curated-dir", type=Path, default=DEFAULT_CURATED_DIR, help="Curated output directory")
+
     api = subparsers.add_parser("api", help="Serve the HTTP API over the serving database")
     api_sub = api.add_subparsers(dest="api_target", required=True)
     api_serve = api_sub.add_parser("serve", help="Start the FastAPI application with Uvicorn")

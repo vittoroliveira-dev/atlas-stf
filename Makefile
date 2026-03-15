@@ -3,16 +3,19 @@
        audit-stage audit-curated audit-analytics audit \
        staging curate \
        curate-process curate-decision-event curate-subject curate-party \
-       curate-counsel curate-entity-identifier curate-entity-reconciliation curate-links \
+       curate-counsel curate-representation curate-entity-identifier curate-entity-reconciliation curate-links \
        analytics evidence scrape format \
        _ag-groups _ag-rapporteur _ag-assignment _ag-sequential _ag-temporal _ag-counsel \
        _ag-baseline _ag-alerts _ag-ml-outlier _ag-compound-risk \
        _ag-velocity _ag-rapporteur-change _ag-counsel-network \
-       _ag-procedural-timeline _ag-pauta-anomaly \
+       _ag-procedural-timeline _ag-pauta-anomaly _ag-representation-graph \
+       _ag-representation-recurrence _ag-representation-windows \
+       _ag-amicus-network _ag-firm-cluster \
+       _ag-agenda-exposure agenda-fetch agenda-build agenda \
        cgu cgu-fetch cgu-matches tse tse-fetch tse-matches cvm cvm-fetch cvm-matches \
        rfb rfb-fetch rfb-network rfb-groups \
        datajud datajud-fetch datajud-context \
-       stf-portal stf-portal-fetch \
+       stf-portal stf-portal-fetch oab-validate \
        external-fetch external-matches external-data \
        serving-build pipeline serve-api web-dev web-build web-typecheck \
        docker-build docker-up
@@ -99,6 +102,9 @@ curate-entity-identifier:
 curate-entity-reconciliation:
 	$(CLI) curate entity-reconciliation
 
+curate-representation:
+	$(CLI) curate representation
+
 curate-links:
 	$(CLI) curate links
 
@@ -154,12 +160,40 @@ _ag-procedural-timeline:
 _ag-pauta-anomaly:
 	$(CLI) analytics pauta-anomaly
 
+_ag-representation-graph:
+	$(CLI) analytics representation-graph
+
+_ag-representation-recurrence:
+	$(CLI) analytics representation-recurrence
+
+_ag-representation-windows:
+	$(CLI) analytics representation-windows
+
+_ag-amicus-network:
+	$(CLI) analytics amicus-network
+
+_ag-firm-cluster:
+	$(CLI) analytics firm-cluster
+
+_ag-agenda-exposure:
+	$(CLI) analytics agenda-exposure
+
+agenda-fetch:
+	$(CLI) agenda fetch
+
+agenda-build: agenda-fetch
+	$(CLI) agenda build-events
+
+agenda: agenda-fetch agenda-build _ag-agenda-exposure
+
 _ag-compound-risk: _ag-alerts _ag-counsel _ag-velocity _ag-rapporteur-change
 	$(CLI) analytics compound-risk
 
 analytics: _ag-groups _ag-rapporteur _ag-assignment _ag-sequential _ag-temporal _ag-counsel \
            _ag-baseline _ag-alerts _ag-ml-outlier _ag-velocity _ag-rapporteur-change \
-           _ag-counsel-network _ag-procedural-timeline _ag-pauta-anomaly _ag-compound-risk
+           _ag-counsel-network _ag-procedural-timeline _ag-pauta-anomaly \
+           _ag-representation-graph _ag-representation-recurrence _ag-representation-windows \
+           _ag-amicus-network _ag-firm-cluster _ag-agenda-exposure _ag-compound-risk
 
 evidence:
 	$(CLI) evidence build-all
@@ -218,6 +252,9 @@ stf-portal-fetch:
 	$(CLI) stf-portal fetch
 
 stf-portal: stf-portal-fetch
+
+oab-validate:
+	$(CLI) oab validate --provider null
 
 external-fetch: cgu-fetch tse-fetch cvm-fetch rfb-fetch
 external-matches: cgu-matches tse-matches cvm-matches rfb-network

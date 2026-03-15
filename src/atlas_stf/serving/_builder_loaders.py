@@ -51,6 +51,21 @@ from ._builder_loaders_corporate import (
 from ._builder_loaders_corporate import (
     load_economic_groups as load_economic_groups,
 )
+from ._builder_loaders_representation import (
+    load_law_firm_entities as load_law_firm_entities,
+)
+from ._builder_loaders_representation import (
+    load_lawyer_entities as load_lawyer_entities,
+)
+from ._builder_loaders_representation import (
+    load_process_lawyers as load_process_lawyers,
+)
+from ._builder_loaders_representation import (
+    load_representation_edges as load_representation_edges,
+)
+from ._builder_loaders_representation import (
+    load_representation_events as load_representation_events,
+)
 from ._builder_loaders_timeline import (
     load_movements as load_movements,
 )

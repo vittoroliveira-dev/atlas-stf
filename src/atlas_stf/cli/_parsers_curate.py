@@ -92,6 +92,29 @@ def _add_curate_parsers(subparsers: Any) -> None:
         help="Output JSONL path",
     )
 
+    curate_representation = curate_sub.add_parser(
+        "representation",
+        help="Build representation network (lawyer entities, firms, edges, events, evidence)",
+    )
+    curate_representation.add_argument(
+        "--process-path",
+        type=Path,
+        default=Path("data/curated/process.jsonl"),
+        help="Curated process JSONL path",
+    )
+    curate_representation.add_argument(
+        "--portal-dir",
+        type=Path,
+        default=Path("data/raw/stf_portal"),
+        help="STF portal JSONL directory",
+    )
+    curate_representation.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=Path("data/curated"),
+        help="Output directory for curated JSONL files",
+    )
+
     curate_entity_identifier = curate_sub.add_parser(
         "entity-identifier",
         help="Extract experimental CPF/CNPJ occurrences from raw jurisprudencia text",

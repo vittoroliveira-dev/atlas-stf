@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/source_evidence.schema.json",
+  "title": "SourceEvidence",
+  "description": "Registro de proveniencia que vincula uma extracao ao documento/campo de origem.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidence_id",
+    "source_system",
+    "source_url"
+  ],
+  "properties": {
+    "evidence_id": {
+      "type": "string",
+      "description": "Identificador interno estavel da evidencia."
+    },
+    "source_system": {
+      "type": "string",
+      "description": "Sistema de origem (ex: jurisprudencia, portal_stf, cnj_cnsa)."
+    },
+    "source_url": {
+      "type": "string",
+      "description": "URL ou caminho do documento de origem."
+    },
+    "entity_id": {
+      "type": ["string", "null"],
+      "description": "ID da entidade (lawyer ou firm) extraida."
+    },
+    "edge_id": {
+      "type": ["string", "null"],
+      "description": "ID da aresta de representacao associada."
+    },
+    "event_id": {
+      "type": ["string", "null"],
+      "description": "ID do evento associado."
+    },
+    "source_tab": {
+      "type": ["string", "null"],
+      "description": "Aba ou secao do portal de origem."
+    },
+    "process_number": {
+      "type": ["string", "null"],
+      "description": "Numero do processo na fonte."
+    },
+    "process_id": {
+      "type": ["string", "null"],
+      "description": "ID interno do processo associado."
+    },
+    "snippet_text": {
+      "type": ["string", "null"],
+      "description": "Trecho de texto extraido da fonte."
+    },
+    "raw_field_name": {
+      "type": ["string", "null"],
+      "description": "Nome do campo bruto de onde a informacao foi extraida."
+    },
+    "parser_version": {
+      "type": ["string", "null"],
+      "description": "Versao do parser que realizou a extracao."
+    },
+    "extraction_confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Nivel de confianca na extracao."
+    },
+    "fetched_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Data/hora da coleta do dado."
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/representation_event.schema.json",
+  "title": "RepresentationEvent",
+  "description": "Evento processual que evidencia a atuacao de um advogado/escritorio em um processo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "process_id"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Identificador interno estavel do evento."
+    },
+    "process_id": {
+      "type": "string",
+      "description": "ID do processo associado."
+    },
+    "edge_id": {
+      "type": ["string", "null"],
+      "description": "Referencia a aresta de representacao associada."
+    },
+    "lawyer_id": {
+      "type": ["string", "null"],
+      "description": "Referencia ao advogado individual quando aplicavel."
+    },
+    "firm_id": {
+      "type": ["string", "null"],
+      "description": "Referencia ao escritorio quando aplicavel."
+    },
+    "event_type": {
+      "type": ["string", "null"],
+      "enum": [
+        "petition",
+        "oral_argument",
+        "memorial",
+        "amicus_brief",
+        "procuracao",
+        "substabelecimento",
+        "withdrawal",
+        "other",
+        null
+      ],
+      "description": "Tipo do evento processual."
+    },
+    "event_date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Data do evento."
+    },
+    "event_description": {
+      "type": ["string", "null"],
+      "description": "Descricao textual do evento."
+    },
+    "protocol_number": {
+      "type": ["string", "null"],
+      "description": "Numero de protocolo do documento."
+    },
+    "document_type": {
+      "type": ["string", "null"],
+      "description": "Tipo de documento associado ao evento."
+    },
+    "source_system": {
+      "type": ["string", "null"],
+      "description": "Sistema de origem do evento."
+    },
+    "source_url": {
+      "type": ["string", "null"],
+      "description": "URL da fonte original."
+    },
+    "source_evidence_id": {
+      "type": ["string", "null"],
+      "description": "Referencia a evidencia de origem (source_evidence)."
+    },
+    "confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Nivel de confianca na extracao do evento."
+    }
+  }
+}

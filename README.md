@@ -88,11 +88,12 @@ O repositório combina quatro frentes operacionais:
 |---|---|---|
 | `raw` e `staging` | Limpeza e padronização das exportações estruturadas | `src/atlas_stf/staging/`, `tests/staging/` |
 | `core` | Domínio puro: identidade, parsers, regras, estatística, mapeamento de origem, TPU | `src/atlas_stf/core/`, `tests/core/` |
-| `curated` | Entidades canônicas de processo, decisão, parte, advogado, assunto, biografia ministerial, movimentos e eventos de sessão | `src/atlas_stf/curated/`, `tests/curated/` |
-| `analytics` | Grupos comparáveis, baseline, score, alertas, perfil de relator, auditoria de distribuição, análise temporal, counsel affinity, risco composto, velocidade decisória, mudança de relatoria, rede de advogados, linha do tempo processual, anomalia de pauta, identidade econômica, grupos econômicos | `src/atlas_stf/analytics/`, `tests/analytics/` |
+| `curated` | Entidades canônicas de processo, decisão, parte, advogado, assunto, biografia ministerial, movimentos, eventos de sessão, representação (advogados, escritórios, arestas, eventos) e agenda (agenda_event, agenda_coverage) | `src/atlas_stf/curated/`, `tests/curated/` |
+| `analytics` | Grupos comparáveis, baseline, score, alertas, perfil de relator, auditoria de distribuição, análise temporal, counsel affinity, risco composto, velocidade decisória, mudança de relatoria, rede de advogados, linha do tempo processual, anomalia de pauta, identidade econômica, grupos econômicos, grafo de representação, recorrência, janelas temporais, rede amicus, clusters de escritórios, agenda exposure | `src/atlas_stf/analytics/`, `tests/analytics/` |
 | `evidence` | Bundles técnicos por alerta | `src/atlas_stf/evidence/`, `tests/evidence/` |
-| `serving` | Banco de serving (30 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
-| `api` | Endpoints FastAPI (55) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
+| `agenda` | Fetcher de agenda ministerial da API GraphQL do STF, builder de eventos e analytics de exposição | `src/atlas_stf/agenda/`, `tests/agenda/` |
+| `serving` | Banco de serving (38 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
+| `api` | Endpoints FastAPI (68) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
 | `stf_portal` | Extrator de linha do tempo processual do portal STF (httpx) | `src/atlas_stf/stf_portal/`, `tests/stf_portal/` |
 | `cgu` | Dados CGU (CEIS/CNEP/Leniência) para cruzamento de sanções | `src/atlas_stf/cgu/`, `tests/cgu/` |
 | `tse` | Doações eleitorais TSE (12 ciclos, 2002–2024) | `src/atlas_stf/tse/`, `tests/tse/` |
@@ -115,6 +116,7 @@ O repositório combina quatro frentes operacionais:
 | DataJud CNJ | API REST (httpx) | Agregações por tribunal de origem |
 | PDPJ/CNJ TPU | API REST (gateway.cloud.pje.jus.br) | Tabelas Processuais Unificadas (847 classes, 957 movimentos, 5598 assuntos) |
 | Portal STF | HTTP scraping (httpx) | Linha do tempo processual (andamentos, sessões, vistas) |
+| STF GraphQL | API GraphQL (httpx) | Agenda ministerial (audiências, sessões, compromissos) |
 
 ## Arquitetura
 
@@ -144,9 +146,9 @@ flowchart LR
 |---|---|
 | Backend analítico | Python 3.14+, pandas 3, scikit-learn, scipy |
 | API | FastAPI + SQLAlchemy 2.x |
-| Serving database | SQLite (30 tabelas) |
+| Serving database | SQLite (38 tabelas) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 + Recharts |
-| Qualidade | pytest (83%), ruff, pyright, ESLint, vulture |
+| Qualidade | pytest (83%), ruff, pyright, ESLint 10, vulture |
 | Infra | Docker, GitHub Actions, uv |
 
 ### Configuração operacional canônica
@@ -156,13 +158,35 @@ flowchart LR
 - `ATLAS_STF_DATABASE_URL` deve apontar para essa URL em execução local e no `docker-compose`.
 - O serving DB é reconstruído a partir de `data/curated/` e `data/analytics/`; ele não é a fonte primária.
 
+## Instalação via Pacote
+
+O Atlas STF é distribuído como pacote Python via [GitHub Packages](https://github.com/vittoroliveira-dev/atlas-stf/packages).
+
+```bash
+pip install atlas-stf \
+  --index-url https://pypi.pkg.github.com/vittoroliveira-dev/atlas-stf/simple/
+```
+
+> **Nota:** o registro GitHub Packages requer autenticação. Configure um [Personal Access Token](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-apache-maven-registry#authenticating-with-a-personal-access-token) com permissão `read:packages` e use-o como senha no `pip`:
+>
+> ```bash
+> pip install atlas-stf \
+>   --index-url https://<USUARIO>:<TOKEN>@pypi.pkg.github.com/vittoroliveira-dev/atlas-stf/simple/
+> ```
+
+Após a instalação, a CLI fica disponível:
+
+```bash
+atlas-stf --help
+```
+
 ## Começando Localmente
 
 ### Pré-requisitos
 
 - Python 3.14+
 - `uv`
-- Node.js 20+
+- Node.js 24+ (LTS, pinado via `.nvmrc`)
 - `npm`
 
 ### 1. Instalação
@@ -200,6 +224,7 @@ make cgu             # Sanções CGU (CEIS/CNEP/Leniência)
 make tse             # Doações eleitorais TSE
 make cvm             # Sanções CVM
 make rfb             # Rede corporativa RFB
+make agenda           # Agenda ministerial (fetch + build + exposure)
 make stf-portal      # Linha do tempo do portal STF
 make evidence        # Bundles de evidência
 make serving-build   # Materializa banco SQLite para API
@@ -272,6 +297,8 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | `/velocidade` | Anomalias de tempo de tramitação (fura-fila/parado) |
 | `/redistribuicao` | Mudanças de relatoria e resultado pós-redistribuição |
 | `/rede-advogados` | Clusters de advogados que compartilham clientes |
+| `/agenda` | Agenda ministerial e exposição temporal |
+| `/agenda/ministro/[slug]` | Detalhe de agenda por ministro |
 | `/auditoria` | Auditoria de distribuição por relatoria |
 
 ## Fluxo de Trabalho da CLI
@@ -297,6 +324,17 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | Counsel Network | `uv run atlas-stf analytics counsel-network` |
 | Procedural Timeline | `uv run atlas-stf analytics procedural-timeline` |
 | Pauta Anomaly | `uv run atlas-stf analytics pauta-anomaly` |
+| Representation Graph | `uv run atlas-stf analytics representation-graph` |
+| Representation Recurrence | `uv run atlas-stf analytics representation-recurrence` |
+| Representation Windows | `uv run atlas-stf analytics representation-windows` |
+| Amicus Network | `uv run atlas-stf analytics amicus-network` |
+| Firm Cluster | `uv run atlas-stf analytics firm-cluster` |
+| Agenda Fetch | `uv run atlas-stf agenda fetch` |
+| Agenda Build Events | `uv run atlas-stf agenda build-events` |
+| Agenda Exposure | `uv run atlas-stf analytics agenda-exposure` |
+| Curadoria de representação | `uv run atlas-stf curate representation` |
+| Validação OAB | `uv run atlas-stf oab validate --provider null` |
+| Extração de documentos | `uv run atlas-stf doc-extract run` |
 | STF Portal | `uv run atlas-stf stf-portal fetch` |
 | Analytics (todos) | `uv run atlas-stf analytics ...` |
 | Evidence | `uv run atlas-stf evidence ...` |
@@ -305,7 +343,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 
 ## API HTTP
 
-### Endpoints principais (55)
+### Endpoints principais (68)
 
 <details>
 <summary>Expandir lista completa de endpoints</summary>
@@ -363,6 +401,12 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | `GET /caso/{process_id}/sessions` | Eventos de sessão do caso |
 | `GET /economic-groups` | Grupos econômicos (lista paginada com filtros) |
 | `GET /economic-groups/{group_id}` | Detalhe do grupo econômico |
+| `GET /agenda/events` | Lista paginada de eventos de agenda ministerial |
+| `GET /agenda/events/{event_id}` | Detalhe de evento de agenda |
+| `GET /agenda/coverage` | Cobertura de agenda por ministro |
+| `GET /agenda/exposure` | Scoring de proximidade temporal agenda-decisão |
+| `GET /agenda/ministers/{slug}` | Agenda detalhada de um ministro |
+| `GET /agenda/summary` | Resumo geral do módulo de agenda |
 
 </details>
 
@@ -387,13 +431,16 @@ atlas-stf/
 │   ├── analytics/        # Grupos, baselines, score, alertas, cruzamentos e risco
 │   ├── evidence/         # Bundles de evidência
 │   ├── stf_portal/       # Extrator de linha do tempo do portal STF
-│   ├── serving/          # Banco de serving (30 tabelas SQLAlchemy)
-│   ├── api/              # FastAPI (55 endpoints)
+│   ├── agenda/           # Agenda ministerial STF (GraphQL fetcher + builder + analytics)
+│   ├── serving/          # Banco de serving (38 tabelas SQLAlchemy)
+│   ├── api/              # FastAPI (68 endpoints)
 │   ├── cgu/              # CGU CEIS/CNEP/Leniência (httpx)
 │   ├── tse/              # TSE doações eleitorais (CSV)
 │   ├── cvm/              # CVM processos sancionadores (CSV)
 │   ├── rfb/              # RFB dados abertos CNPJ (CSV)
-│   └── datajud/          # DataJud CNJ (httpx)
+│   ├── datajud/          # DataJud CNJ (httpx)
+│   ├── oab/              # Validação OAB CNA/CNSA
+│   └── doc_extractor/    # Extração seletiva de PDFs
 ├── web/                  # Dashboard Next.js 16 + React 19 + TypeScript
 │   ├── src/app/          # 21 páginas (App Router, async Server Components)
 │   ├── src/components/   # 35+ componentes

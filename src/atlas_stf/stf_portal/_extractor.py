@@ -19,6 +19,9 @@ from ._parser import (
     parse_andamentos_html,
     parse_deslocamentos_html,
     parse_informacoes_html,
+    parse_oral_argument_html,
+    parse_partes_representantes_html,
+    parse_peticoes_detailed_html,
     parse_peticoes_html,
     parse_sessao_virtual_html,
 )
@@ -122,6 +125,11 @@ class PortalExtractor:
             sessao_virtual = parse_sessao_virtual_html(main_html)
             informacoes = parse_informacoes_html(main_html)
 
+            # Phase 2B: Representation-network parsers
+            representantes = parse_partes_representantes_html(main_html)
+            peticoes_detailed = parse_peticoes_detailed_html(main_html)
+            oral_arguments = parse_oral_argument_html(main_html)
+
             doc = build_process_document(
                 process_number=process_number,
                 source_url=source_url,
@@ -131,14 +139,18 @@ class PortalExtractor:
                 peticoes=peticoes,
                 sessao_virtual=sessao_virtual,
                 informacoes=informacoes,
+                representantes=representantes,
+                peticoes_detailed=peticoes_detailed,
+                oral_arguments=oral_arguments,
             )
 
             logger.info(
-                "Extracted %s: %d andamentos, %d deslocamentos, %d peticoes",
+                "Extracted %s: %d andamentos, %d deslocamentos, %d peticoes, %d representantes",
                 process_number,
                 len(andamentos),
                 len(deslocamentos),
                 len(peticoes),
+                len(representantes),
             )
             return doc
 

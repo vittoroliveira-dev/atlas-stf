@@ -1,7 +1,7 @@
 {
   "name": "atlas-stf-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.4",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -20,14 +20,14 @@
     "recharts": "^3.8.0"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.5",
-    "@tailwindcss/postcss": "^4.1.12",
-    "@types/node": "^25.3.5",
-    "@types/react": "^19.1.6",
-    "@types/react-dom": "^19.1.5",
-    "eslint": "^9.39.4",
-    "eslint-config-next": "^16.1.6",
-    "tailwindcss": "^4.1.12",
-    "typescript": "^5.8.3"
+    "@next/eslint-plugin-next": "^16.1.6",
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^10.0.3",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0"
   }
 }

@@ -190,3 +190,127 @@ def infer_process_class_from_number(process_number: str | None) -> str | None:
     if not match:
         return None
     return match.group(1).upper()
+
+
+# ---------------------------------------------------------------------------
+# OAB / CNSA / Representation Network identity helpers
+# ---------------------------------------------------------------------------
+
+VALID_UF_CODES: frozenset[str] = frozenset(
+    {
+        "AC",
+        "AL",
+        "AM",
+        "AP",
+        "BA",
+        "CE",
+        "DF",
+        "ES",
+        "GO",
+        "MA",
+        "MG",
+        "MS",
+        "MT",
+        "PA",
+        "PB",
+        "PE",
+        "PI",
+        "PR",
+        "RJ",
+        "RN",
+        "RO",
+        "RR",
+        "RS",
+        "SC",
+        "SE",
+        "SP",
+        "TO",
+    }
+)
+
+_OAB_RE = re.compile(r"^(\d{1,6})/([A-Z]{2})$")
+
+
+def normalize_oab_number(value: Any) -> str | None:
+    """Normalize OAB number to ``NNNNNN/UF`` format.
+
+    Strips dots/spaces before the slash, uppercases the UF,
+    and validates the resulting format.  Returns ``None`` for
+    values that cannot be normalised into a valid OAB number.
+    """
+    text = as_optional_str(value)
+    if text is None:
+        return None
+    text = text.upper().strip()
+    slash_idx = text.rfind("/")
+    if slash_idx < 0:
+        return None
+    number_part = re.sub(r"\D+", "", text[:slash_idx])
+    uf_part = text[slash_idx + 1 :].strip()
+    if not number_part or not uf_part:
+        return None
+    candidate = f"{number_part}/{uf_part}"
+    if _OAB_RE.match(candidate) and uf_part in VALID_UF_CODES:
+        return candidate
+    return None
+
+
+def is_valid_oab_format(value: Any) -> bool:
+    """Return ``True`` when *value* matches the OAB format ``1-6 digits / valid UF``."""
+    return normalize_oab_number(value) is not None
+
+
+def normalize_cnsa_number(value: Any) -> str | None:
+    """Strip formatting from a CNSA number, returning digits only.
+
+    Returns ``None`` when the value contains no digits.
+    """
+    text = as_optional_str(value)
+    if text is None:
+        return None
+    digits = re.sub(r"\D+", "", text)
+    return digits or None
+
+
+def build_lawyer_identity_key(
+    *,
+    name: Any,
+    oab_number: Any = None,
+    tax_id: Any = None,
+) -> str | None:
+    """Build a deterministic identity key for a lawyer entity.
+
+    Priority: ``oab:NNNNNN/UF`` > ``tax:CPF`` > ``name:CANONICAL``.
+    """
+    oab = normalize_oab_number(oab_number)
+    if oab:
+        return f"oab:{oab}"
+    tid = normalize_tax_id(tax_id)
+    if tid:
+        return f"tax:{tid}"
+    canonical = canonicalize_entity_name(name)
+    if canonical:
+        return f"name:{canonical}"
+    return None
+
+
+def build_firm_identity_key(
+    *,
+    name: Any,
+    cnpj: Any = None,
+    cnsa_number: Any = None,
+) -> str | None:
+    """Build a deterministic identity key for a law firm entity.
+
+    Priority: ``tax:CNPJ`` > ``cnsa:NNNN`` > ``name:CANONICAL``.
+    """
+    tid = normalize_tax_id(cnpj)
+    if tid:
+        return f"tax:{tid}"
+    cnsa = normalize_cnsa_number(cnsa_number)
+    if cnsa:
+        return f"cnsa:{cnsa}"
+    canonical = canonicalize_entity_name(name)
+    if canonical:
+        return f"name:{canonical}"
+    return None

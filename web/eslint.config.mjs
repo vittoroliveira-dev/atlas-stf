@@ -1,9 +1,12 @@
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTypescript from 'eslint-config-next/typescript';
+import nextPlugin from '@next/eslint-plugin-next';
+import tseslint from 'typescript-eslint';
 
 const eslintConfig = [
-  ...nextVitals,
-  ...nextTypescript,
+  ...tseslint.configs.recommended,
+  {
+    plugins: { '@next/next': nextPlugin },
+    rules: { ...nextPlugin.configs.recommended.rules, ...nextPlugin.configs['core-web-vitals'].rules },
+  },
   {
     ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts'],
   },

@@ -15,6 +15,12 @@ DEFAULT_STAGING_DIR = Path("data/staging/transparencia")
 DEFAULT_CURATED_DIR = Path("data/curated")
 DEFAULT_ANALYTICS_DIR = Path("data/analytics")
 
+LAWYER_ENTITY_SCHEMA = Path("schemas/lawyer_entity.schema.json")
+LAW_FIRM_ENTITY_SCHEMA = Path("schemas/law_firm_entity.schema.json")
+REPRESENTATION_EDGE_SCHEMA = Path("schemas/representation_edge.schema.json")
+REPRESENTATION_EVENT_SCHEMA = Path("schemas/representation_event.schema.json")
+SOURCE_EVIDENCE_SCHEMA = Path("schemas/source_evidence.schema.json")
+
 PROCESS_SCHEMA = Path("schemas/process.schema.json")
 DECISION_EVENT_SCHEMA = Path("schemas/decision_event.schema.json")
 SUBJECT_SCHEMA = Path("schemas/subject.schema.json")
@@ -439,3 +445,122 @@ def audit_analytics(
         "optional_summaries": optional_summary_reports,
     }
     return _write_json(output_path, payload)
+
+
+def audit_representation(
+    *,
+    curated_dir: Path = DEFAULT_CURATED_DIR,
+    analytics_dir: Path = DEFAULT_ANALYTICS_DIR,
+    output_path: Path | None = None,
+) -> dict[str, Any]:
+    """Audit representation network artifacts for completeness and integrity."""
+    required: list[tuple[str, Path, Path]] = [
+        ("lawyer_entity", curated_dir / "lawyer_entity.jsonl", LAWYER_ENTITY_SCHEMA),
+        ("law_firm_entity", curated_dir / "law_firm_entity.jsonl", LAW_FIRM_ENTITY_SCHEMA),
+        ("representation_edge", curated_dir / "representation_edge.jsonl", REPRESENTATION_EDGE_SCHEMA),
+        ("representation_event", curated_dir / "representation_event.jsonl", REPRESENTATION_EVENT_SCHEMA),
+    ]
+    optional: list[tuple[str, Path, Path]] = [
+        ("source_evidence", curated_dir / "source_evidence.jsonl", SOURCE_EVIDENCE_SCHEMA),
+    ]
+
+    reports: list[dict[str, Any]] = []
+    has_failures = False
+    data: dict[str, list[dict[str, Any]]] = {}
+
+    def _check_artifact(
+        label: str, fpath: Path, schema: Path, *, is_required: bool,
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        if not fpath.exists():
+            status = "missing" if is_required else "optional_missing"
+            return {"artifact": label, "path": str(fpath), "exists": False, "status": status}, []
+        rows = _read_jsonl(fpath)
+        try:
+            validate_records(rows, schema)
+            return {"artifact": label, "path": str(fpath), "exists": True, "row_count": len(rows), "status": "ok"}, rows
+        except Exception as exc:
+            return {
+                "artifact": label, "path": str(fpath), "exists": True,
+                "row_count": len(rows), "status": "validation_error", "error": str(exc),
+            }, rows
+
+    for label, fpath, schema in required:
+        report, rows = _check_artifact(label, fpath, schema, is_required=True)
+        reports.append(report)
+        if report["status"] in ("missing", "validation_error"):
+            has_failures = True
+        data[label] = rows
+
+    for label, fpath, schema in optional:
+        report, rows = _check_artifact(label, fpath, schema, is_required=False)
+        reports.append(report)
+        data[label] = rows
+
+    lawyers = data.get("lawyer_entity", [])
+    firms = data.get("law_firm_entity", [])
+    edges = data.get("representation_edge", [])
+    events = data.get("representation_event", [])
+
+    total_lawyers = len(lawyers)
+    lawyers_with_oab = sum(1 for r in lawyers if r.get("oab_number"))
+    lawyers_with_firm = sum(1 for r in lawyers if r.get("firm_id"))
+    oab_pct = (lawyers_with_oab / total_lawyers * 100) if total_lawyers else 0.0
+
+    total_edges = len(edges)
+    lawyer_ids = {r.get("lawyer_id") for r in lawyers}
+    firm_ids = {r.get("firm_id") for r in firms}
+    valid_ids = lawyer_ids | firm_ids
+    orphan_edges = sum(1 for r in edges if r.get("representative_entity_id") not in valid_ids)
+    integrity_pct = ((1 - orphan_edges / total_edges) * 100) if total_edges else 100.0
+
+    kind_dist: dict[str, int] = {}
+    for edge in edges:
+        kind = edge.get("representative_kind", "unknown")
+        kind_dist[kind] = kind_dist.get(kind, 0) + 1
+
+    event_type_dist: dict[str, int] = {}
+    for event in events:
+        etype = event.get("event_type", "unknown")
+        event_type_dist[etype] = event_type_dist.get(etype, 0) + 1
+
+    graph_path = analytics_dir / "representation_graph.jsonl"
+    if graph_path.exists():
+        graph_rows = _read_jsonl(graph_path)
+        reports.append({
+            "artifact": "representation_graph", "path": str(graph_path),
+            "exists": True, "row_count": len(graph_rows), "status": "ok",
+        })
+    else:
+        reports.append({
+            "artifact": "representation_graph", "path": str(graph_path),
+            "exists": False, "status": "optional_missing",
+        })
+
+    thresholds = {
+        "oab_coverage_pct": {"value": round(oab_pct, 2), "target": 95.0, "passes": oab_pct >= 95.0},
+        "edge_integrity_pct": {"value": round(integrity_pct, 2), "target": 90.0, "passes": integrity_pct >= 90.0},
+    }
+
+    result: dict[str, Any] = {
+        "generated_at": _now_iso(),
+        "target": "representation",
+        "curated_dir": str(curated_dir),
+        "analytics_dir": str(analytics_dir),
+        "overall_status": "fail" if has_failures else "ok",
+        "artifacts": reports,
+        "coverage": {
+            "total_lawyers": total_lawyers,
+            "lawyers_with_oab": lawyers_with_oab,
+            "lawyers_with_firm": lawyers_with_firm,
+            "oab_coverage_pct": round(oab_pct, 2),
+            "total_firms": len(firms),
+            "total_edges": total_edges,
+            "orphan_edges": orphan_edges,
+            "edge_integrity_pct": round(integrity_pct, 2),
+            "total_events": len(events),
+            "kind_distribution": kind_dist,
+            "event_type_distribution": event_type_dist,
+        },
+        "thresholds": thresholds,
+    }
+    return _write_json(output_path, result)

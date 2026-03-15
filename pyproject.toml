@@ -1,9 +1,22 @@
 [project]
 name = "atlas-stf"
-version = "0.1.0"
-description = "Projeto open source de analise empirica e documentacao metodologica sobre padroes decisorios do STF"
+version = "1.0.4"
+description = "Análise empírica e documentação metodológica sobre padrões decisórios do STF"
 readme = "README.md"
 requires-python = ">=3.14.3"
+license = {text = "PolyForm-Noncommercial-1.0.0"}
+authors = [
+    {name = "Atlas STF contributors"},
+]
+keywords = ["stf", "supremo-tribunal-federal", "analytics", "jurisprudência", "dados-abertos"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Legal Industry",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "fastapi>=0.135.1",
     "httpx>=0.28.1",
@@ -26,6 +39,13 @@ dependencies = [
 atlas-stf = "atlas_stf:main"
 atlas-stf-staging = "atlas_stf.staging._runner:main"
 atlas-stf-scraper = "atlas_stf.scraper._runner:main"
+
+[project.urls]
+Homepage = "https://atlasstf.com.br"
+Repository = "https://github.com/vittoroliveira-dev/atlas-stf"
+Documentation = "https://github.com/vittoroliveira-dev/atlas-stf/tree/main/docs"
+Changelog = "https://github.com/vittoroliveira-dev/atlas-stf/blob/main/CHANGELOG.md"
+Issues = "https://github.com/vittoroliveira-dev/atlas-stf/issues"
 
 [project.optional-dependencies]
 ml = ["scikit-learn>=1.6"]
