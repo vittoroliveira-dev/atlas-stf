@@ -14,10 +14,11 @@ import httpx
 
 from ..core.http_stream_safety import write_limited_stream_to_file
 from ..core.identity import normalize_entity_name
-from ..core.zip_safety import enforce_max_uncompressed_size
+from ..core.zip_safety import enforce_max_uncompressed_size, is_safe_zip_member
 from ._config import (
     RFB_EMPRESAS_FILE_COUNT,
     RFB_LEGACY_BASE_URL,
+    RFB_NEXTCLOUD_BASE,
     RFB_NEXTCLOUD_SHARE_TOKEN,
     RFB_SOCIOS_FILE_COUNT,
     RFB_WEBDAV_BASE,
@@ -34,11 +35,35 @@ _RFB_MAX_ZIP_UNCOMPRESSED_BYTES = 16 * 1024 * 1024 * 1024
 _RFB_MAX_DOWNLOAD_BYTES = 16 * 1024 * 1024 * 1024
 
 
+_active_share_token: list[str] = [RFB_NEXTCLOUD_SHARE_TOKEN]
+
+
 def _nextcloud_auth() -> tuple[str, str] | None:
     """Return NextCloud auth tuple when a token is configured."""
-    if not RFB_NEXTCLOUD_SHARE_TOKEN:
+    if not _active_share_token[0]:
         return None
-    return (RFB_NEXTCLOUD_SHARE_TOKEN, "")
+    return (_active_share_token[0], "")
+
+
+def _discover_share_token(timeout: int = 15) -> str | None:
+    """Auto-discover the NextCloud share token from the RFB portal page.
+
+    The RFB publishes CNPJ data via a NextCloud public share link like:
+        https://arquivos.receitafederal.gov.br/index.php/s/YggdBLfdninEJX9
+    The token (``YggdBLfdninEJX9``) may change without notice.
+    This function scrapes the portal page to find the current token.
+    """
+    import re
+
+    try:
+        r = httpx.get(RFB_NEXTCLOUD_BASE, follow_redirects=True, timeout=timeout)
+        r.raise_for_status()
+        match = re.search(r"/index\.php/s/([A-Za-z0-9]{10,})", r.text)
+        if match:
+            return match.group(1)
+    except (httpx.RequestError, httpx.HTTPStatusError) as exc:
+        logger.debug("Failed to discover share token: %s", exc)
+    return None
 
 
 def _build_target_names(config: RfbFetchConfig) -> set[str]:
@@ -119,7 +144,19 @@ def _discover_latest_month(timeout: int) -> str | None:
                 auth=auth,
             )
             r.raise_for_status()
-    except (httpx.HTTPStatusError, httpx.RequestError) as exc:
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (401, 403):
+            logger.warning("WebDAV auth failed (token may have changed) — attempting auto-discovery")
+            new_token = _discover_share_token(timeout)
+            if new_token and new_token != _active_share_token[0]:
+                _active_share_token[0] = new_token
+                masked = new_token[:4] + "..." + new_token[-4:] if len(new_token) > 8 else "****"
+                logger.info("Discovered new RFB share token: %s", masked)
+                logger.info("Persist the token in ATLAS_STF_RFB_NEXTCLOUD_SHARE_TOKEN")
+                return _discover_latest_month(timeout)
+        logger.warning("WebDAV PROPFIND failed: %s", exc)
+        return None
+    except httpx.RequestError as exc:
         logger.warning("WebDAV PROPFIND failed: %s", exc)
         return None
 
@@ -172,8 +209,7 @@ def _extract_csv_from_zip(zip_path: Path) -> bytes | None:
                 info
                 for info in zf.infolist()
                 if (info.filename.lower().endswith(".csv") or "csv" in info.filename.lower())
-                and ".." not in info.filename
-                and not info.filename.startswith("/")
+                and is_safe_zip_member(info.filename, zip_path.parent)
             ]
             if not csv_infos:
                 logger.warning("No CSV found in ZIP")
@@ -203,8 +239,7 @@ def _parse_csv_from_zip_text(
                 info
                 for info in zf.infolist()
                 if (info.filename.lower().endswith(".csv") or "csv" in info.filename.lower())
-                and ".." not in info.filename
-                and not info.filename.startswith("/")
+                and is_safe_zip_member(info.filename, zip_path.parent)
             ]
             if not csv_infos:
                 logger.warning("No CSV found in ZIP")
@@ -290,6 +325,8 @@ def fetch_rfb_data(
         and companies_path.stat().st_size > 0
     ):
         logger.info("RFB fetch already complete — output files exist with content")
+        if on_progress:
+            on_progress(1, 1, "RFB: Já completo (cache)")
         return config.output_dir
 
     all_partners: list[dict[str, Any]] = []

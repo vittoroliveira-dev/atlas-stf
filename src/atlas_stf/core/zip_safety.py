@@ -4,8 +4,20 @@ from __future__ import annotations
 
 import zipfile
 from collections.abc import Iterable
+from pathlib import Path
 
 MAX_ZIP_UNCOMPRESSED_BYTES = 128 * 1024 * 1024
+
+
+def is_safe_zip_member(filename: str, output_dir: Path) -> bool:
+    """Return True if extracting *filename* stays within *output_dir*.
+
+    Guards against path-traversal attacks (``../``, absolute paths, and
+    paths that resolve outside the target directory after normalisation).
+    """
+    base = output_dir.resolve()
+    target = (output_dir / filename).resolve()
+    return target == base or target.is_relative_to(base)
 
 
 def enforce_max_uncompressed_size(

@@ -18,7 +18,7 @@ from ..core.identity import (
     normalize_entity_name,
     normalize_tax_id,
 )
-from ..core.rules import classify_outcome_for_party, classify_outcome_raw
+from ..core.rules import classify_outcome_for_party, classify_outcome_materiality, classify_outcome_raw
 
 logger = logging.getLogger(__name__)
 DEFAULT_ALIAS_PATH = Path("data/curated/entity_alias.jsonl")
@@ -302,6 +302,34 @@ def compute_favorable_rate(outcomes: list[str]) -> float | None:
         return None
     favorable = sum(1 for _, cls in classifiable if cls == "favorable")
     return favorable / len(classifiable)
+
+
+def compute_favorable_rate_substantive(
+    outcomes_with_roles: list[tuple[str, str | None]],
+) -> tuple[float | None, int]:
+    """Compute favorable rate considering only substantive decisions.
+
+    Filters out provisional, procedural, and unknown decisions before
+    classifying favorable/unfavorable with role awareness.
+
+    Returns (rate, n_substantive) where rate is None if no substantive
+    decisions are classifiable.
+    """
+    substantive_pairs = [
+        (progress, role)
+        for progress, role in outcomes_with_roles
+        if classify_outcome_materiality(progress) == "substantive"
+    ]
+    if not substantive_pairs:
+        return None, 0
+
+    classified = [classify_outcome_for_party(progress, role) for progress, role in substantive_pairs]
+    classifiable = [c for c in classified if c in {"favorable", "unfavorable"}]
+    if not classifiable:
+        return None, len(substantive_pairs)
+
+    favorable = sum(1 for c in classifiable if c == "favorable")
+    return favorable / len(classifiable), len(classifiable)
 
 
 def compute_favorable_rate_role_aware(

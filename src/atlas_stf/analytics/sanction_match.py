@@ -20,6 +20,7 @@ from ._match_helpers import (
     build_party_process_map,
     build_process_outcomes,
     compute_favorable_rate_role_aware,
+    compute_favorable_rate_substantive,
     read_jsonl,
 )
 from ._parallel import build_counsel_profiles_parallel, match_entities_parallel
@@ -157,6 +158,7 @@ def build_sanction_matches(
                     party_classes.append(process_class_map[pid])
 
         favorable_rate = compute_favorable_rate_role_aware(outcomes_with_roles)
+        favorable_rate_sub, n_substantive = compute_favorable_rate_substantive(outcomes_with_roles)
 
         # Determine most common process class for baseline
         baseline_rate: float | None = None
@@ -169,6 +171,11 @@ def build_sanction_matches(
         if favorable_rate is not None and baseline_rate is not None:
             delta = favorable_rate - baseline_rate
             red_flag = delta > RED_FLAG_DELTA_THRESHOLD and len(seen_pids) >= MIN_CASES_FOR_RED_FLAG
+
+        # Substantive red flag (None when insufficient sample)
+        red_flag_substantive: bool | None = None
+        if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
+            red_flag_substantive = (favorable_rate_sub - baseline_rate) > RED_FLAG_DELTA_THRESHOLD
 
         for sanction in sanction_list:
             match_id = stable_id("sm-", f"{party_id}:{sanction.get('sanction_id', '')}")
@@ -194,9 +201,12 @@ def build_sanction_matches(
                     "sanction_description": sanction.get("sanction_description"),
                     "stf_case_count": len(seen_pids),
                     "favorable_rate": favorable_rate,
+                    "favorable_rate_substantive": favorable_rate_sub,
+                    "substantive_decision_count": n_substantive,
                     "baseline_favorable_rate": baseline_rate,
                     "favorable_rate_delta": delta,
                     "red_flag": red_flag,
+                    "red_flag_substantive": red_flag_substantive,
                     "matched_at": now_iso,
                 }
             )
@@ -262,6 +272,7 @@ def build_sanction_matches(
                     counsel_classes.append(process_class_map[pid])
 
         favorable_rate = compute_favorable_rate_role_aware(outcomes_with_roles)
+        favorable_rate_sub, n_substantive = compute_favorable_rate_substantive(outcomes_with_roles)
 
         baseline_rate = None
         if counsel_classes:
@@ -273,6 +284,10 @@ def build_sanction_matches(
         if favorable_rate is not None and baseline_rate is not None:
             delta = favorable_rate - baseline_rate
             red_flag = delta > RED_FLAG_DELTA_THRESHOLD and len(seen_pids) >= MIN_CASES_FOR_RED_FLAG
+
+        red_flag_substantive: bool | None = None
+        if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
+            red_flag_substantive = (favorable_rate_sub - baseline_rate) > RED_FLAG_DELTA_THRESHOLD
 
         for sanction in sanction_list:
             match_id = stable_id("sm-", f"counsel:{counsel_id}:{sanction.get('sanction_id', '')}")
@@ -296,9 +311,12 @@ def build_sanction_matches(
                     "sanction_description": sanction.get("sanction_description"),
                     "stf_case_count": len(seen_pids),
                     "favorable_rate": favorable_rate,
+                    "favorable_rate_substantive": favorable_rate_sub,
+                    "substantive_decision_count": n_substantive,
                     "baseline_favorable_rate": baseline_rate,
                     "favorable_rate_delta": delta,
                     "red_flag": red_flag,
+                    "red_flag_substantive": red_flag_substantive,
                     "matched_at": now_iso,
                 }
             )

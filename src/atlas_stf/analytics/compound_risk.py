@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -61,18 +62,11 @@ class PairEvidence:
 
 
 def _coerce_float(value: Any) -> float | None:
-    if value is None:
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
         return None
-    if isinstance(value, bool):
-        return float(value)
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str) and value:
-        try:
-            return float(value)
-        except ValueError:
-            return None
-    return None
+    return result if math.isfinite(result) else None
 
 
 def _coerce_str_list(value: Any) -> list[str]:
@@ -135,20 +129,35 @@ def _process_entity_maps(
 
 def _process_context(
     curated_dir: Path,
-) -> tuple[dict[str, set[str]], dict[str, tuple[str, str]]]:
+) -> tuple[dict[str, set[str]], dict[str, tuple[str, str]], dict[str, tuple[int, int]]]:
     process_ministers: dict[str, set[str]] = defaultdict(set)
     decision_event_context: dict[str, tuple[str, str]] = {}
+    _year_min: dict[str, int] = {}
+    _year_max: dict[str, int] = {}
 
     for record in read_jsonl(curated_dir / "decision_event.jsonl"):
         process_id = record.get("process_id")
         minister_name = record.get("current_rapporteur")
         decision_event_id = record.get("decision_event_id")
         if process_id and minister_name:
-            process_ministers[str(process_id)].add(str(minister_name))
+            pid = str(process_id)
+            process_ministers[pid].add(str(minister_name))
             if decision_event_id:
-                decision_event_context[str(decision_event_id)] = (str(process_id), str(minister_name))
+                decision_event_context[str(decision_event_id)] = (pid, str(minister_name))
+            decision_date = record.get("decision_date")
+            if decision_date and isinstance(decision_date, str) and len(decision_date) >= 4:
+                try:
+                    year = int(decision_date[:4])
+                    if 1900 <= year <= 2100:
+                        if pid not in _year_min or year < _year_min[pid]:
+                            _year_min[pid] = year
+                        if pid not in _year_max or year > _year_max[pid]:
+                            _year_max[pid] = year
+                except ValueError:
+                    pass
 
-    return dict(process_ministers), decision_event_context
+    process_years = {pid: (_year_min[pid], _year_max[pid]) for pid in _year_min}
+    return dict(process_ministers), decision_event_context, process_years
 
 
 def _pair_process_map(
@@ -183,12 +192,25 @@ def _pair_process_index(
     return dict(party_pairs), dict(counsel_pairs)
 
 
+def _qualifies_as_signal(row: dict[str, Any]) -> bool:
+    """Decide if an analytics row qualifies as a compound risk signal.
+
+    When ``red_flag_substantive`` is present in the row (even as False or
+    None), it is the sole authority.  The legacy ``red_flag`` field only
+    governs when the substantive field is absent — i.e. for old data or
+    analytics sources that do not compute it (e.g. rapporteur_change).
+    """
+    if "red_flag_substantive" in row:
+        return row["red_flag_substantive"] is True
+    return bool(row.get("red_flag"))
+
+
 def _load_rows(path: Path, *, red_flag_only: bool = False) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     rows = read_jsonl(path)
     if red_flag_only:
-        return [row for row in rows if row.get("red_flag")]
+        return [row for row in rows if _qualifies_as_signal(row)]
     return rows
 
 
@@ -208,6 +230,46 @@ def _evidence_for(
             entity_name=entity_name,
         )
     return pairs[key]
+
+
+def _build_signal_details(evidence: PairEvidence) -> dict[str, dict[str, Any]]:
+    """Build sparse dict of per-signal metadata from already-collected PairEvidence."""
+    details: dict[str, dict[str, Any]] = {}
+    if "sanction" in evidence.signals:
+        details["sanction"] = {
+            "count": evidence.sanction_match_count,
+            "sources": sorted(s for s in evidence.sanction_sources if s),
+        }
+    if "donation" in evidence.signals:
+        details["donation"] = {
+            "count": evidence.donation_match_count,
+            "total_brl": round(evidence.donation_total_brl, 2),
+        }
+    if "corporate" in evidence.signals:
+        min_degree = min(
+            (c["link_degree"] for c in evidence.corporate_companies.values()),
+            default=1,
+        )
+        details["corporate"] = {
+            "count": evidence.corporate_conflict_count,
+            "company_count": len(evidence.corporate_companies),
+            "min_link_degree": min_degree,
+        }
+    if "affinity" in evidence.signals:
+        details["affinity"] = {
+            "count": evidence.affinity_count,
+            "affinity_ids": sorted(a for a in evidence.affinity_ids if a),
+        }
+    if "alert" in evidence.signals:
+        details["alert"] = {
+            "count": len(evidence.alert_ids),
+            "max_score": evidence.max_alert_score,
+        }
+    if "velocity" in evidence.signals:
+        details["velocity"] = {"flagged": True}
+    if "redistribution" in evidence.signals:
+        details["redistribution"] = {"flagged": True}
+    return details
 
 
 def _sort_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -243,7 +305,7 @@ def build_compound_risk(
     party_names = _party_name_map(curated_dir)
     counsel_names = _counsel_name_map(curated_dir)
     process_parties, process_counsels = _process_entity_maps(curated_dir, party_names, counsel_names)
-    process_ministers, decision_event_context = _process_context(curated_dir)
+    process_ministers, decision_event_context, process_years = _process_context(curated_dir)
     pair_processes = _pair_process_map(process_ministers, process_parties, process_counsels)
     party_pair_processes, counsel_pair_processes = _pair_process_index(pair_processes)
     process_path = curated_dir / "process.jsonl"
@@ -456,6 +518,13 @@ def build_compound_risk(
         }
         pair_process_classes.update(evidence.top_process_classes)
         signal_count = len(evidence.signals)
+        year_vals: list[int] = []
+        for pid in evidence.process_ids:
+            yr = process_years.get(pid)
+            if yr is not None:
+                year_vals.extend(yr)
+        earliest_year = min(year_vals) if year_vals else None
+        latest_year = max(year_vals) if year_vals else None
         rows.append(
             {
                 "pair_id": stable_id("cr-", f"{evidence.minister_name}:{evidence.entity_type}:{evidence.entity_id}"),
@@ -489,6 +558,9 @@ def build_compound_risk(
                 "supporting_party_names": [
                     evidence.supporting_parties[party_id] for party_id in sorted(evidence.supporting_parties)
                 ],
+                "signal_details": _build_signal_details(evidence),
+                "earliest_year": earliest_year,
+                "latest_year": latest_year,
                 "generated_at": generated_at,
             }
         )

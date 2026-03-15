@@ -157,7 +157,8 @@ evidence:
 	$(CLI) evidence build-all
 
 scrape:
-	$(CLI) scrape decisoes
+	ATLAS_STF_SCRAPER_IGNORE_HTTPS_ERRORS=true $(CLI) scrape decisoes
+	ATLAS_STF_SCRAPER_IGNORE_HTTPS_ERRORS=true $(CLI) scrape acordaos
 
 # ===========================
 # Fontes externas — rode com: make external-data -j4
@@ -218,6 +219,7 @@ pipeline: serving-build
 # Ordem do pipeline via dependências:
 #   staging → curate → analytics (paralelo interno) + external-data (paralelo)
 #   → evidence → serving-build
+staging: | scrape
 curate: | staging
 analytics: | curate
 external-data: | curate

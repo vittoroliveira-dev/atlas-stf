@@ -18,6 +18,9 @@ export type SanctionMatch = {
   baseline_favorable_rate: number | null;
   favorable_rate_delta: number | null;
   red_flag: boolean;
+  match_strategy: string | null;
+  match_score: number | null;
+  match_confidence: string | null;
 };
 
 export type CounselSanctionProfile = {

@@ -309,6 +309,77 @@ def classify_group_size(case_count: int) -> tuple[str, str | None]:
     return "valid", None
 
 
+_PROVISIONAL_KEYWORDS: tuple[str, ...] = ("LIMINAR", "AD REFERENDUM")
+
+_PROCEDURAL_PATTERNS: tuple[str, ...] = (
+    "NEGADO SEGUIMENTO",
+    "NAO CONHECIDO",
+    "HOMOLOGADA A DESISTENCIA",
+    "HOMOLOGADO O ACORDO",
+    "PREJUDICADO",
+    "EXTINTO O PROCESSO",
+    "BAIXA SEM RESOLUCAO",
+    "HOMOL A DESISTENCIA",
+)
+
+_SUBSTANTIVE_PATTERNS: tuple[str, ...] = (
+    "CONHECIDO E PROVIDO",
+    "CONHECIDO E NEGADO PROVIMENTO",
+    "CONHECIDO EM PARTE E NESSA PARTE PROVIDO",
+    "CONHECIDO EM PARTE E NESSA PARTE NEGADO PROVIMENTO",
+    "CONHECIDO EM PARTE E NESSA PARTE DA PROVIMENTO",
+    "CONCEDIDA A ORDEM",
+    "CONCEDIDA EM PARTE A ORDEM",
+    "CONCEDIDA A ORDEM DE OFICIO",
+    "DENEGADA A ORDEM",
+    "CONCEDIDA A SEGURANCA",
+    "CONCEDIDA EM PARTE A SEGURANCA",
+    "DENEGADA A SEGURANCA",
+    "CONCEDIDA A SUSPENSAO",
+    "CONCEDIDA EM PARTE A SUSPENSAO",
+    "DENEGADA A SUSPENSAO",
+    "PROVIDO EM PARTE",
+    "PARCIALMENTE PROVIDO",
+    "PROVIDO",
+    "NAO PROVIDO",
+    "DESPROVIDO",
+    "NEGADO PROVIMENTO",
+    "NEGOU PROVIMENTO",
+    "DAR PROVIMENTO",
+    "DAR PARCIAL PROVIMENTO",
+    "PROCEDENTE",
+    "IMPROCEDENTE",
+)
+
+
+def classify_outcome_materiality(decision_progress: str) -> str:
+    """Classify a decision_progress into materiality subcategory.
+
+    Evaluation order: provisional → procedural → substantive → unknown.
+    Returns one of: "provisional", "procedural", "substantive", "unknown".
+    """
+    normalized = _normalize_outcome_text(decision_progress)
+    if not normalized:
+        return "unknown"
+
+    # 1. Provisional — tutela de urgência / cautelar
+    for kw in _PROVISIONAL_KEYWORDS:
+        if kw in normalized:
+            return "provisional"
+
+    # 2. Procedural — admissibilidade, desistência, extinção sem mérito
+    for pat in _PROCEDURAL_PATTERNS:
+        if pat in normalized:
+            return "procedural"
+
+    # 3. Substantive — mérito efetivo
+    for pat in _SUBSTANTIVE_PATTERNS:
+        if pat in normalized:
+            return "substantive"
+
+    return "unknown"
+
+
 def derive_thematic_key(
     subjects_normalized: list[str] | None,
     branch_of_law: str | None,

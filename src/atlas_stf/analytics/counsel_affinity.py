@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.identity import stable_id
-from ..core.rules import classify_outcome_raw
+from ..core.rules import classify_outcome_materiality, classify_outcome_raw
 from ._match_helpers import (
     build_process_class_map,
     compute_favorable_rate,
@@ -167,6 +167,11 @@ def build_counsel_affinity(
         if pair_rate is None:
             continue
 
+        # Substantive rate: only decisions with materiality == "substantive"
+        substantive_outcomes = [o for o in pair_outcomes if classify_outcome_materiality(o) == "substantive"]
+        pair_rate_substantive = compute_favorable_rate(substantive_outcomes) if substantive_outcomes else None
+        n_substantive = len(substantive_outcomes)
+
         # Count favorable/unfavorable
         favorable_count = 0
         unfavorable_count = 0
@@ -202,6 +207,18 @@ def build_counsel_affinity(
         )
         red_flag = max_delta > RED_FLAG_DELTA_THRESHOLD and len(shared_pids) >= MIN_CASES_FOR_RED_FLAG
 
+        # Substantive red flag
+        red_flag_substantive: bool | None = None
+        if pair_rate_substantive is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
+            sub_delta_minister = (
+                (pair_rate_substantive - minister_baseline) if minister_baseline is not None else -1.0
+            )
+            sub_delta_counsel = (
+                (pair_rate_substantive - counsel_baseline) if counsel_baseline is not None else -1.0
+            )
+            max_sub_delta = max(sub_delta_minister, sub_delta_counsel)
+            red_flag_substantive = max_sub_delta > RED_FLAG_DELTA_THRESHOLD
+
         # Top process classes
         class_counter = Counter(pair_classes)
         top_classes = [cls for cls, _ in class_counter.most_common(5)]
@@ -217,11 +234,14 @@ def build_counsel_affinity(
                 "favorable_count": favorable_count,
                 "unfavorable_count": unfavorable_count,
                 "pair_favorable_rate": pair_rate,
+                "pair_favorable_rate_substantive": pair_rate_substantive,
+                "substantive_decision_count": n_substantive,
                 "minister_baseline_favorable_rate": minister_baseline,
                 "counsel_baseline_favorable_rate": counsel_baseline,
                 "pair_delta_vs_minister": delta_vs_minister,
                 "pair_delta_vs_counsel": delta_vs_counsel,
                 "red_flag": red_flag,
+                "red_flag_substantive": red_flag_substantive,
                 "top_process_classes": top_classes,
                 "generated_at": now_iso,
             }

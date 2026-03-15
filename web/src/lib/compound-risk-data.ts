@@ -33,6 +33,9 @@ export type CompoundRiskItem = {
   top_process_classes: string[];
   supporting_party_ids: string[];
   supporting_party_names: string[];
+  signal_details: Record<string, Record<string, unknown>> | null;
+  earliest_year: number | null;
+  latest_year: number | null;
 };
 
 export type CompoundRiskHeatmapEntity = {

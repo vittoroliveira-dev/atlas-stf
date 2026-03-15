@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from ._schemas_core import SourceAuditItem
@@ -23,6 +25,9 @@ class SanctionMatchItem(BaseModel):
     baseline_favorable_rate: float | None = None
     favorable_rate_delta: float | None = None
     red_flag: bool
+    match_strategy: str | None = None
+    match_score: float | None = None
+    match_confidence: str | None = None
 
 
 class CounselSanctionProfileItem(BaseModel):
@@ -68,6 +73,9 @@ class DonationMatchItem(BaseModel):
     baseline_favorable_rate: float | None = None
     favorable_rate_delta: float | None = None
     red_flag: bool
+    match_strategy: str | None = None
+    match_score: float | None = None
+    match_confidence: str | None = None
 
 
 class CounselDonationProfileItem(BaseModel):
@@ -191,6 +199,9 @@ class CompoundRiskItem(BaseModel):
     top_process_classes: list[str] = []
     supporting_party_ids: list[str] = []
     supporting_party_names: list[str] = []
+    signal_details: dict[str, dict[str, Any]] | None = None
+    earliest_year: int | None = None
+    latest_year: int | None = None
 
 
 class PaginatedCompoundRiskResponse(BaseModel):

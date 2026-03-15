@@ -15,6 +15,26 @@ import { readSearchParam } from "@/lib/filter-context";
 const formatBrl = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
+function matchConfidenceLabel(confidence: string | null, score: number | null): string {
+  switch (confidence) {
+    case "deterministic": return "CPF/CNPJ exato";
+    case "exact_name": return "Nome exato";
+    case "fuzzy": return score != null ? `Match fuzzy (${score.toFixed(2)})` : "Match fuzzy";
+    case "nominal_review_needed": return "Revisao manual necessaria";
+    default: return "Confianca nao determinada";
+  }
+}
+
+function matchConfidenceColor(confidence: string | null): string {
+  switch (confidence) {
+    case "deterministic": return "border-verde-200 bg-verde-50 text-verde-700";
+    case "exact_name": return "border-blue-200 bg-blue-50 text-blue-700";
+    case "fuzzy": return "border-ouro-200 bg-ouro-50 text-ouro-700";
+    case "nominal_review_needed": return "border-red-200 bg-red-50 text-red-700";
+    default: return "border-slate-200 bg-slate-50 text-slate-600";
+  }
+}
+
 export default async function DoacoesPage({
   searchParams,
 }: {
@@ -149,6 +169,11 @@ export default async function DoacoesPage({
                   }
                 >
                   <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${matchConfidenceColor(d.match_confidence)}`}>
+                        {matchConfidenceLabel(d.match_confidence, d.match_score)}
+                      </span>
+                    </div>
                     <RateComparisonBar
                       rate={d.favorable_rate}
                       baseline={d.baseline_favorable_rate}
@@ -244,6 +269,11 @@ export default async function DoacoesPage({
                   }
                 >
                   <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${matchConfidenceColor(d.match_confidence)}`}>
+                        {matchConfidenceLabel(d.match_confidence, d.match_score)}
+                      </span>
+                    </div>
                     <RateComparisonBar
                       rate={d.favorable_rate}
                       baseline={d.baseline_favorable_rate}

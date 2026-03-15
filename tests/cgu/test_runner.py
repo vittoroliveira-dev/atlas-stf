@@ -10,11 +10,13 @@ from unittest.mock import MagicMock, patch
 
 from atlas_stf.cgu._config import CguFetchConfig
 from atlas_stf.cgu._runner import (
+    _canonicalize_tipo_pessoa,
     _download_and_extract_csv,
     _load_csv_sanctions,
     _load_leniencia_csv,
     _looks_like_entity,
     _normalize_csv_record,
+    _normalize_date,
     _normalize_leniencia_record,
     _search_all_pages,
     fetch_sanctions_data,
@@ -131,11 +133,16 @@ class TestNormalizeCsvRecord:
         assert result["sanction_source"] == "ceis"
         assert result["sanction_id"] == "12345"
         assert result["entity_name"] == "ACME CORP"
-        assert result["entity_cnpj_cpf"] == "12.345.678/0001-00"
+        assert result["entity_cnpj_cpf"] == "12345678000100"
+        assert result["entity_cnpj_cpf_raw"] == "12.345.678/0001-00"
+        assert result["entity_type_pf_pj"] == "PJ"
+        assert result["entity_type_pf_pj_raw"] == "J"
         assert result["sanctioning_body"] == "CGU"
         assert result["sanction_type"] == "Suspensão"
-        assert result["sanction_start_date"] == "01/01/2020"
-        assert result["sanction_end_date"] == "01/01/2025"
+        assert result["sanction_start_date"] == "2020-01-01"
+        assert result["sanction_start_date_raw"] == "01/01/2020"
+        assert result["sanction_end_date"] == "2025-01-01"
+        assert result["sanction_end_date_raw"] == "01/01/2025"
 
 
 def _make_leniencia_csv(records: list[list[str]]) -> str:
@@ -181,12 +188,14 @@ class TestNormalizeLenienciaRecord:
         result = _normalize_leniencia_record(row)
         assert result["sanction_source"] == "leniencia"
         assert result["entity_name"] == "ACME CONSTRUTORA LTDA"
-        assert result["entity_cnpj_cpf"] == "12.345.678/0001-00"
+        assert result["entity_cnpj_cpf"] == "12345678000100"
+        assert result["entity_cnpj_cpf_raw"] == "12.345.678/0001-00"
+        assert result["entity_type_pf_pj"] == "PJ"
         assert result["sanction_id"] == "08012.000123/2014-56"
         assert result["sanctioning_body"] == "CGU"
         assert result["sanction_type"] == "Cumprido"
-        assert result["sanction_start_date"] == "01/01/2018"
-        assert result["sanction_end_date"] == "01/01/2023"
+        assert result["sanction_start_date"] == "2018-01-01"
+        assert result["sanction_end_date"] == "2023-01-01"
 
     def test_name_fallback_to_fantasia(self) -> None:
         row = [
@@ -455,3 +464,78 @@ class TestFetchSanctionsData:
         raw_path = output_dir / "sanctions_raw.jsonl"
         assert raw_path.exists()
         assert raw_path.read_text().strip() == ""
+
+
+class TestNormalizeTaxId:
+    def test_normalize_cpf_formatted(self) -> None:
+        from atlas_stf.core.identity import normalize_tax_id
+
+        assert normalize_tax_id("123.456.789-00") == "12345678900"
+
+    def test_normalize_cnpj_formatted(self) -> None:
+        from atlas_stf.core.identity import normalize_tax_id
+
+        assert normalize_tax_id("12.345.678/0001-90") == "12345678000190"
+
+    def test_normalize_cpf_raw(self) -> None:
+        from atlas_stf.core.identity import normalize_tax_id
+
+        assert normalize_tax_id("12345678900") == "12345678900"
+
+    def test_normalize_empty(self) -> None:
+        from atlas_stf.core.identity import normalize_tax_id
+
+        assert normalize_tax_id("") is None
+
+
+class TestCanonicalizeTipoPessoa:
+    def test_pf(self) -> None:
+        assert _canonicalize_tipo_pessoa("PF") == "PF"
+
+    def test_pj(self) -> None:
+        assert _canonicalize_tipo_pessoa("PJ") == "PJ"
+
+    def test_f(self) -> None:
+        assert _canonicalize_tipo_pessoa("F") == "PF"
+
+    def test_j(self) -> None:
+        assert _canonicalize_tipo_pessoa("J") == "PJ"
+
+    def test_unknown(self) -> None:
+        assert _canonicalize_tipo_pessoa("X") == ""
+
+    def test_empty(self) -> None:
+        assert _canonicalize_tipo_pessoa("") == ""
+
+
+class TestNormalizeDateCgu:
+    def test_ddmmyyyy(self) -> None:
+        assert _normalize_date("25/03/2023") == "2023-03-25"
+
+    def test_already_iso(self) -> None:
+        assert _normalize_date("2023-03-25") == "2023-03-25"
+
+    def test_empty(self) -> None:
+        assert _normalize_date("") is None
+
+    def test_partial(self) -> None:
+        assert _normalize_date("03/2023") is None
+
+    def test_invalid(self) -> None:
+        assert _normalize_date("abc") is None
+
+
+class TestPreserveRawFields:
+    def test_preserve_raw_tipo_pessoa(self) -> None:
+        row = [
+            "CEIS", "12345", "F", "123.456.789-00", "JOAO",
+            "ORG", "RAZAO", "", "PROC", "Cat",
+            "01/01/2020", "01/01/2025", "", "", "", "", "", "CGU",
+        ]
+        from atlas_stf.cgu._runner import _CEIS_COL
+
+        result = _normalize_csv_record(row, "ceis", _CEIS_COL)
+        assert result["entity_type_pf_pj"] == "PF"
+        assert result["entity_type_pf_pj_raw"] == "F"
+        assert result["entity_cnpj_cpf"] == "12345678900"
+        assert result["entity_cnpj_cpf_raw"] == "123.456.789-00"

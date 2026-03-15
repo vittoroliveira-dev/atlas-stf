@@ -185,23 +185,20 @@ Se eles não existirem, materialize o pipeline antes do serving build.
 ### 3. Pipeline local
 
 ```bash
-# Staging
-uv run atlas-stf stage --verbose
+# Tudo de uma vez (scrape → staging → curate → analytics → external → evidence → serving)
+make pipeline
 
-# Curadoria completa
-uv run atlas-stf curate all
-
-# Grupos comparáveis
-uv run atlas-stf analytics build-groups
-
-# Baselines
-uv run atlas-stf analytics build-baseline
-
-# Alertas
-uv run atlas-stf analytics build-alerts
-
-# Bundles de evidência
-uv run atlas-stf evidence build-all
+# Ou por etapas:
+make scrape          # Baixa decisões e acórdãos da API do STF
+make staging         # Limpeza e padronização dos CSVs brutos
+make curate          # Curadoria de entidades canônicas
+make analytics       # Grupos, baselines, alertas e módulos analíticos
+make cgu             # Sanções CGU (CEIS/CNEP/Leniência)
+make tse             # Doações eleitorais TSE
+make cvm             # Sanções CVM
+make rfb             # Rede corporativa RFB
+make evidence        # Bundles de evidência
+make serving-build   # Materializa banco SQLite para API
 ```
 
 ### 4. Serving database + API
@@ -283,7 +280,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | Validação | `uv run atlas-stf validate staging` |
 | Auditoria | `uv run atlas-stf audit stage` / `curated` / `analytics` |
 | Curadoria | `uv run atlas-stf curate ...` |
-| Scraper de jurisprudência | `uv run atlas-stf scrape decisoes` |
+| Scraper de jurisprudência | `make scrape` (decisões + acórdãos) |
 | CGU (CEIS/CNEP/Leniência) | `uv run atlas-stf cgu fetch` / `build-matches` |
 | TSE (doações eleitorais) | `uv run atlas-stf tse fetch` / `build-matches` |
 | CVM (sanções mercado) | `uv run atlas-stf cvm fetch` / `build-matches` |
@@ -364,6 +361,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 |---|---|
 | `ATLAS_STF_DATABASE_URL` | Banco usado pela API |
 | `ATLAS_STF_API_BASE_URL` | Base URL consumida pelo frontend |
+| `ATLAS_STF_SCRAPER_IGNORE_HTTPS_ERRORS` | Ignora TLS do STF no scraper (`true` — já configurado no `make scrape`) |
 
 ## Estrutura do Repositório
 

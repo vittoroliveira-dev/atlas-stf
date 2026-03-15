@@ -42,8 +42,18 @@ def _parse_json_list(raw: str | None) -> list[Any]:
         return []
     try:
         return json.loads(raw)
-    except TypeError, json.JSONDecodeError:
+    except (TypeError, json.JSONDecodeError):
         return []
+
+
+def _parse_signal_details(raw: str | None) -> dict[str, dict[str, Any]] | None:
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) and parsed else None
+    except (TypeError, json.JSONDecodeError):
+        return None
 
 
 def _row_to_item(row: ServingCompoundRisk) -> CompoundRiskItem:
@@ -74,6 +84,9 @@ def _row_to_item(row: ServingCompoundRisk) -> CompoundRiskItem:
         top_process_classes=[str(value) for value in _parse_json_list(row.top_process_classes_json)],
         supporting_party_ids=[str(value) for value in _parse_json_list(row.supporting_party_ids_json)],
         supporting_party_names=[str(value) for value in _parse_json_list(row.supporting_party_names_json)],
+        signal_details=_parse_signal_details(row.signal_details_json),
+        earliest_year=row.earliest_year,
+        latest_year=row.latest_year,
     )
 
 

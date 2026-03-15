@@ -32,6 +32,22 @@ from .models import (
     ServingTemporalAnalysis,
 )
 
+_MATCH_STRATEGY_TO_CONFIDENCE: dict[str, str] = {
+    "tax_id": "deterministic",
+    "alias": "exact_name",
+    "exact": "exact_name",
+    "canonical_name": "exact_name",
+    "jaccard": "fuzzy",
+    "levenshtein": "fuzzy",
+    "ambiguous": "nominal_review_needed",
+}
+
+
+def _match_confidence(strategy: str | None) -> str:
+    if not strategy:
+        return "unknown"
+    return _MATCH_STRATEGY_TO_CONFIDENCE.get(strategy, "unknown")
+
 
 def load_rapporteur_profiles(analytics_dir: Path) -> list[ServingRapporteurProfile]:
     rp_path = analytics_dir / "rapporteur_profile.jsonl"
@@ -227,6 +243,7 @@ def load_sanction_matches(
             if mid in seen:
                 continue
             seen.add(mid)
+            strategy = record.get("match_strategy")
             sanction_matches.append(
                 ServingSanctionMatch(
                     match_id=str(record.get("match_id", "")),
@@ -247,6 +264,9 @@ def load_sanction_matches(
                     baseline_favorable_rate=record.get("baseline_favorable_rate"),
                     favorable_rate_delta=record.get("favorable_rate_delta"),
                     red_flag=_coerce_bool(record.get("red_flag")),
+                    match_strategy=strategy,
+                    match_score=_coerce_float(record.get("match_score")),
+                    match_confidence=_match_confidence(strategy),
                     matched_at=_parse_datetime(record.get("matched_at")),
                 )
             )
@@ -277,6 +297,7 @@ def load_donation_matches(
     dm_path = analytics_dir / "donation_match.jsonl"
     if dm_path.exists():
         for record in _read_jsonl(dm_path):
+            strategy = record.get("match_strategy")
             donation_matches.append(
                 ServingDonationMatch(
                     match_id=str(record.get("match_id", "")),
@@ -297,6 +318,9 @@ def load_donation_matches(
                     baseline_favorable_rate=record.get("baseline_favorable_rate"),
                     favorable_rate_delta=record.get("favorable_rate_delta"),
                     red_flag=_coerce_bool(record.get("red_flag")),
+                    match_strategy=strategy,
+                    match_score=_coerce_float(record.get("match_score")),
+                    match_confidence=_match_confidence(strategy),
                     matched_at=_parse_datetime(record.get("matched_at")),
                 )
             )
@@ -430,6 +454,9 @@ def load_compound_risks(analytics_dir: Path) -> list[ServingCompoundRisk]:
                 top_process_classes_json=json.dumps(record.get("top_process_classes", []), ensure_ascii=False),
                 supporting_party_ids_json=json.dumps(record.get("supporting_party_ids", []), ensure_ascii=False),
                 supporting_party_names_json=json.dumps(record.get("supporting_party_names", []), ensure_ascii=False),
+                signal_details_json=json.dumps(record.get("signal_details", {}), ensure_ascii=False),
+                earliest_year=record.get("earliest_year"),
+                latest_year=record.get("latest_year"),
                 generated_at=_parse_datetime(record.get("generated_at")),
             )
         )

@@ -330,6 +330,9 @@ class ServingSanctionMatch(Base):
     baseline_favorable_rate: Mapped[float | None] = mapped_column(Float)
     favorable_rate_delta: Mapped[float | None] = mapped_column(Float)
     red_flag: Mapped[bool] = mapped_column(Boolean, index=True, default=False)
+    match_strategy: Mapped[str | None] = mapped_column(String(64))
+    match_score: Mapped[float | None] = mapped_column(Float)
+    match_confidence: Mapped[str | None] = mapped_column(String(64))
     matched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -365,6 +368,9 @@ class ServingDonationMatch(Base):
     baseline_favorable_rate: Mapped[float | None] = mapped_column(Float)
     favorable_rate_delta: Mapped[float | None] = mapped_column(Float)
     red_flag: Mapped[bool] = mapped_column(Boolean, index=True, default=False)
+    match_strategy: Mapped[str | None] = mapped_column(String(64))
+    match_score: Mapped[float | None] = mapped_column(Float)
+    match_confidence: Mapped[str | None] = mapped_column(String(64))
     matched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -455,6 +461,9 @@ class ServingCompoundRisk(Base):
     top_process_classes_json: Mapped[str | None] = mapped_column(Text())
     supporting_party_ids_json: Mapped[str | None] = mapped_column(Text())
     supporting_party_names_json: Mapped[str | None] = mapped_column(Text())
+    signal_details_json: Mapped[str | None] = mapped_column(Text())
+    earliest_year: Mapped[int | None] = mapped_column(Integer)
+    latest_year: Mapped[int | None] = mapped_column(Integer)
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 

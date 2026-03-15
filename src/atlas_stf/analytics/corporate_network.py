@@ -18,6 +18,7 @@ from ._match_helpers import (
     build_process_class_map,
     build_process_outcomes,
     compute_favorable_rate_role_aware,
+    compute_favorable_rate_substantive,
     read_jsonl,
 )
 
@@ -249,6 +250,7 @@ def build_corporate_network(
                             party_classes.append(pc)
 
         favorable_rate = compute_favorable_rate_role_aware(outcomes_with_roles)
+        favorable_rate_sub, n_substantive = compute_favorable_rate_substantive(outcomes_with_roles)
 
         baseline_rate: float | None = None
         if party_classes:
@@ -263,6 +265,11 @@ def build_corporate_network(
             delta = favorable_rate - baseline_rate
             risk_score = delta * decay_factor
             red_flag = risk_score > RED_FLAG_DELTA_THRESHOLD and len(seen_pids) >= MIN_CASES_FOR_RED_FLAG
+
+        red_flag_substantive: bool | None = None
+        if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
+            sub_risk = (favorable_rate_sub - baseline_rate) * decay_factor
+            red_flag_substantive = sub_risk > RED_FLAG_DELTA_THRESHOLD
 
         conflict_id = stable_id("cn-", f"{minister_norm}:{cnpj}:{entity_name}:d{link_degree}")
 
@@ -279,11 +286,14 @@ def build_corporate_network(
             "shared_process_ids": list(seen_pids),
             "shared_process_count": len(seen_pids),
             "favorable_rate": favorable_rate,
+            "favorable_rate_substantive": favorable_rate_sub,
+            "substantive_decision_count": n_substantive,
             "baseline_favorable_rate": baseline_rate,
             "favorable_rate_delta": delta,
             "risk_score": risk_score,
             "decay_factor": decay_factor,
             "red_flag": red_flag,
+            "red_flag_substantive": red_flag_substantive,
             "link_chain": link_chain,
             "link_degree": link_degree,
             "generated_at": now_iso,

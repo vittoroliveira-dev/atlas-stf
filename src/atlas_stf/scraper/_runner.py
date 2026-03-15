@@ -7,6 +7,7 @@ import hashlib
 import json
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 from ._api import build_search_body, extract_hits, extract_search_after, extract_total, search
@@ -79,10 +80,17 @@ def scrape_target(config: ScrapeConfig) -> int:
     with ApiSession.create(headless=config.headless, timeout_ms=config.timeout_ms) as session:
         consecutive_403 = 0
 
+        current_month = date.today().strftime("%Y-%m")
+
         for label, gte, lte in partitions:
             if label in checkpoint.completed_partitions:
-                logger.info("  %s — already complete, skipping", label)
-                continue
+                if label == current_month:
+                    # Current month may have new data — remove from completed to re-check
+                    checkpoint.completed_partitions.remove(label)
+                    logger.info("  %s — current month, re-checking for new data", label)
+                else:
+                    logger.info("  %s — already complete, skipping", label)
+                    continue
 
             jsonl_path = output_dir / f"{label}.jsonl"
             partition_start_time = time.monotonic()

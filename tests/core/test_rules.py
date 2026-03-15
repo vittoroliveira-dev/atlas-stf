@@ -9,6 +9,7 @@ from atlas_stf.core.rules import (
     classify_group_size,
     classify_judging_body_category,
     classify_outcome_for_party,
+    classify_outcome_materiality,
     classify_outcome_raw,
     derive_thematic_key,
 )
@@ -157,3 +158,110 @@ class TestClassifyJudgingBodyCategory:
     def test_incerto(self) -> None:
         assert classify_judging_body_category(None, None) == "incerto"
         assert classify_judging_body_category("", None) == "incerto"
+
+
+class TestClassifyOutcomeMateriality:
+    # --- Provisional ---
+    def test_materiality_liminar_deferida(self) -> None:
+        assert classify_outcome_materiality("Liminar deferida") == "provisional"
+
+    def test_materiality_liminar_indeferida(self) -> None:
+        assert classify_outcome_materiality("Liminar indeferida") == "provisional"
+
+    def test_materiality_liminar_ad_referendum(self) -> None:
+        assert classify_outcome_materiality("Liminar deferida ad referendum") == "provisional"
+
+    def test_materiality_liminar_prejudicada(self) -> None:
+        assert classify_outcome_materiality("Liminar prejudicada") == "provisional"
+
+    # --- Procedural ---
+    def test_materiality_nao_conhecido(self) -> None:
+        assert classify_outcome_materiality("Não conhecido") == "procedural"
+
+    def test_materiality_negado_seguimento(self) -> None:
+        assert classify_outcome_materiality("Negado seguimento") == "procedural"
+
+    def test_materiality_homologada_desistencia(self) -> None:
+        assert classify_outcome_materiality("Homologada a desistência") == "procedural"
+
+    def test_materiality_homologado_acordo(self) -> None:
+        assert classify_outcome_materiality("Homologado o acordo") == "procedural"
+
+    def test_materiality_prejudicado(self) -> None:
+        assert classify_outcome_materiality("Prejudicado") == "procedural"
+
+    def test_materiality_extinto_processo(self) -> None:
+        assert classify_outcome_materiality("Extinto o processo") == "procedural"
+
+    # --- Substantive ---
+    def test_materiality_provido(self) -> None:
+        assert classify_outcome_materiality("Provido") == "substantive"
+
+    def test_materiality_desprovido(self) -> None:
+        assert classify_outcome_materiality("Desprovido") == "substantive"
+
+    def test_materiality_nao_provido(self) -> None:
+        assert classify_outcome_materiality("Não provido") == "substantive"
+
+    def test_materiality_procedente(self) -> None:
+        assert classify_outcome_materiality("Procedente") == "substantive"
+
+    def test_materiality_improcedente(self) -> None:
+        assert classify_outcome_materiality("Improcedente") == "substantive"
+
+    def test_materiality_concedida_ordem(self) -> None:
+        assert classify_outcome_materiality("Concedida a ordem") == "substantive"
+
+    def test_materiality_denegada_ordem(self) -> None:
+        assert classify_outcome_materiality("Denegada a ordem") == "substantive"
+
+    def test_materiality_concedida_seguranca(self) -> None:
+        assert classify_outcome_materiality("Concedida a segurança") == "substantive"
+
+    def test_materiality_conhecido_e_provido(self) -> None:
+        assert classify_outcome_materiality("Conhecido e provido") == "substantive"
+
+    # --- Unknown (conservatively classified) ---
+    def test_materiality_embargos_rejeitados_is_unknown(self) -> None:
+        assert classify_outcome_materiality("Embargos rejeitados") == "unknown"
+
+    def test_materiality_embargos_recebidos_is_unknown(self) -> None:
+        assert classify_outcome_materiality("Embargos recebidos") == "unknown"
+
+    def test_materiality_deferido_isolado_is_unknown(self) -> None:
+        assert classify_outcome_materiality("Deferido") == "unknown"
+
+    def test_materiality_indeferido_isolado_is_unknown(self) -> None:
+        assert classify_outcome_materiality("Indeferido") == "unknown"
+
+    def test_materiality_decisao_referendada_is_unknown(self) -> None:
+        assert classify_outcome_materiality("Decisão Referendada") == "unknown"
+
+    def test_materiality_decisao_ratificada_is_unknown(self) -> None:
+        assert classify_outcome_materiality("Decisão Ratificada") == "unknown"
+
+    def test_materiality_concedido_isolado_is_unknown(self) -> None:
+        assert classify_outcome_materiality("Concedido") == "unknown"
+
+    # --- Lexical collision tests (precedence order) ---
+    def test_materiality_liminar_deferida_not_substantive(self) -> None:
+        """Contains 'deferida' but is provisional (provisional > substantive)."""
+        assert classify_outcome_materiality("Liminar deferida") == "provisional"
+
+    def test_materiality_liminar_indeferida_not_procedural(self) -> None:
+        """Contains 'indeferida' but is provisional (provisional > procedural)."""
+        assert classify_outcome_materiality("Liminar indeferida") == "provisional"
+
+    def test_materiality_liminar_prejudicada_is_provisional(self) -> None:
+        """Contains 'prejudicado' but 'liminar' captures first."""
+        assert classify_outcome_materiality("Liminar prejudicada") == "provisional"
+
+    def test_materiality_agravo_regimental_provido(self) -> None:
+        """Recursal vehicle, 'provido' = substantive content."""
+        assert classify_outcome_materiality("Agravo regimental provido") == "substantive"
+
+    def test_materiality_agravo_regimental_nao_provido(self) -> None:
+        assert classify_outcome_materiality("Agravo regimental não provido") == "substantive"
+
+    def test_materiality_composite_pleno_negado_provimento(self) -> None:
+        assert classify_outcome_materiality("JULGAMENTO DO PLENO - NEGADO PROVIMENTO") == "substantive"

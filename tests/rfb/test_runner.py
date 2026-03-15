@@ -8,6 +8,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
+from atlas_stf.rfb import _runner
 from atlas_stf.rfb._config import RfbFetchConfig
 from atlas_stf.rfb._runner import (
     _build_target_names,
@@ -173,10 +174,14 @@ class TestExtractCsvFromZip:
 
 class TestDiscoverLatestMonth:
     def test_skips_webdav_without_token(self, monkeypatch) -> None:
-        monkeypatch.setattr("atlas_stf.rfb._runner.RFB_NEXTCLOUD_SHARE_TOKEN", "")
-        with patch("atlas_stf.rfb._runner.httpx.Client") as client_cls:
-            assert _discover_latest_month(timeout=5) is None
-        client_cls.assert_not_called()
+        original = _runner._active_share_token[0]
+        _runner._active_share_token[0] = ""
+        try:
+            with patch("atlas_stf.rfb._runner.httpx.Client") as client_cls:
+                assert _discover_latest_month(timeout=5) is None
+            client_cls.assert_not_called()
+        finally:
+            _runner._active_share_token[0] = original
 
 
 class TestDownloadZip:

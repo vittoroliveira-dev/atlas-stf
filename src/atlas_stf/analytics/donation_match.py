@@ -20,6 +20,7 @@ from ._match_helpers import (
     build_party_process_map,
     build_process_outcomes,
     compute_favorable_rate_role_aware,
+    compute_favorable_rate_substantive,
     iter_jsonl,
     read_jsonl,
 )
@@ -188,6 +189,7 @@ def build_donation_matches(
                     party_classes.append(process_class_map[pid])
 
         favorable_rate = compute_favorable_rate_role_aware(outcomes_with_roles)
+        favorable_rate_sub, n_substantive = compute_favorable_rate_substantive(outcomes_with_roles)
 
         baseline_rate: float | None = None
         if party_classes:
@@ -199,6 +201,10 @@ def build_donation_matches(
         if favorable_rate is not None and baseline_rate is not None:
             delta = favorable_rate - baseline_rate
             red_flag = delta > RED_FLAG_DELTA_THRESHOLD and len(seen_pids) >= MIN_CASES_FOR_RED_FLAG
+
+        red_flag_substantive: bool | None = None
+        if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
+            red_flag_substantive = (favorable_rate_sub - baseline_rate) > RED_FLAG_DELTA_THRESHOLD
 
         match_id = stable_id("dm-", f"{party_id}:{donor_name}:{donor_info['donor_cpf_cnpj']}")
         matches.append(
@@ -223,9 +229,12 @@ def build_donation_matches(
                 "positions_donated_to": donor_info["positions_donated_to"],
                 "stf_case_count": len(seen_pids),
                 "favorable_rate": favorable_rate,
+                "favorable_rate_substantive": favorable_rate_sub,
+                "substantive_decision_count": n_substantive,
                 "baseline_favorable_rate": baseline_rate,
                 "favorable_rate_delta": delta,
                 "red_flag": red_flag,
+                "red_flag_substantive": red_flag_substantive,
                 "matched_at": now_iso,
             }
         )
@@ -291,6 +300,7 @@ def build_donation_matches(
                     counsel_classes.append(process_class_map[pid])
 
         favorable_rate = compute_favorable_rate_role_aware(outcomes_with_roles)
+        favorable_rate_sub, n_substantive = compute_favorable_rate_substantive(outcomes_with_roles)
 
         baseline_rate = None
         if counsel_classes:
@@ -302,6 +312,10 @@ def build_donation_matches(
         if favorable_rate is not None and baseline_rate is not None:
             delta = favorable_rate - baseline_rate
             red_flag = delta > RED_FLAG_DELTA_THRESHOLD and len(seen_pids) >= MIN_CASES_FOR_RED_FLAG
+
+        red_flag_substantive: bool | None = None
+        if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
+            red_flag_substantive = (favorable_rate_sub - baseline_rate) > RED_FLAG_DELTA_THRESHOLD
 
         match_id = stable_id("dm-", f"counsel:{counsel_id}:{donor_name}:{donor_info['donor_cpf_cnpj']}")
         matches.append(
@@ -324,9 +338,12 @@ def build_donation_matches(
                 "positions_donated_to": donor_info["positions_donated_to"],
                 "stf_case_count": len(seen_pids),
                 "favorable_rate": favorable_rate,
+                "favorable_rate_substantive": favorable_rate_sub,
+                "substantive_decision_count": n_substantive,
                 "baseline_favorable_rate": baseline_rate,
                 "favorable_rate_delta": delta,
                 "red_flag": red_flag,
+                "red_flag_substantive": red_flag_substantive,
                 "matched_at": now_iso,
             }
         )

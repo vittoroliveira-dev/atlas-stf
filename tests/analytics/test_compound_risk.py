@@ -59,18 +59,21 @@ class TestBuildCompoundRisk:
                     "process_id": "proc_1",
                     "current_rapporteur": "MIN. TESTE",
                     "decision_progress": "Procedente",
+                    "decision_date": "2021-03-15",
                 },
                 {
                     "decision_event_id": "evt_2",
                     "process_id": "proc_2",
                     "current_rapporteur": "MIN. TESTE",
                     "decision_progress": "Procedente",
+                    "decision_date": "2023-07-10",
                 },
                 {
                     "decision_event_id": "evt_3",
                     "process_id": "proc_3",
                     "current_rapporteur": "MIN. OUTRO",
                     "decision_progress": "Improcedente",
+                    "decision_date": "2022-01-05",
                 },
             ],
         )
@@ -273,6 +276,278 @@ class TestBuildCompoundRisk:
         # With direct match, counsel should NOT have supporting_party_ids
         # because cross-entity inference is skipped for counsels with direct matches
         assert counsel_pair["supporting_party_ids"] == []
+
+    def test_red_flag_substantive_true_qualifies_as_signal(self, tmp_path: Path) -> None:
+        """When red_flag_substantive=True, row qualifies even if legacy red_flag=False."""
+        paths = self._setup(tmp_path)
+        analytics_dir = paths["analytics_dir"]
+
+        _write_jsonl(
+            analytics_dir / "sanction_match.jsonl",
+            [
+                {
+                    "match_id": "sm1",
+                    "entity_type": "party",
+                    "entity_id": "p1",
+                    "entity_name_normalized": "AUTOR A",
+                    "party_id": "p1",
+                    "party_name_normalized": "AUTOR A",
+                    "sanction_source": "CGU",
+                    "sanction_id": "s1",
+                    "favorable_rate_delta": 0.33,
+                    "red_flag": False,
+                    "red_flag_substantive": True,
+                }
+            ],
+        )
+
+        output_path = build_compound_risk(**paths)
+        rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        party_pair = next((row for row in rows if row["entity_type"] == "party"), None)
+        assert party_pair is not None
+        assert "sanction" in party_pair["signals"]
+
+    def test_red_flag_substantive_false_excludes_despite_legacy_true(self, tmp_path: Path) -> None:
+        """When red_flag_substantive=False, row is excluded even if legacy red_flag=True."""
+        paths = self._setup(tmp_path)
+        analytics_dir = paths["analytics_dir"]
+
+        _write_jsonl(
+            analytics_dir / "sanction_match.jsonl",
+            [
+                {
+                    "match_id": "sm1",
+                    "entity_type": "party",
+                    "entity_id": "p1",
+                    "entity_name_normalized": "AUTOR A",
+                    "party_id": "p1",
+                    "party_name_normalized": "AUTOR A",
+                    "sanction_source": "CGU",
+                    "sanction_id": "s1",
+                    "favorable_rate_delta": 0.33,
+                    "red_flag": True,
+                    "red_flag_substantive": False,
+                }
+            ],
+        )
+
+        output_path = build_compound_risk(**paths)
+        rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        party_pair = next((row for row in rows if row["entity_type"] == "party"), None)
+        # Sanction signal should NOT be present — substantive governs
+        if party_pair is not None:
+            assert "sanction" not in party_pair["signals"]
+
+    def test_red_flag_substantive_none_excludes_despite_legacy_true(self, tmp_path: Path) -> None:
+        """When red_flag_substantive=None (insufficient data), row is excluded conservatively."""
+        paths = self._setup(tmp_path)
+        analytics_dir = paths["analytics_dir"]
+
+        _write_jsonl(
+            analytics_dir / "sanction_match.jsonl",
+            [
+                {
+                    "match_id": "sm1",
+                    "entity_type": "party",
+                    "entity_id": "p1",
+                    "entity_name_normalized": "AUTOR A",
+                    "party_id": "p1",
+                    "party_name_normalized": "AUTOR A",
+                    "sanction_source": "CGU",
+                    "sanction_id": "s1",
+                    "favorable_rate_delta": 0.33,
+                    "red_flag": True,
+                    "red_flag_substantive": None,
+                }
+            ],
+        )
+
+        output_path = build_compound_risk(**paths)
+        rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        party_pair = next((row for row in rows if row["entity_type"] == "party"), None)
+        # Sanction signal should NOT be present — None is not True
+        if party_pair is not None:
+            assert "sanction" not in party_pair["signals"]
+
+    def test_missing_red_flag_substantive_field_uses_legacy_true(self, tmp_path: Path) -> None:
+        """When red_flag_substantive key is absent, legacy red_flag=True governs (backward compat)."""
+        paths = self._setup(tmp_path)
+        analytics_dir = paths["analytics_dir"]
+
+        # Write sanction without red_flag_substantive key at all
+        _write_jsonl(
+            analytics_dir / "sanction_match.jsonl",
+            [
+                {
+                    "match_id": "sm1",
+                    "entity_type": "party",
+                    "entity_id": "p1",
+                    "entity_name_normalized": "AUTOR A",
+                    "party_id": "p1",
+                    "party_name_normalized": "AUTOR A",
+                    "sanction_source": "CGU",
+                    "sanction_id": "s1",
+                    "favorable_rate_delta": 0.33,
+                    "red_flag": True,
+                    # NO red_flag_substantive key
+                }
+            ],
+        )
+
+        output_path = build_compound_risk(**paths)
+        rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        party_pair = next((row for row in rows if row["entity_type"] == "party"), None)
+        assert party_pair is not None
+        assert "sanction" in party_pair["signals"]
+
+    def test_missing_red_flag_substantive_field_uses_legacy_false(self, tmp_path: Path) -> None:
+        """When red_flag_substantive key is absent, legacy red_flag=False excludes the row."""
+        paths = self._setup(tmp_path)
+        analytics_dir = paths["analytics_dir"]
+
+        _write_jsonl(
+            analytics_dir / "sanction_match.jsonl",
+            [
+                {
+                    "match_id": "sm1",
+                    "entity_type": "party",
+                    "entity_id": "p1",
+                    "entity_name_normalized": "AUTOR A",
+                    "party_id": "p1",
+                    "party_name_normalized": "AUTOR A",
+                    "sanction_source": "CGU",
+                    "sanction_id": "s1",
+                    "favorable_rate_delta": 0.33,
+                    "red_flag": False,
+                    # NO red_flag_substantive key
+                }
+            ],
+        )
+
+        output_path = build_compound_risk(**paths)
+        rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        party_pair = next((row for row in rows if row["entity_type"] == "party"), None)
+        if party_pair is not None:
+            assert "sanction" not in party_pair["signals"]
+
+    def test_red_flag_substantive_true_with_legacy_true(self, tmp_path: Path) -> None:
+        """When both red_flag=True and red_flag_substantive=True, row qualifies."""
+        paths = self._setup(tmp_path)
+        analytics_dir = paths["analytics_dir"]
+
+        _write_jsonl(
+            analytics_dir / "sanction_match.jsonl",
+            [
+                {
+                    "match_id": "sm1",
+                    "entity_type": "party",
+                    "entity_id": "p1",
+                    "entity_name_normalized": "AUTOR A",
+                    "party_id": "p1",
+                    "party_name_normalized": "AUTOR A",
+                    "sanction_source": "CGU",
+                    "sanction_id": "s1",
+                    "favorable_rate_delta": 0.33,
+                    "red_flag": True,
+                    "red_flag_substantive": True,
+                }
+            ],
+        )
+
+        output_path = build_compound_risk(**paths)
+        rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        party_pair = next((row for row in rows if row["entity_type"] == "party"), None)
+        assert party_pair is not None
+        assert "sanction" in party_pair["signals"]
+
+    def test_signal_details_keys_match_signals_list(self, tmp_path: Path) -> None:
+        """signal_details keys must equal the signals present in the pair."""
+        paths = self._setup(tmp_path)
+
+        output_path = build_compound_risk(**paths)
+        rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+        for row in rows:
+            assert set(row["signal_details"].keys()) == set(row["signals"])
+
+    def test_signal_details_structure_per_type(self, tmp_path: Path) -> None:
+        """Each signal type in signal_details has expected sub-fields."""
+        paths = self._setup(tmp_path)
+
+        output_path = build_compound_risk(**paths)
+        rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+        party_pair = next(row for row in rows if row["entity_type"] == "party")
+        sd = party_pair["signal_details"]
+        assert sd["sanction"]["count"] == 1
+        assert sd["sanction"]["sources"] == ["CGU"]
+        assert sd["donation"]["count"] == 1
+        assert sd["donation"]["total_brl"] == 100000.0
+        assert sd["corporate"]["count"] == 1
+        assert sd["corporate"]["company_count"] == 1
+        assert sd["corporate"]["min_link_degree"] == 1
+        assert sd["alert"]["count"] == 1
+        assert sd["alert"]["max_score"] == 0.92
+
+        counsel_pair = next(row for row in rows if row["entity_type"] == "counsel")
+        sd_c = counsel_pair["signal_details"]
+        assert sd_c["affinity"]["count"] == 1
+        assert sd_c["affinity"]["affinity_ids"] == ["ca1"]
+        assert sd_c["donation"]["count"] == 1
+
+    def test_earliest_latest_year_from_decision_dates(self, tmp_path: Path) -> None:
+        """earliest_year/latest_year computed from decision_date of shared processes."""
+        paths = self._setup(tmp_path)
+
+        output_path = build_compound_risk(**paths)
+        rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+        party_pair = next(row for row in rows if row["entity_type"] == "party")
+        # proc_1 -> 2021, proc_2 -> 2023
+        assert party_pair["earliest_year"] == 2021
+        assert party_pair["latest_year"] == 2023
+
+        counsel_pair = next(row for row in rows if row["entity_type"] == "counsel")
+        # proc_1 -> 2021, proc_2 -> 2023
+        assert counsel_pair["earliest_year"] == 2021
+        assert counsel_pair["latest_year"] == 2023
+
+    def test_earliest_latest_year_none_when_no_dates(self, tmp_path: Path) -> None:
+        """When decision_date is absent, earliest/latest_year are None."""
+        paths = self._setup(tmp_path)
+        curated_dir = paths["curated_dir"]
+
+        # Rewrite decision events without decision_date
+        _write_jsonl(
+            curated_dir / "decision_event.jsonl",
+            [
+                {
+                    "decision_event_id": "evt_1",
+                    "process_id": "proc_1",
+                    "current_rapporteur": "MIN. TESTE",
+                    "decision_progress": "Procedente",
+                },
+                {
+                    "decision_event_id": "evt_2",
+                    "process_id": "proc_2",
+                    "current_rapporteur": "MIN. TESTE",
+                    "decision_progress": "Procedente",
+                },
+                {
+                    "decision_event_id": "evt_3",
+                    "process_id": "proc_3",
+                    "current_rapporteur": "MIN. OUTRO",
+                    "decision_progress": "Improcedente",
+                },
+            ],
+        )
+
+        output_path = build_compound_risk(**paths)
+        rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+        party_pair = next(row for row in rows if row["entity_type"] == "party")
+        assert party_pair["earliest_year"] is None
+        assert party_pair["latest_year"] is None
 
     def test_returns_output_dir_when_required_inputs_are_missing(self, tmp_path: Path) -> None:
         output_dir = tmp_path / "analytics"

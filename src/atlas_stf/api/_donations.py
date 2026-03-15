@@ -45,6 +45,9 @@ def _row_to_match_item(row: ServingDonationMatch) -> DonationMatchItem:
         baseline_favorable_rate=row.baseline_favorable_rate,
         favorable_rate_delta=row.favorable_rate_delta,
         red_flag=row.red_flag,
+        match_strategy=row.match_strategy,
+        match_score=row.match_score,
+        match_confidence=row.match_confidence,
     )
 
 
