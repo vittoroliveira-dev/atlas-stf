@@ -193,6 +193,14 @@ def _add_external_parsers(subparsers: Any) -> None:
         help="Output directory for analytics artifacts",
     )
 
+    cgu_corporate_links = cgu_sub.add_parser(
+        "build-corporate-links", help="Build sanction → corporate → STF links via RFB bridge"
+    )
+    cgu_corporate_links.add_argument("--cgu-dir", type=Path, default=Path("data/raw/cgu"))
+    cgu_corporate_links.add_argument("--cvm-dir", type=Path, default=Path("data/raw/cvm"))
+    cgu_corporate_links.add_argument("--rfb-dir", type=Path, default=Path("data/raw/rfb"))
+    cgu_corporate_links.add_argument("--output-dir", type=Path, default=DEFAULT_ANALYTICS_DIR)
+
     tse = subparsers.add_parser("tse", help="Fetch and process TSE campaign donation data")
     tse_sub = tse.add_subparsers(dest="tse_target", required=True)
     tse_fetch = tse_sub.add_parser("fetch", help="Download receitas CSVs from TSE open data")
@@ -222,6 +230,53 @@ def _add_external_parsers(subparsers: Any) -> None:
         default=DEFAULT_ANALYTICS_DIR,
         help="Output directory for analytics artifacts",
     )
+    tse_expenses = tse_sub.add_parser("fetch-expenses", help="Download despesas CSVs from TSE open data")
+    tse_expenses.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/raw/tse"),
+        help="Output directory for raw TSE data",
+    )
+    tse_expenses.add_argument("--years", nargs="*", type=int, default=None, help="Election years to fetch")
+    tse_expenses.add_argument("--dry-run", action="store_true", help="List URLs without downloading")
+    tse_expenses.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Re-download all requested years even if already cached",
+    )
+
+    tse_party_org = tse_sub.add_parser("fetch-party-org", help="Download party organ finance CSVs from TSE open data")
+    tse_party_org.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/raw/tse"),
+        help="Output directory for raw TSE data",
+    )
+    tse_party_org.add_argument("--years", nargs="*", type=int, default=None, help="Election years to fetch (2018+)")
+    tse_party_org.add_argument("--dry-run", action="store_true", help="List URLs without downloading")
+    tse_party_org.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Re-download all requested years even if already cached",
+    )
+
+    tse_counterparties = tse_sub.add_parser(
+        "build-counterparties", help="Build payment counterparty rollup analytics"
+    )
+    tse_counterparties.add_argument("--tse-dir", type=Path, default=Path("data/raw/tse"))
+    tse_counterparties.add_argument("--output-dir", type=Path, default=DEFAULT_ANALYTICS_DIR)
+
+    tse_donor_links = tse_sub.add_parser(
+        "build-donor-links", help="Build donor → corporate links via CPF/CNPJ join with RFB data"
+    )
+    tse_donor_links.add_argument("--tse-dir", type=Path, default=Path("data/raw/tse"))
+    tse_donor_links.add_argument("--rfb-dir", type=Path, default=Path("data/raw/rfb"))
+    tse_donor_links.add_argument("--output-dir", type=Path, default=DEFAULT_ANALYTICS_DIR)
+
+    tse_empirical = tse_sub.add_parser("empirical-report", help="Build donation empirical metrics report")
+    tse_empirical.add_argument("--tse-dir", type=Path, default=Path("data/raw/tse"))
+    tse_empirical.add_argument("--analytics-dir", type=Path, default=DEFAULT_ANALYTICS_DIR)
+    tse_empirical.add_argument("--output-dir", type=Path, default=DEFAULT_ANALYTICS_DIR)
 
     cvm = subparsers.add_parser("cvm", help="Fetch and process CVM sanction data")
     cvm_sub = cvm.add_subparsers(dest="cvm_target", required=True)

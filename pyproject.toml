@@ -1,6 +1,6 @@
 [project]
 name = "atlas-stf"
-version = "1.0.5"
+version = "1.0.6"
 description = "Análise empírica e documentação metodológica sobre padrões decisórios do STF"
 readme = "README.md"
 requires-python = ">=3.14.3"
@@ -81,7 +81,7 @@ testpaths = ["tests"]
 #   porque o runtime já possui threads internas (GC).  Não é nosso código e
 #   o xdist funciona sem problemas com fork no Linux.
 #   Ref: https://github.com/pytest-dev/pytest-xdist/issues/1074
-addopts = "-n auto -m 'not slow'"
+addopts = "-n 4 -m 'not slow'"
 filterwarnings = [
     "ignore:This process .* is multi-threaded, use of fork:DeprecationWarning",
 ]

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import cast
+from typing import Literal, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -24,7 +24,7 @@ def _parse_json_list(raw: str | None) -> list:
         return []
     try:
         return json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return []
 
 
@@ -54,12 +54,38 @@ def _row_to_match_item(row: ServingDonationMatch) -> DonationMatchItem:
         favorable_rate_delta=row.favorable_rate_delta,
         red_flag=row.red_flag,
         red_flag_substantive=row.red_flag_substantive,
+        red_flag_power=row.red_flag_power,
+        red_flag_confidence=cast(Literal["high", "moderate", "low"] | None, row.red_flag_confidence),
         match_strategy=row.match_strategy,
         match_score=row.match_score,
         match_confidence=row.match_confidence,
         matched_alias=row.matched_alias or None,
         matched_tax_id=row.matched_tax_id or None,
         uncertainty_note=row.uncertainty_note or None,
+        donor_identity_key=row.donor_identity_key or None,
+        donor_document_type=row.donor_document_type,
+        donor_tax_id_normalized=row.donor_tax_id_normalized,
+        donor_cnpj_basico=row.donor_cnpj_basico,
+        donor_company_name=row.donor_company_name,
+        economic_group_id=row.economic_group_id,
+        economic_group_member_count=row.economic_group_member_count,
+        is_law_firm_group=row.is_law_firm_group,
+        donor_group_has_minister_partner=row.donor_group_has_minister_partner,
+        donor_group_has_party_partner=row.donor_group_has_party_partner,
+        donor_group_has_counsel_partner=row.donor_group_has_counsel_partner,
+        min_link_degree_to_minister=row.min_link_degree_to_minister,
+        corporate_link_red_flag=row.corporate_link_red_flag,
+        resource_types_observed=_parse_json_list(row.resource_types_observed_json),
+        first_donation_date=row.first_donation_date,
+        last_donation_date=row.last_donation_date,
+        active_election_year_count=row.active_election_year_count,
+        max_single_donation_brl=row.max_single_donation_brl,
+        avg_donation_brl=row.avg_donation_brl,
+        top_candidate_share=row.top_candidate_share,
+        top_party_share=row.top_party_share,
+        top_state_share=row.top_state_share,
+        donation_year_span=row.donation_year_span,
+        recent_donation_flag=row.recent_donation_flag,
     )
 
 
@@ -196,6 +222,16 @@ def _row_to_event_item(row: ServingDonationEvent) -> DonationEventItem:
         donor_name_originator=row.donor_name_originator,
         donor_cpf_cnpj=row.donor_cpf_cnpj,
         donation_description=row.donation_description,
+        donor_identity_key=row.donor_identity_key or None,
+        resource_type_category=row.resource_type_category,
+        resource_type_subtype=row.resource_type_subtype,
+        resource_classification_confidence=row.resource_classification_confidence,
+        resource_classification_rule=row.resource_classification_rule,
+        source_file=row.source_file or None,
+        collected_at=row.collected_at or None,
+        source_url=row.source_url or None,
+        ingest_run_id=row.ingest_run_id or None,
+        record_hash=row.record_hash or None,
     )
 
 

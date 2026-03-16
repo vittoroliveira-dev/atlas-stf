@@ -272,9 +272,7 @@ class TestOriginatorFallback:
 
     def test_both_donor_and_originator_keeps_both(self, tmp_path: Path) -> None:
         """When both exist, donor_name is the direct and originator stays separate."""
-        csv_content = _make_receitas_csv(
-            [{"donor_name": "INTERMEDIARIO", "description": ""}]
-        )
+        csv_content = _make_receitas_csv([{"donor_name": "INTERMEDIARIO", "description": ""}])
         # Patch in originator column (add to header + row)
         # This test uses the standard fixture which has NM_DOADOR, not NM_DOADOR_ORIGINARIO
         path = tmp_path / "receitas.csv"

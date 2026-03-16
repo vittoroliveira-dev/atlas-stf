@@ -13,6 +13,7 @@ from typing import Any
 from ..core.rules import classify_outcome_raw, derive_thematic_key
 from ..core.stats import chi_square_p_value_approx, chi_square_statistic
 from ..schema_validate import validate_records
+from ._atomic_io import AtomicJsonlWriter
 
 # Process classes of Plenário original jurisdiction that should be collegiate
 EXPECTED_COLLEGIATE_CLASSES: frozenset[str] = frozenset({"ADI", "ADC", "ADPF", "ADO"})
@@ -285,8 +286,7 @@ def build_rapporteur_profiles(
     validate_records(records, SCHEMA_PATH)
 
     output_path = output_dir / "rapporteur_profile.jsonl"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 

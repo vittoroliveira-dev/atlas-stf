@@ -4,7 +4,7 @@
        staging curate \
        curate-process curate-decision-event curate-subject curate-party \
        curate-counsel curate-representation curate-entity-identifier curate-entity-reconciliation curate-links \
-       analytics evidence scrape format \
+       analytics evidence scrape scrape-unsafe format \
        _ag-groups _ag-rapporteur _ag-assignment _ag-sequential _ag-temporal _ag-counsel \
        _ag-baseline _ag-alerts _ag-ml-outlier _ag-compound-risk \
        _ag-velocity _ag-rapporteur-change _ag-counsel-network \
@@ -12,7 +12,7 @@
        _ag-representation-recurrence _ag-representation-windows \
        _ag-amicus-network _ag-firm-cluster \
        _ag-agenda-exposure agenda-fetch agenda-build agenda \
-       cgu cgu-fetch cgu-matches tse tse-fetch tse-matches cvm cvm-fetch cvm-matches \
+       cgu cgu-fetch cgu-matches cgu-corporate-links tse tse-fetch tse-matches tse-fetch-expenses tse-expenses tse-counterparties tse-donor-links tse-empirical-report cvm cvm-fetch cvm-matches \
        rfb rfb-fetch rfb-network rfb-groups \
        datajud datajud-fetch datajud-context \
        stf-portal stf-portal-fetch oab-validate \
@@ -199,8 +199,12 @@ evidence:
 	$(CLI) evidence build-all
 
 scrape:
-	ATLAS_STF_SCRAPER_IGNORE_HTTPS_ERRORS=true $(CLI) scrape decisoes
-	ATLAS_STF_SCRAPER_IGNORE_HTTPS_ERRORS=true $(CLI) scrape acordaos
+	$(CLI) scrape decisoes
+	$(CLI) scrape acordaos
+
+scrape-unsafe:
+	$(CLI) scrape decisoes --ignore-tls
+	$(CLI) scrape acordaos --ignore-tls
 
 # ===========================
 # Fontes externas — rode com: make external-data -j4
@@ -211,7 +215,10 @@ cgu-fetch:
 cgu-matches: cgu-fetch
 	$(CLI) cgu build-matches
 
-cgu: cgu-fetch cgu-matches
+cgu-corporate-links: cgu-matches rfb-fetch
+	$(CLI) cgu build-corporate-links
+
+cgu: cgu-fetch cgu-matches cgu-corporate-links
 
 tse-fetch:
 	$(CLI) tse fetch
@@ -220,6 +227,25 @@ tse-matches: tse-fetch
 	$(CLI) tse build-matches
 
 tse: tse-fetch tse-matches
+
+tse-party-org-fetch:
+	$(CLI) tse fetch-party-org
+
+tse-fetch-expenses:
+	$(CLI) tse fetch-expenses
+
+tse-expenses: tse-fetch-expenses
+
+tse-party-org: tse-party-org-fetch
+
+tse-counterparties:
+	$(CLI) tse build-counterparties
+
+tse-donor-links: tse-fetch rfb-fetch
+	$(CLI) tse build-donor-links
+
+tse-empirical-report: tse-matches
+	$(CLI) tse empirical-report
 
 cvm-fetch:
 	$(CLI) cvm fetch

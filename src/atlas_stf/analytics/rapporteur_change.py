@@ -13,6 +13,7 @@ from typing import Any
 from ..core.identity import stable_id
 from ..core.rules import classify_outcome_raw
 from ..schema_validate import validate_records
+from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import read_jsonl
 
 logger = logging.getLogger(__name__)
@@ -167,7 +168,7 @@ def build_rapporteur_changes(
     validate_records(records, SCHEMA_PATH)
 
     output_path = output_dir / "rapporteur_change.jsonl"
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 

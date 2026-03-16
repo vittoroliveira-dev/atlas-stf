@@ -37,11 +37,15 @@ def run_pass1_socios(
     on_progress: Callable[[int, int, str], None] | None,
     step: int,
     total_steps: int,
+    target_cpfs: set[str] | None = None,
+    target_partner_cnpjs: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], set[str], int]:
     """Pass 1: Scan Socios for name matches. Returns (partners, matched_cnpjs, step)."""
     all_partners: list[dict[str, Any]] = []
     matched_cnpjs: set[str] = set(checkpoint.get("cnpjs", []))
     completed_p1 = set(checkpoint.get("completed_socios_pass1", []))
+    _cpfs = target_cpfs or set()
+    _partner_cnpjs = target_partner_cnpjs or set()
 
     for i in range(socios_file_count):
         if i in completed_p1:
@@ -56,9 +60,13 @@ def run_pass1_socios(
         if zip_path is None:
             continue
 
+        cpfs_snapshot = frozenset(_cpfs)
+        pcnpjs_snapshot = frozenset(_partner_cnpjs)
         parsed = parse_csv_from_zip_text(
             zip_path,
-            lambda text_fh: parse_socios_csv_filtered_text(text_fh, target_names, set()),
+            lambda text_fh, _c=cpfs_snapshot, _p=pcnpjs_snapshot: parse_socios_csv_filtered_text(
+                text_fh, target_names, set(), target_cpfs=set(_c), target_partner_cnpjs=set(_p)
+            ),
         )
         if parsed is None:
             continue

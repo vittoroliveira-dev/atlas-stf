@@ -18,3 +18,28 @@ class TseFetchConfig:
     timeout_seconds: int = 120
     dry_run: bool = False
     force_refresh: bool = False
+
+
+TSE_PARTY_ORG_YEARS = (2018, 2020, 2022, 2024)
+
+
+@dataclass(frozen=True)
+class TseExpenseFetchConfig:
+    """Configuration for a TSE campaign expense data fetch run."""
+
+    output_dir: Path = field(default_factory=lambda: Path("data/raw/tse"))
+    years: tuple[int, ...] | None = None  # None = usar _SUPPORTED_EXPENSE_YEARS
+    timeout_seconds: int = 120
+    dry_run: bool = False
+    force_refresh: bool = False
+
+
+@dataclass(frozen=True)
+class TsePartyOrgFetchConfig:
+    """Configuration for a TSE party organ finance data fetch run."""
+
+    output_dir: Path = field(default_factory=lambda: Path("data/raw/tse"))
+    years: tuple[int, ...] = TSE_PARTY_ORG_YEARS
+    timeout_seconds: int = 120
+    dry_run: bool = False
+    force_refresh: bool = False

@@ -13,6 +13,7 @@ from typing import Any
 from ..core.rules import classify_outcome_raw
 from ..core.stats import beta_binomial_posterior_mean
 from ..schema_validate import validate_records
+from ._atomic_io import AtomicJsonlWriter
 
 BASELINE_SCHEMA = Path("schemas/baseline.schema.json")
 SUMMARY_SCHEMA = Path("schemas/baseline_summary.schema.json")
@@ -204,8 +205,7 @@ def build_baseline(
     validate_records(baseline_records, BASELINE_SCHEMA)
     if on_progress:
         on_progress(2, 3, "Baseline: Gravando resultados...")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for record in baseline_records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 

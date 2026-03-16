@@ -35,6 +35,7 @@ class ScrapeConfig:
     headless: bool = True
     verbose: bool = False
     dry_run: bool = False
+    ignore_tls: bool = False
 
 
 @dataclass

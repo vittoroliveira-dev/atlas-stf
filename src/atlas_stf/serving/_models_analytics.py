@@ -224,6 +224,8 @@ class ServingSanctionMatch(Base):
     baseline_favorable_rate: Mapped[float | None] = mapped_column(Float)
     favorable_rate_delta: Mapped[float | None] = mapped_column(Float)
     red_flag: Mapped[bool] = mapped_column(Boolean, index=True, default=False)
+    red_flag_power: Mapped[float | None] = mapped_column(Float)
+    red_flag_confidence: Mapped[str | None] = mapped_column(String(16))
     match_strategy: Mapped[str | None] = mapped_column(String(64))
     match_score: Mapped[float | None] = mapped_column(Float)
     match_confidence: Mapped[str | None] = mapped_column(String(64))
@@ -268,6 +270,8 @@ class ServingDonationMatch(Base):
     favorable_rate_delta: Mapped[float | None] = mapped_column(Float)
     red_flag: Mapped[bool] = mapped_column(Boolean, index=True, default=False)
     red_flag_substantive: Mapped[bool | None] = mapped_column(Boolean)
+    red_flag_power: Mapped[float | None] = mapped_column(Float)
+    red_flag_confidence: Mapped[str | None] = mapped_column(String(16))
     match_strategy: Mapped[str | None] = mapped_column(String(64))
     match_score: Mapped[float | None] = mapped_column(Float)
     match_confidence: Mapped[str | None] = mapped_column(String(64))
@@ -275,6 +279,32 @@ class ServingDonationMatch(Base):
     matched_tax_id: Mapped[str | None] = mapped_column(String(20))
     uncertainty_note: Mapped[str | None] = mapped_column(String(256))
     matched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    donor_identity_key: Mapped[str | None] = mapped_column(String(512), index=True)
+    # Corporate enrichment fields
+    donor_document_type: Mapped[str | None] = mapped_column(String(16))
+    donor_tax_id_normalized: Mapped[str | None] = mapped_column(String(20))
+    donor_cnpj_basico: Mapped[str | None] = mapped_column(String(8))
+    donor_company_name: Mapped[str | None] = mapped_column(String(512))
+    economic_group_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    economic_group_member_count: Mapped[int | None] = mapped_column(Integer)
+    is_law_firm_group: Mapped[bool | None] = mapped_column(Boolean)
+    donor_group_has_minister_partner: Mapped[bool | None] = mapped_column(Boolean)
+    donor_group_has_party_partner: Mapped[bool | None] = mapped_column(Boolean)
+    donor_group_has_counsel_partner: Mapped[bool | None] = mapped_column(Boolean)
+    min_link_degree_to_minister: Mapped[int | None] = mapped_column(Integer)
+    corporate_link_red_flag: Mapped[bool | None] = mapped_column(Boolean)
+    resource_types_observed_json: Mapped[str | None] = mapped_column(Text())
+    # Temporal / concentration metrics
+    first_donation_date: Mapped[str | None] = mapped_column(String(10))
+    last_donation_date: Mapped[str | None] = mapped_column(String(10))
+    active_election_year_count: Mapped[int] = mapped_column(Integer, default=0)
+    max_single_donation_brl: Mapped[float] = mapped_column(Float, default=0.0)
+    avg_donation_brl: Mapped[float] = mapped_column(Float, default=0.0)
+    top_candidate_share: Mapped[float | None] = mapped_column(Float)
+    top_party_share: Mapped[float | None] = mapped_column(Float)
+    top_state_share: Mapped[float | None] = mapped_column(Float)
+    donation_year_span: Mapped[int | None] = mapped_column(Integer)
+    recent_donation_flag: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class ServingCounselDonationProfile(Base):
@@ -295,7 +325,7 @@ class ServingDonationEvent(Base):
 
     event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     match_id: Mapped[str] = mapped_column(String(64), index=True)
-    election_year: Mapped[int | None] = mapped_column(Integer)
+    election_year: Mapped[int | None] = mapped_column(Integer, index=True)
     donation_date: Mapped[date | None] = mapped_column(Date)
     donation_amount: Mapped[float] = mapped_column(Float, default=0.0)
     candidate_name: Mapped[str | None] = mapped_column(String(512))
@@ -306,6 +336,16 @@ class ServingDonationEvent(Base):
     donor_name_originator: Mapped[str | None] = mapped_column(String(512))
     donor_cpf_cnpj: Mapped[str | None] = mapped_column(String(20))
     donation_description: Mapped[str | None] = mapped_column(String(512))
+    donor_identity_key: Mapped[str | None] = mapped_column(String(512), index=True)
+    resource_type_category: Mapped[str | None] = mapped_column(String(32))
+    resource_type_subtype: Mapped[str | None] = mapped_column(String(64))
+    resource_classification_confidence: Mapped[str | None] = mapped_column(String(8))
+    resource_classification_rule: Mapped[str | None] = mapped_column(String(128))
+    source_file: Mapped[str | None] = mapped_column(String(512))
+    collected_at: Mapped[str | None] = mapped_column(String(32))
+    source_url: Mapped[str | None] = mapped_column(Text())
+    ingest_run_id: Mapped[str | None] = mapped_column(String(36))
+    record_hash: Mapped[str | None] = mapped_column(String(64))
 
 
 class ServingCorporateConflict(Base):
@@ -361,6 +401,8 @@ class ServingCorporateConflict(Base):
     favorable_rate_substantive: Mapped[float | None] = mapped_column(Float)
     substantive_decision_count: Mapped[int | None] = mapped_column(Integer)
     red_flag_substantive: Mapped[bool | None] = mapped_column(Boolean)
+    red_flag_power: Mapped[float | None] = mapped_column(Float)
+    red_flag_confidence: Mapped[str | None] = mapped_column(String(16))
 
 
 class ServingCounselAffinity(Base):
@@ -415,6 +457,15 @@ class ServingCompoundRisk(Base):
     signal_details_json: Mapped[str | None] = mapped_column(Text())
     earliest_year: Mapped[int | None] = mapped_column(Integer)
     latest_year: Mapped[int | None] = mapped_column(Integer)
+    sanction_corporate_link_count: Mapped[int] = mapped_column(Integer, default=0)
+    sanction_corporate_link_ids_json: Mapped[str | None] = mapped_column(Text())
+    sanction_corporate_min_degree: Mapped[int | None] = mapped_column(Integer)
+    adjusted_rate_delta: Mapped[float | None] = mapped_column(Float, index=True)
+    has_law_firm_group: Mapped[bool] = mapped_column(Boolean, default=False)
+    donor_group_has_minister_partner: Mapped[bool] = mapped_column(Boolean, default=False)
+    donor_group_has_party_partner: Mapped[bool] = mapped_column(Boolean, default=False)
+    donor_group_has_counsel_partner: Mapped[bool] = mapped_column(Boolean, default=False)
+    min_link_degree_to_minister: Mapped[int | None] = mapped_column(Integer)
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 
@@ -476,6 +527,29 @@ class ServingCounselNetworkCluster(Base):
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class ServingPaymentCounterparty(Base):
+    __tablename__ = "serving_payment_counterparty"
+
+    counterparty_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    counterparty_identity_key: Mapped[str] = mapped_column(String(512), index=True)
+    identity_basis: Mapped[str] = mapped_column(String(16), default="")
+    counterparty_name: Mapped[str] = mapped_column(String(512))
+    counterparty_tax_id: Mapped[str | None] = mapped_column(String(20))
+    counterparty_tax_id_normalized: Mapped[str | None] = mapped_column(String(14))
+    counterparty_document_type: Mapped[str] = mapped_column(String(8), default="")
+    total_received_brl: Mapped[float] = mapped_column(Float, index=True)
+    payment_count: Mapped[int] = mapped_column(Integer)
+    election_years_json: Mapped[str | None] = mapped_column(Text())
+    payer_parties_json: Mapped[str | None] = mapped_column(Text())
+    payer_actor_type: Mapped[str] = mapped_column(String(32), default="party_org")
+    first_payment_date: Mapped[str | None] = mapped_column(String(10))
+    last_payment_date: Mapped[str | None] = mapped_column(String(10))
+    states_json: Mapped[str | None] = mapped_column(Text())
+    cnae_codes_json: Mapped[str | None] = mapped_column(Text())
+    provenance_json: Mapped[str | None] = mapped_column(Text())
+    generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ServingEconomicGroup(Base):
     __tablename__ = "serving_economic_group"
 
@@ -493,3 +567,46 @@ class ServingEconomicGroup(Base):
     has_party_partner: Mapped[bool] = mapped_column(Boolean, default=False)
     has_counsel_partner: Mapped[bool] = mapped_column(Boolean, default=False)
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ServingSanctionCorporateLink(Base):
+    __tablename__ = "serving_sanction_corporate_link"
+
+    link_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    sanction_id: Mapped[str] = mapped_column(String(128))
+    sanction_source: Mapped[str] = mapped_column(String(16), index=True)
+    sanction_entity_name: Mapped[str] = mapped_column(String(512))
+    sanction_entity_tax_id: Mapped[str | None] = mapped_column(String(20))
+    sanction_type: Mapped[str | None] = mapped_column(String(256))
+    bridge_company_cnpj_basico: Mapped[str] = mapped_column(String(8))
+    bridge_company_name: Mapped[str | None] = mapped_column(String(512))
+    bridge_link_basis: Mapped[str] = mapped_column(String(32))
+    bridge_confidence: Mapped[str] = mapped_column(String(16), default="deterministic")
+    bridge_partner_role: Mapped[str | None] = mapped_column(String(256))
+    bridge_qualification_code: Mapped[str | None] = mapped_column(String(8))
+    bridge_qualification_label: Mapped[str | None] = mapped_column(String(256))
+    economic_group_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    economic_group_member_count: Mapped[int | None] = mapped_column(Integer)
+    is_law_firm_group: Mapped[bool | None] = mapped_column(Boolean)
+    stf_entity_type: Mapped[str] = mapped_column(String(16), index=True)
+    stf_entity_id: Mapped[str] = mapped_column(String(64), index=True)
+    stf_entity_name: Mapped[str] = mapped_column(String(512))
+    stf_match_strategy: Mapped[str | None] = mapped_column(String(64))
+    stf_match_score: Mapped[float | None] = mapped_column(Float)
+    stf_match_confidence: Mapped[str | None] = mapped_column(String(64))
+    matched_alias: Mapped[str | None] = mapped_column(String(512))
+    matched_tax_id: Mapped[str | None] = mapped_column(String(20))
+    uncertainty_note: Mapped[str | None] = mapped_column(String(256))
+    link_degree: Mapped[int] = mapped_column(Integer, index=True, default=2)
+    stf_process_count: Mapped[int] = mapped_column(Integer, default=0)
+    favorable_rate: Mapped[float | None] = mapped_column(Float)
+    baseline_favorable_rate: Mapped[float | None] = mapped_column(Float)
+    favorable_rate_delta: Mapped[float | None] = mapped_column(Float)
+    risk_score: Mapped[float | None] = mapped_column(Float, index=True)
+    red_flag: Mapped[bool] = mapped_column(Boolean, index=True, default=False)
+    red_flag_power: Mapped[float | None] = mapped_column(Float)
+    red_flag_confidence: Mapped[str | None] = mapped_column(String(16))
+    evidence_chain_json: Mapped[str | None] = mapped_column(Text())
+    source_datasets_json: Mapped[str | None] = mapped_column(Text())
+    record_hash: Mapped[str | None] = mapped_column(String(64))
+    generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)

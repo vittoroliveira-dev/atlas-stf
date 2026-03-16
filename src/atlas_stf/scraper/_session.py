@@ -40,19 +40,22 @@ class ApiSession:
         self._page = page
 
     @classmethod
-    def create(cls, *, headless: bool = True, timeout_ms: int = 30_000) -> ApiSession:
+    def create(cls, *, headless: bool = True, timeout_ms: int = 30_000, ignore_tls: bool = False) -> ApiSession:
         """Launch browser, navigate to site to solve WAF challenge, return ready session."""
-        ignore_https_errors = os.getenv(DEFAULT_IGNORE_HTTPS_ERRORS_ENV, "false").strip().lower() in {
+        env_bypass = os.getenv(DEFAULT_IGNORE_HTTPS_ERRORS_ENV, "false").strip().lower() in {
             "1",
             "true",
             "yes",
             "on",
         }
-        if ignore_https_errors:
+        if env_bypass and not ignore_tls:
             logger.warning(
-                "TLS verification disabled for jurisprudencia session via %s",
+                "%s env var detected — deprecated, use --ignore-tls CLI flag instead.",
                 DEFAULT_IGNORE_HTTPS_ERRORS_ENV,
             )
+        ignore_https_errors = ignore_tls or env_bypass
+        if ignore_https_errors:
+            logger.warning("TLS verification DISABLED for jurisprudencia session")
         pw = sync_playwright().start()
         browser = pw.chromium.launch(headless=headless)
         context = browser.new_context(

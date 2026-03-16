@@ -87,6 +87,15 @@ def _row_to_item(row: ServingCompoundRisk) -> CompoundRiskItem:
         signal_details=_parse_signal_details(row.signal_details_json),
         earliest_year=row.earliest_year,
         latest_year=row.latest_year,
+        sanction_corporate_link_count=row.sanction_corporate_link_count,
+        sanction_corporate_link_ids=[str(v) for v in _parse_json_list(row.sanction_corporate_link_ids_json)],
+        sanction_corporate_min_degree=row.sanction_corporate_min_degree,
+        adjusted_rate_delta=row.adjusted_rate_delta,
+        has_law_firm_group=row.has_law_firm_group,
+        donor_group_has_minister_partner=row.donor_group_has_minister_partner,
+        donor_group_has_party_partner=row.donor_group_has_party_partner,
+        donor_group_has_counsel_partner=row.donor_group_has_counsel_partner,
+        min_link_degree_to_minister=row.min_link_degree_to_minister,
     )
 
 
@@ -122,9 +131,11 @@ def get_compound_risks(
         session.scalars(
             stmt.order_by(
                 ServingCompoundRisk.signal_count.desc(),
+                ServingCompoundRisk.adjusted_rate_delta.desc(),
                 ServingCompoundRisk.max_alert_score.desc(),
-                ServingCompoundRisk.max_rate_delta.desc(),
-                ServingCompoundRisk.pair_id.asc(),
+                ServingCompoundRisk.shared_process_count.desc(),
+                ServingCompoundRisk.minister_name.asc(),
+                ServingCompoundRisk.entity_name.asc(),
             )
             .offset((page - 1) * page_size)
             .limit(page_size)
@@ -159,9 +170,11 @@ def get_compound_risk_red_flags(
             _filtered_stmt(minister=minister, entity_type=entity_type, red_flag_only=True)
             .order_by(
                 ServingCompoundRisk.signal_count.desc(),
+                ServingCompoundRisk.adjusted_rate_delta.desc(),
                 ServingCompoundRisk.max_alert_score.desc(),
-                ServingCompoundRisk.max_rate_delta.desc(),
-                ServingCompoundRisk.pair_id.asc(),
+                ServingCompoundRisk.shared_process_count.desc(),
+                ServingCompoundRisk.minister_name.asc(),
+                ServingCompoundRisk.entity_name.asc(),
             )
             .limit(limit)
         ).all(),
@@ -184,9 +197,11 @@ def get_compound_risk_heatmap(
         session.scalars(
             stmt.order_by(
                 ServingCompoundRisk.signal_count.desc(),
+                ServingCompoundRisk.adjusted_rate_delta.desc(),
                 ServingCompoundRisk.max_alert_score.desc(),
-                ServingCompoundRisk.max_rate_delta.desc(),
-                ServingCompoundRisk.pair_id.asc(),
+                ServingCompoundRisk.shared_process_count.desc(),
+                ServingCompoundRisk.minister_name.asc(),
+                ServingCompoundRisk.entity_name.asc(),
             ).limit(limit)
         ).all(),
     )
@@ -223,6 +238,7 @@ def get_compound_risk_heatmap(
                 red_flag=item.red_flag,
                 max_alert_score=item.max_alert_score,
                 max_rate_delta=item.max_rate_delta,
+                adjusted_rate_delta=item.adjusted_rate_delta,
             )
         )
 

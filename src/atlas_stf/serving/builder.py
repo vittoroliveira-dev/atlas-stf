@@ -31,11 +31,13 @@ from ._builder_loaders import (
     load_movements,
     load_origin_contexts,
     load_parties,
+    load_payment_counterparties,
     load_process_lawyers,
     load_rapporteur_changes,
     load_rapporteur_profiles,
     load_representation_edges,
     load_representation_events,
+    load_sanction_corporate_links,
     load_sanction_matches,
     load_sequential_analyses,
     load_session_events,
@@ -75,6 +77,7 @@ from .models import (
     ServingMovement,
     ServingOriginContext,
     ServingParty,
+    ServingPaymentCounterparty,
     ServingProcessCounsel,
     ServingProcessLawyer,
     ServingProcessParty,
@@ -82,6 +85,7 @@ from .models import (
     ServingRapporteurProfile,
     ServingRepresentationEdge,
     ServingRepresentationEvent,
+    ServingSanctionCorporateLink,
     ServingSanctionMatch,
     ServingSchemaMeta,
     ServingSequentialAnalysis,
@@ -157,6 +161,8 @@ def build_serving_database(
             SourceFile("agenda_event", "curated", curated_dir / "agenda_event.jsonl"),
             SourceFile("agenda_coverage", "curated", curated_dir / "agenda_coverage.jsonl"),
             SourceFile("agenda_exposure", "analytics", analytics_dir / "agenda_exposure.jsonl"),
+            SourceFile("payment_counterparty", "analytics", analytics_dir / "payment_counterparty.jsonl"),
+            SourceFile("sanction_corporate_link", "analytics", analytics_dir / "sanction_corporate_link.jsonl"),
         ]
         source_files.extend(source for source in optional_source_files if source.path.exists())
 
@@ -165,7 +171,7 @@ def build_serving_database(
             missing_text = ", ".join(str(path) for path in missing)
             raise FileNotFoundError(f"Serving build requires existing artifacts: {missing_text}")
 
-        _total = 37  # 32 loaders + 5 DB phases
+        _total = 39  # 34 loaders + 5 DB phases
         _step = 0
 
         def _tick(desc: str) -> None:
@@ -198,9 +204,13 @@ def build_serving_database(
         origin_contexts = load_origin_contexts(analytics_dir)
         _tick("Serving: Carregando sanções...")
         sanction_matches, counsel_sanction_profiles = load_sanction_matches(analytics_dir)
+        _tick("Serving: Carregando vínculos corporativos sanção...")
+        sanction_corporate_links = load_sanction_corporate_links(analytics_dir)
         _tick("Serving: Carregando doações...")
         donation_matches, counsel_donation_profiles = load_donation_matches(analytics_dir)
         donation_events = load_donation_events(analytics_dir)
+        _tick("Serving: Carregando contrapartes pagamento...")
+        payment_counterparties = load_payment_counterparties(analytics_dir)
         _tick("Serving: Carregando vínculos societários...")
         corporate_conflicts = load_corporate_conflicts(analytics_dir)
         _tick("Serving: Carregando afinidade advogado...")
@@ -257,6 +267,7 @@ def build_serving_database(
                     ServingLawyerEntity,
                     ServingSessionEvent,
                     ServingMovement,
+                    ServingPaymentCounterparty,
                     ServingEconomicGroup,
                     ServingCounselNetworkCluster,
                     ServingRapporteurChange,
@@ -267,6 +278,7 @@ def build_serving_database(
                     ServingCounselDonationProfile,
                     ServingDonationMatch,
                     ServingCounselSanctionProfile,
+                    ServingSanctionCorporateLink,
                     ServingSanctionMatch,
                     ServingOriginContext,
                     ServingMinisterBio,
@@ -302,9 +314,11 @@ def build_serving_database(
                 session.add_all(ml_outlier_scores)
                 session.add_all(origin_contexts)
                 session.add_all(sanction_matches)
+                session.add_all(sanction_corporate_links)
                 session.add_all(counsel_sanction_profiles)
                 session.add_all(donation_matches)
                 session.add_all(donation_events)
+                session.add_all(payment_counterparties)
                 session.add_all(counsel_donation_profiles)
                 session.add_all(corporate_conflicts)
                 session.add_all(counsel_affinities)

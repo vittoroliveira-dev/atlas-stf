@@ -70,7 +70,10 @@ from ._schemas_risk import (
     PaginatedCounselAffinityResponse,
     PaginatedDonationsResponse,
     PaginatedEconomicGroupResponse,
+    PaginatedSanctionCorporateLinksResponse,
     PaginatedSanctionsResponse,
+    SanctionCorporateLinkItem,
+    SanctionCorporateLinkRedFlagsResponse,
     SanctionMatchItem,
     SanctionRedFlagsResponse,
     SourcesAuditResponse,
@@ -80,6 +83,12 @@ from ._schemas_risk import (
 )
 from ._schemas_risk import (
     PaginatedDonationEventsResponse as PaginatedDonationEventsResponse,
+)
+from ._schemas_risk import (
+    PaginatedPaymentCounterpartiesResponse as PaginatedPaymentCounterpartiesResponse,
+)
+from ._schemas_risk import (
+    PaymentCounterpartyItem as PaymentCounterpartyItem,
 )
 from ._schemas_velocity import (
     CounselNetworkClusterItem,
@@ -149,10 +158,13 @@ __all__ = [
     "PaginatedDecisionVelocityResponse",
     "PaginatedDonationsResponse",
     "PaginatedEconomicGroupResponse",
+    "PaginatedPaymentCounterpartiesResponse",
+    "PaymentCounterpartyItem",
     "PaginatedEntitiesResponse",
     "PaginatedFirmsResponse",
     "PaginatedLawyersResponse",
     "PaginatedRapporteurChangeResponse",
+    "PaginatedSanctionCorporateLinksResponse",
     "PaginatedSanctionsResponse",
     "ProcessRepresentationResponse",
     "RapporteurChangeItem",
@@ -162,6 +174,8 @@ __all__ = [
     "RepresentationEdgeItem",
     "RepresentationEventItem",
     "RepresentationNetworkSummary",
+    "SanctionCorporateLinkItem",
+    "SanctionCorporateLinkRedFlagsResponse",
     "SanctionMatchItem",
     "SanctionRedFlagsResponse",
     "SegmentFlowItem",

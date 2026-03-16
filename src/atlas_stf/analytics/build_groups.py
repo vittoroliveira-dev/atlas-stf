@@ -21,6 +21,7 @@ from ..core.rules import (
     derive_thematic_key,
 )
 from ..schema_validate import validate_records
+from ._atomic_io import AtomicJsonlWriter
 
 PROCESS_SCHEMA = Path("schemas/comparison_group.schema.json")
 LINK_SCHEMA = Path("schemas/decision_event_group_link.schema.json")
@@ -105,8 +106,7 @@ def _group_id_from_key(key: GroupKey) -> str:
 
 
 def _write_jsonl(records: list[dict[str, Any]], output_path: Path) -> Path:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
     return output_path

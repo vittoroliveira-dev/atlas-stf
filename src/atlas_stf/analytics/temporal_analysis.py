@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..schema_validate import validate_records
+from ._atomic_io import AtomicJsonlWriter
 from ._temporal_corporate import _build_corporate_link_records
 from ._temporal_events import _build_event_window_records
 from ._temporal_monthly import _build_monthly_records, _build_seasonality_records, _build_yoy_records
@@ -85,7 +86,7 @@ def build_temporal_analysis(
     validate_records(records, SCHEMA_PATH)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "temporal_analysis.jsonl"
-    with output_path.open("w", encoding="utf-8") as handle:
+    with AtomicJsonlWriter(output_path) as handle:
         for record in records:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
     counts_by_kind: dict[str, int] = defaultdict(int)

@@ -2,20 +2,23 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import shutil
+import uuid
 import zipfile
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import httpx
 
 from ..core.http_stream_safety import write_limited_stream_to_file
-from ..core.zip_safety import enforce_max_uncompressed_size
+from ..core.zip_safety import enforce_max_uncompressed_size, is_safe_zip_member
 from ._config import TSE_CDN_BASE_URL, TseFetchConfig
 from ._parser import _iter_receitas_csv, normalize_donation_record
 
@@ -178,9 +181,8 @@ def _extract_zip(zip_path: Path, extract_dir: Path) -> Path | None:
         with zipfile.ZipFile(zip_path) as zf:
             safe_members: list[zipfile.ZipInfo] = []
             for info in zf.infolist():
-                member = info.filename
-                if ".." in member or member.startswith("/"):
-                    logger.warning("Skipping unsafe ZIP member: %s", member)
+                if not is_safe_zip_member(info.filename, extract_dir):
+                    logger.warning("Skipping unsafe ZIP member: %s", info.filename)
                     continue
                 safe_members.append(info)
             enforce_max_uncompressed_size(
@@ -253,10 +255,21 @@ class _Checkpoint:
         path.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _record_content_hash(record: dict[str, Any]) -> str:
+    """Compute SHA-256 hash of the normalized record content (21 fields).
+
+    Computed BEFORE provenance fields are added, so the hash is deterministic
+    across rebuilds with the same source data regardless of run metadata.
+    """
+    return hashlib.sha256(json.dumps(record, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
 def _iter_year_records(
     year: int,
     zip_path: Path,
     extract_dir: Path,
+    *,
+    source_url: str = "",
 ) -> Iterator[dict[str, Any]]:
     """Extract ZIP, find receitas files, yield normalized records one by one.
 
@@ -273,8 +286,13 @@ def _iter_year_records(
     logger.info("Found %d receitas file(s) for year %d", len(files), year)
     for csv_path in files:
         logger.info("Parsing %s for year %d", csv_path.name, year)
+        relative_path = str(csv_path.relative_to(extract_dir))
         for raw in _iter_receitas_csv(csv_path):
-            yield normalize_donation_record(raw, year)
+            normalized = normalize_donation_record(raw, year)
+            normalized["record_hash"] = _record_content_hash(normalized)
+            normalized["source_file"] = relative_path
+            normalized["source_url"] = source_url
+            yield normalized
 
 
 def fetch_donation_data(
@@ -343,6 +361,10 @@ def fetch_donation_data(
                     done = (total_years - len(pending_years)) + len(downloaded) + skipped
                     on_progress(done, total_years, f"TSE: Baixou {year}")
 
+    # Provenance metadata: shared across all records in this run
+    run_id = str(uuid.uuid4())
+    run_collected_at = datetime.now(timezone.utc).isoformat()
+
     # Stream results to disk incrementally (avoids loading all records in RAM).
     # Keep existing records from completed years, append new ones.
     # IMPORTANT: records from years being re-downloaded must be excluded
@@ -390,7 +412,9 @@ def fetch_donation_data(
             extract_dir = config.output_dir / f"extracted_{year}"
             year_count = 0
             try:
-                for record in _iter_year_records(year, zip_path, extract_dir):
+                for record in _iter_year_records(year, zip_path, extract_dir, source_url=meta.url):
+                    record["collected_at"] = run_collected_at
+                    record["ingest_run_id"] = run_id
                     out.write(json.dumps(record, ensure_ascii=False) + "\n")
                     year_count += 1
             finally:

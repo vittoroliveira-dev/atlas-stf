@@ -165,6 +165,76 @@ class TestParseSociosCsvFiltered:
         assert records[0]["representative_cpf_cnpj"] == ""
 
 
+    def test_filter_by_cpf(self) -> None:
+        """partner_cpf_cnpj matches target_cpfs -> record included + cnpj_basico in matched."""
+        csv_bytes = self._make_csv(
+            [
+                ["44556677", "2", "QUALQUER NOME", "52998224725", "49", "20200101", "", "", "", "", ""],
+                ["88776655", "2", "OUTRO NOME", "99988877766", "22", "20190501", "", "", "", "", ""],
+            ]
+        )
+        records, matched_cnpjs = parse_socios_csv_filtered(
+            csv_bytes, target_names=set(), target_cnpjs=set(), target_cpfs={"52998224725"}
+        )
+        assert len(records) == 1
+        assert records[0]["cnpj_basico"] == "44556677"
+        assert "44556677" in matched_cnpjs
+
+    def test_filter_by_partner_cnpj(self) -> None:
+        """CNPJ normalizado in target_partner_cnpjs -> record included + cnpj_basico in matched."""
+        csv_bytes = self._make_csv(
+            [
+                ["99887766", "1", "PJ SOCIA", "11222333000181", "22", "20200101", "", "", "", "", ""],
+            ]
+        )
+        records, matched_cnpjs = parse_socios_csv_filtered(
+            csv_bytes, target_names=set(), target_cnpjs=set(), target_partner_cnpjs={"11222333000181"}
+        )
+        assert len(records) == 1
+        assert records[0]["cnpj_basico"] == "99887766"
+        assert "99887766" in matched_cnpjs
+
+    def test_cpf_no_match(self) -> None:
+        """CPF not in target_cpfs -> row ignored."""
+        csv_bytes = self._make_csv(
+            [
+                ["44556677", "2", "QUALQUER NOME", "99988877766", "49", "20200101", "", "", "", "", ""],
+            ]
+        )
+        records, _ = parse_socios_csv_filtered(
+            csv_bytes, target_names=set(), target_cnpjs=set(), target_cpfs={"52998224725"}
+        )
+        assert len(records) == 0
+
+    def test_cpf_formatted_differently_still_matches(self) -> None:
+        """CPF with dots/dash in raw RFB -> normalize_tax_id removes formatting -> match works."""
+        csv_bytes = self._make_csv(
+            [
+                ["44556677", "2", "ALGUEM", "529.982.247-25", "49", "20200101", "", "", "", "", ""],
+            ]
+        )
+        records, matched_cnpjs = parse_socios_csv_filtered(
+            csv_bytes, target_names=set(), target_cnpjs=set(), target_cpfs={"52998224725"}
+        )
+        assert len(records) == 1
+        assert "44556677" in matched_cnpjs
+
+    def test_cpf_and_name_combined(self) -> None:
+        """Both CPF and name filters active simultaneously."""
+        csv_bytes = self._make_csv(
+            [
+                ["11111111", "2", "ALVO POR NOME", "00000000000", "49", "20200101", "", "", "", "", ""],
+                ["22222222", "2", "NAO ALVO", "52998224725", "49", "20200101", "", "", "", "", ""],
+            ]
+        )
+        records, matched_cnpjs = parse_socios_csv_filtered(
+            csv_bytes, target_names={"ALVO POR NOME"}, target_cnpjs=set(), target_cpfs={"52998224725"}
+        )
+        assert len(records) == 2
+        assert "11111111" in matched_cnpjs  # from name match
+        assert "22222222" in matched_cnpjs  # from CPF match
+
+
 class TestParseEmpresasCsvFiltered:
     def _make_csv(self, rows: list[list[str]]) -> bytes:
         lines = [";".join(cols) for cols in rows]

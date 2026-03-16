@@ -292,9 +292,9 @@ export function CompoundRiskHeatmapPanel({
                             ))}
                           </div>
                           <p className="mt-auto text-xs leading-5 opacity-85">
-                            Delta {cell.max_rate_delta == null
+                            Delta {cell.adjusted_rate_delta == null
                               ? "—"
-                              : `${cell.max_rate_delta > 0 ? "+" : ""}${(cell.max_rate_delta * 100).toFixed(1)}pp`}
+                              : `${cell.adjusted_rate_delta > 0 ? "+" : ""}${(cell.adjusted_rate_delta * 100).toFixed(1)}pp`}
                           </p>
                         </div>
                       ) : (

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Literal, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -35,6 +35,8 @@ def _row_to_match_item(row: ServingSanctionMatch) -> SanctionMatchItem:
         baseline_favorable_rate=row.baseline_favorable_rate,
         favorable_rate_delta=row.favorable_rate_delta,
         red_flag=row.red_flag,
+        red_flag_power=row.red_flag_power,
+        red_flag_confidence=cast(Literal["high", "moderate", "low"] | None, row.red_flag_confidence),
         match_strategy=row.match_strategy,
         match_score=row.match_score,
         match_confidence=row.match_confidence,

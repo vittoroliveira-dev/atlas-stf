@@ -36,6 +36,15 @@ export type CompoundRiskItem = {
   signal_details: Record<string, Record<string, unknown>> | null;
   earliest_year: number | null;
   latest_year: number | null;
+  sanction_corporate_link_count: number;
+  sanction_corporate_link_ids: string[];
+  sanction_corporate_min_degree: number | null;
+  adjusted_rate_delta: number | null;
+  has_law_firm_group: boolean;
+  donor_group_has_minister_partner: boolean;
+  donor_group_has_party_partner: boolean;
+  donor_group_has_counsel_partner: boolean;
+  min_link_degree_to_minister: number | null;
 };
 
 export type CompoundRiskHeatmapEntity = {
@@ -54,6 +63,7 @@ export type CompoundRiskHeatmapCell = {
   red_flag: boolean;
   max_alert_score: number | null;
   max_rate_delta: number | null;
+  adjusted_rate_delta: number | null;
 };
 
 type PaginatedCompoundRiskResponse = {

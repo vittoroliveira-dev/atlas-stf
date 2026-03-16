@@ -25,8 +25,10 @@ from .models import (
     ServingMinisterBio,
     ServingMlOutlierScore,
     ServingOriginContext,
+    ServingPaymentCounterparty,
     ServingRapporteurChange,
     ServingRapporteurProfile,
+    ServingSanctionCorporateLink,
     ServingSanctionMatch,
     ServingSequentialAnalysis,
     ServingTemporalAnalysis,
@@ -264,6 +266,8 @@ def load_sanction_matches(
                     baseline_favorable_rate=record.get("baseline_favorable_rate"),
                     favorable_rate_delta=record.get("favorable_rate_delta"),
                     red_flag=_coerce_bool(record.get("red_flag")),
+                    red_flag_power=_coerce_float(record.get("red_flag_power")),
+                    red_flag_confidence=record.get("red_flag_confidence"),
                     match_strategy=strategy,
                     match_score=_coerce_float(record.get("match_score")),
                     match_confidence=_match_confidence(strategy),
@@ -288,6 +292,66 @@ def load_sanction_matches(
                 )
             )
     return sanction_matches, counsel_sanction_profiles
+
+
+def load_sanction_corporate_links(analytics_dir: Path) -> list[ServingSanctionCorporateLink]:
+    scl_path = analytics_dir / "sanction_corporate_link.jsonl"
+    if not scl_path.exists():
+        return []
+    results: list[ServingSanctionCorporateLink] = []
+    seen: set[str] = set()
+    for record in _read_jsonl(scl_path):
+        lid = str(record.get("link_id", ""))
+        if lid in seen:
+            continue
+        seen.add(lid)
+        results.append(
+            ServingSanctionCorporateLink(
+                link_id=lid,
+                sanction_id=str(record.get("sanction_id", "")),
+                sanction_source=str(record.get("sanction_source", "")),
+                sanction_entity_name=str(record.get("sanction_entity_name", "")),
+                sanction_entity_tax_id=record.get("sanction_entity_tax_id"),
+                sanction_type=record.get("sanction_type"),
+                bridge_company_cnpj_basico=str(record.get("bridge_company_cnpj_basico", "")),
+                bridge_company_name=record.get("bridge_company_name"),
+                bridge_link_basis=str(record.get("bridge_link_basis", "")),
+                bridge_confidence=str(record.get("bridge_confidence", "deterministic")),
+                bridge_partner_role=record.get("bridge_partner_role"),
+                bridge_qualification_code=record.get("bridge_qualification_code"),
+                bridge_qualification_label=record.get("bridge_qualification_label"),
+                economic_group_id=record.get("economic_group_id"),
+                economic_group_member_count=_coerce_int(record.get("economic_group_member_count"))
+                if record.get("economic_group_member_count") is not None
+                else None,
+                is_law_firm_group=_coerce_bool(record.get("is_law_firm_group"))
+                if record.get("is_law_firm_group") is not None
+                else None,
+                stf_entity_type=str(record.get("stf_entity_type", "")),
+                stf_entity_id=str(record.get("stf_entity_id", "")),
+                stf_entity_name=str(record.get("stf_entity_name", "")),
+                stf_match_strategy=record.get("stf_match_strategy"),
+                stf_match_score=_coerce_float(record.get("stf_match_score")),
+                stf_match_confidence=record.get("stf_match_confidence"),
+                matched_alias=record.get("matched_alias"),
+                matched_tax_id=record.get("matched_tax_id"),
+                uncertainty_note=record.get("uncertainty_note"),
+                link_degree=_coerce_int(record.get("link_degree")) or 2,
+                stf_process_count=_coerce_int(record.get("stf_process_count")),
+                favorable_rate=_coerce_float(record.get("favorable_rate")),
+                baseline_favorable_rate=_coerce_float(record.get("baseline_favorable_rate")),
+                favorable_rate_delta=_coerce_float(record.get("favorable_rate_delta")),
+                risk_score=_coerce_float(record.get("risk_score")),
+                red_flag=_coerce_bool(record.get("red_flag")),
+                red_flag_power=_coerce_float(record.get("red_flag_power")),
+                red_flag_confidence=record.get("red_flag_confidence"),
+                evidence_chain_json=json.dumps(record.get("evidence_chain", []), ensure_ascii=False),
+                source_datasets_json=json.dumps(record.get("source_datasets", []), ensure_ascii=False),
+                record_hash=record.get("record_hash"),
+                generated_at=_parse_datetime(record.get("generated_at")),
+            )
+        )
+    return results
 
 
 def load_donation_matches(
@@ -325,6 +389,8 @@ def load_donation_matches(
                     favorable_rate_delta=record.get("favorable_rate_delta"),
                     red_flag=_coerce_bool(record.get("red_flag")),
                     red_flag_substantive=_coerce_bool(record.get("red_flag_substantive")),
+                    red_flag_power=_coerce_float(record.get("red_flag_power")),
+                    red_flag_confidence=record.get("red_flag_confidence"),
                     match_strategy=strategy,
                     match_score=_coerce_float(record.get("match_score")),
                     match_confidence=_match_confidence(strategy),
@@ -332,6 +398,48 @@ def load_donation_matches(
                     matched_tax_id=str(record.get("matched_tax_id") or ""),
                     uncertainty_note=str(record.get("uncertainty_note") or ""),
                     matched_at=_parse_datetime(record.get("matched_at")),
+                    donor_identity_key=str(record.get("donor_identity_key") or ""),
+                    resource_types_observed_json=json.dumps(
+                        record.get("resource_types_observed", []), ensure_ascii=False
+                    ),
+                    donor_document_type=record.get("donor_document_type"),
+                    donor_tax_id_normalized=record.get("donor_tax_id_normalized"),
+                    donor_cnpj_basico=record.get("donor_cnpj_basico"),
+                    donor_company_name=record.get("donor_company_name"),
+                    economic_group_id=record.get("economic_group_id"),
+                    economic_group_member_count=_coerce_int(record.get("economic_group_member_count"))
+                    if record.get("economic_group_member_count") is not None
+                    else None,
+                    is_law_firm_group=_coerce_bool(record.get("is_law_firm_group"))
+                    if record.get("is_law_firm_group") is not None
+                    else None,
+                    donor_group_has_minister_partner=_coerce_bool(record.get("donor_group_has_minister_partner"))
+                    if record.get("donor_group_has_minister_partner") is not None
+                    else None,
+                    donor_group_has_party_partner=_coerce_bool(record.get("donor_group_has_party_partner"))
+                    if record.get("donor_group_has_party_partner") is not None
+                    else None,
+                    donor_group_has_counsel_partner=_coerce_bool(record.get("donor_group_has_counsel_partner"))
+                    if record.get("donor_group_has_counsel_partner") is not None
+                    else None,
+                    min_link_degree_to_minister=_coerce_int(record.get("min_link_degree_to_minister"))
+                    if record.get("min_link_degree_to_minister") is not None
+                    else None,
+                    corporate_link_red_flag=_coerce_bool(record.get("corporate_link_red_flag"))
+                    if record.get("corporate_link_red_flag") is not None
+                    else None,
+                    first_donation_date=record.get("first_donation_date"),
+                    last_donation_date=record.get("last_donation_date"),
+                    active_election_year_count=_coerce_int(record.get("active_election_year_count")),
+                    max_single_donation_brl=_coerce_float(record.get("max_single_donation_brl")) or 0.0,
+                    avg_donation_brl=_coerce_float(record.get("avg_donation_brl")) or 0.0,
+                    top_candidate_share=_coerce_float(record.get("top_candidate_share")),
+                    top_party_share=_coerce_float(record.get("top_party_share")),
+                    top_state_share=_coerce_float(record.get("top_state_share")),
+                    donation_year_span=_coerce_int(record.get("donation_year_span"))
+                    if record.get("donation_year_span") is not None
+                    else None,
+                    recent_donation_flag=_coerce_bool(record.get("recent_donation_flag")),
                 )
             )
 
@@ -375,6 +483,16 @@ def load_donation_events(analytics_dir: Path) -> list[ServingDonationEvent]:
                 donor_name_originator=str(record.get("donor_name_originator") or ""),
                 donor_cpf_cnpj=str(record.get("donor_cpf_cnpj") or ""),
                 donation_description=str(record.get("donation_description") or ""),
+                donor_identity_key=str(record.get("donor_identity_key") or ""),
+                resource_type_category=record.get("resource_type_category"),
+                resource_type_subtype=record.get("resource_type_subtype"),
+                resource_classification_confidence=record.get("resource_classification_confidence"),
+                resource_classification_rule=record.get("resource_classification_rule"),
+                source_file=record.get("source_file"),
+                collected_at=record.get("collected_at"),
+                source_url=record.get("source_url"),
+                ingest_run_id=record.get("ingest_run_id"),
+                record_hash=record.get("record_hash"),
             )
         )
     return events
@@ -455,6 +573,21 @@ def load_compound_risks(analytics_dir: Path) -> list[ServingCompoundRisk]:
                 signal_details_json=json.dumps(record.get("signal_details", {}), ensure_ascii=False),
                 earliest_year=record.get("earliest_year"),
                 latest_year=record.get("latest_year"),
+                sanction_corporate_link_count=_coerce_int(record.get("sanction_corporate_link_count")),
+                sanction_corporate_link_ids_json=json.dumps(
+                    record.get("sanction_corporate_link_ids", []), ensure_ascii=False
+                ),
+                sanction_corporate_min_degree=_coerce_int(record.get("sanction_corporate_min_degree"))
+                if record.get("sanction_corporate_min_degree") is not None
+                else None,
+                adjusted_rate_delta=_coerce_float(record.get("adjusted_rate_delta")),
+                has_law_firm_group=_coerce_bool(record.get("has_law_firm_group")),
+                donor_group_has_minister_partner=_coerce_bool(record.get("donor_group_has_minister_partner")),
+                donor_group_has_party_partner=_coerce_bool(record.get("donor_group_has_party_partner")),
+                donor_group_has_counsel_partner=_coerce_bool(record.get("donor_group_has_counsel_partner")),
+                min_link_degree_to_minister=_coerce_int(record.get("min_link_degree_to_minister"))
+                if record.get("min_link_degree_to_minister") is not None
+                else None,
                 generated_at=_parse_datetime(record.get("generated_at")),
             )
         )
@@ -552,6 +685,42 @@ def load_counsel_network_clusters(analytics_dir: Path) -> list[ServingCounselNet
                 cluster_favorable_rate=_coerce_float(record.get("cluster_favorable_rate")),
                 cluster_case_count=_coerce_int(record.get("cluster_case_count")),
                 red_flag=_coerce_bool(record.get("red_flag")),
+                generated_at=_parse_datetime(record.get("generated_at")),
+            )
+        )
+    return results
+
+
+def load_payment_counterparties(analytics_dir: Path) -> list[ServingPaymentCounterparty]:
+    pc_path = analytics_dir / "payment_counterparty.jsonl"
+    if not pc_path.exists():
+        return []
+    results: list[ServingPaymentCounterparty] = []
+    seen: set[str] = set()
+    for record in _read_jsonl(pc_path):
+        cid = str(record.get("counterparty_id", ""))
+        if cid in seen:
+            continue
+        seen.add(cid)
+        results.append(
+            ServingPaymentCounterparty(
+                counterparty_id=cid,
+                counterparty_identity_key=str(record.get("counterparty_identity_key", "")),
+                identity_basis=str(record.get("identity_basis", "")),
+                counterparty_name=str(record.get("counterparty_name", "")),
+                counterparty_tax_id=str(record.get("counterparty_tax_id") or ""),
+                counterparty_tax_id_normalized=str(record.get("counterparty_tax_id_normalized") or ""),
+                counterparty_document_type=str(record.get("counterparty_document_type", "")),
+                total_received_brl=_coerce_float(record.get("total_received_brl")) or 0.0,
+                payment_count=_coerce_int(record.get("payment_count")),
+                election_years_json=json.dumps(record.get("election_years", []), ensure_ascii=False),
+                payer_parties_json=json.dumps(record.get("payer_parties", []), ensure_ascii=False),
+                payer_actor_type=str(record.get("payer_actor_type", "party_org")),
+                first_payment_date=record.get("first_payment_date"),
+                last_payment_date=record.get("last_payment_date"),
+                states_json=json.dumps(record.get("states", []), ensure_ascii=False),
+                cnae_codes_json=json.dumps(record.get("cnae_codes", []), ensure_ascii=False),
+                provenance_json=json.dumps(record.get("provenance", {}), ensure_ascii=False),
                 generated_at=_parse_datetime(record.get("generated_at")),
             )
         )

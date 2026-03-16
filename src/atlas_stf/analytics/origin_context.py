@@ -13,6 +13,7 @@ from ..core.origin_mapping import (
     map_origin_to_datajud_indices,
     normalize_state_description,
 )
+from ._atomic_io import AtomicJsonlWriter
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ def build_origin_context(
         records.append(record)
 
     output_path = output_dir / "origin_context.jsonl"
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 

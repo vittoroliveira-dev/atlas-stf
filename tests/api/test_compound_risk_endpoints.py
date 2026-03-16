@@ -54,6 +54,15 @@ def client(tmp_path) -> TestClient:
                             top_process_classes_json=json.dumps([]),
                             supporting_party_ids_json=json.dumps([]),
                             supporting_party_names_json=json.dumps([]),
+                            adjusted_rate_delta=0.495,
+                            has_law_firm_group=True,
+                            donor_group_has_minister_partner=False,
+                            donor_group_has_party_partner=False,
+                            donor_group_has_counsel_partner=False,
+                            min_link_degree_to_minister=None,
+                            sanction_corporate_link_count=1,
+                            sanction_corporate_link_ids_json=json.dumps(["scl-1"]),
+                            sanction_corporate_min_degree=2,
                             generated_at=datetime.now(timezone.utc),
                         ),
                         ServingCompoundRisk(
@@ -83,6 +92,15 @@ def client(tmp_path) -> TestClient:
                             top_process_classes_json=json.dumps(["ADI"]),
                             supporting_party_ids_json=json.dumps(["p1"]),
                             supporting_party_names_json=json.dumps(["AUTOR A"]),
+                            adjusted_rate_delta=0.21,
+                            has_law_firm_group=False,
+                            donor_group_has_minister_partner=False,
+                            donor_group_has_party_partner=False,
+                            donor_group_has_counsel_partner=False,
+                            min_link_degree_to_minister=None,
+                            sanction_corporate_link_count=0,
+                            sanction_corporate_link_ids_json=json.dumps([]),
+                            sanction_corporate_min_degree=None,
                             generated_at=datetime.now(timezone.utc),
                         ),
                         ServingCompoundRisk(
@@ -112,6 +130,15 @@ def client(tmp_path) -> TestClient:
                             top_process_classes_json=json.dumps([]),
                             supporting_party_ids_json=json.dumps([]),
                             supporting_party_names_json=json.dumps([]),
+                            adjusted_rate_delta=None,
+                            has_law_firm_group=False,
+                            donor_group_has_minister_partner=False,
+                            donor_group_has_party_partner=False,
+                            donor_group_has_counsel_partner=False,
+                            min_link_degree_to_minister=None,
+                            sanction_corporate_link_count=0,
+                            sanction_corporate_link_ids_json=json.dumps([]),
+                            sanction_corporate_min_degree=None,
                             generated_at=datetime.now(timezone.utc),
                         ),
                     ]
@@ -180,6 +207,45 @@ class TestCompoundRiskEndpoints:
         data = response.json()
         assert data["total"] == 2
         assert len(data["items"]) == 1
+
+    def test_response_includes_adjusted_rate_delta(self, client: TestClient) -> None:
+        response = client.get("/compound-risk", params={"page": 1, "page_size": 10})
+        assert response.status_code == 200
+        data = response.json()
+        party_item = next(i for i in data["items"] if i["pair_id"] == "cr-party")
+        assert party_item["adjusted_rate_delta"] == 0.495
+        assert party_item["has_law_firm_group"] is True
+        other_item = next(i for i in data["items"] if i["pair_id"] == "cr-other")
+        assert other_item["adjusted_rate_delta"] is None
+
+    def test_response_includes_scl_fields(self, client: TestClient) -> None:
+        response = client.get("/compound-risk", params={"page": 1, "page_size": 10})
+        assert response.status_code == 200
+        data = response.json()
+        party_item = next(i for i in data["items"] if i["pair_id"] == "cr-party")
+        assert party_item["sanction_corporate_link_count"] == 1
+        assert party_item["sanction_corporate_link_ids"] == ["scl-1"]
+        assert party_item["sanction_corporate_min_degree"] == 2
+
+    def test_ordering_uses_adjusted_rate_delta(self, client: TestClient) -> None:
+        response = client.get(
+            "/compound-risk",
+            params={"page": 1, "page_size": 10, "minister": "TESTE"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        # cr-party has adjusted_rate_delta=0.495, cr-counsel has 0.21
+        # Both have signal_count 4 vs 3, so party comes first anyway
+        # But within same minister, the order is signal_count desc, adjusted_rate_delta desc
+        assert data["items"][0]["pair_id"] == "cr-party"
+        assert data["items"][1]["pair_id"] == "cr-counsel"
+
+    def test_heatmap_cell_includes_adjusted_rate_delta(self, client: TestClient) -> None:
+        response = client.get("/compound-risk/heatmap", params={"limit": 5})
+        assert response.status_code == 200
+        data = response.json()
+        top_cell = next(cell for cell in data["cells"] if cell["pair_id"] == "cr-party")
+        assert top_cell["adjusted_rate_delta"] == 0.495
 
     def test_heatmap_endpoint_materializes_cells(self, client: TestClient) -> None:
         response = client.get("/compound-risk/heatmap", params={"limit": 5})

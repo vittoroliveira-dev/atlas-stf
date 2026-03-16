@@ -26,9 +26,13 @@ from .schemas import (
     PaginatedDonationEventsResponse,
     PaginatedDonationsResponse,
     PaginatedEconomicGroupResponse,
+    PaginatedPaymentCounterpartiesResponse,
     PaginatedRapporteurChangeResponse,
+    PaginatedSanctionCorporateLinksResponse,
     PaginatedSanctionsResponse,
     RapporteurChangeRedFlagsResponse,
+    SanctionCorporateLinkItem,
+    SanctionCorporateLinkRedFlagsResponse,
     SanctionMatchItem,
     SanctionRedFlagsResponse,
 )
@@ -383,6 +387,56 @@ def register_risk_routes(
                 counsel_only=counsel_only,
                 law_firm_only=law_firm_only,
             )
+
+    # --- Payment Counterparties ---
+
+    @app.get("/payment-counterparties", response_model=PaginatedPaymentCounterpartiesResponse)
+    def payment_counterparties(
+        page: PositiveInt = 1,
+        page_size: PageSize = 20,
+    ) -> PaginatedPaymentCounterpartiesResponse:
+        from ._payment_counterparties import get_payment_counterparties
+
+        with factory() as session:
+            return get_payment_counterparties(session, page, page_size)
+
+    # --- Sanction Corporate Links ---
+
+    @app.get("/sanction-corporate-links", response_model=PaginatedSanctionCorporateLinksResponse)
+    def sanction_corporate_links(
+        page: PositiveInt = 1,
+        page_size: PageSize = 20,
+        sanction_source: str | None = Query(default=None, pattern="^(ceis|cnep|cvm|leniencia)$"),
+        red_flag_only: bool = Query(default=False),
+        min_degree: int | None = Query(default=None, ge=2),
+        max_degree: int | None = Query(default=None, ge=2),
+    ) -> PaginatedSanctionCorporateLinksResponse:
+        from ._sanction_corporate_links import get_sanction_corporate_links
+
+        with factory() as session:
+            return get_sanction_corporate_links(
+                session,
+                page,
+                page_size,
+                sanction_source=sanction_source,
+                red_flag_only=red_flag_only,
+                min_degree=min_degree,
+                max_degree=max_degree,
+            )
+
+    @app.get("/sanction-corporate-links/red-flags", response_model=SanctionCorporateLinkRedFlagsResponse)
+    def sanction_corporate_link_red_flags(limit: RedFlagLimit = 100) -> SanctionCorporateLinkRedFlagsResponse:
+        from ._sanction_corporate_links import get_sanction_corporate_link_red_flags
+
+        with factory() as session:
+            return get_sanction_corporate_link_red_flags(session, limit=limit)
+
+    @app.get("/parties/{party_id}/sanction-corporate-links", response_model=list[SanctionCorporateLinkItem])
+    def party_sanction_corporate_links(party_id: str, limit: ListLimit = 100) -> list[SanctionCorporateLinkItem]:
+        from ._sanction_corporate_links import get_party_sanction_corporate_links
+
+        with factory() as session:
+            return get_party_sanction_corporate_links(session, party_id, limit=limit)
 
     @app.get(
         "/economic-groups/{group_id}",

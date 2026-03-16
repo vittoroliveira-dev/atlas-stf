@@ -12,6 +12,7 @@ from typing import Any
 
 from ..core.stats import chi_square_p_value_approx, chi_square_statistic
 from ..schema_validate import validate_records
+from ._atomic_io import AtomicJsonlWriter
 
 DEFAULT_DECISION_EVENT_PATH = Path("data/curated/decision_event.jsonl")
 DEFAULT_PROCESS_PATH = Path("data/curated/process.jsonl")
@@ -122,8 +123,7 @@ def build_assignment_audit(
     validate_records(records, SCHEMA_PATH)
 
     output_path = output_dir / "assignment_audit.jsonl"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 

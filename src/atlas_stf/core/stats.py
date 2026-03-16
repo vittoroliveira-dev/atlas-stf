@@ -212,3 +212,36 @@ def z_score(value: float, mean: float, std: float) -> float:
     if std == 0:
         return 0.0
     return round((value - mean) / std, 6)
+
+
+def red_flag_power(n: int, p0: float, delta: float = 0.15, alpha: float = 0.05) -> float:
+    """Compute statistical power for a one-sided z-test on proportions.
+
+    Returns the probability of detecting an effect of size ``delta`` given
+    sample size ``n`` and null proportion ``p0``.  Result is clamped to [0, 1].
+    """
+    if n <= 0 or p0 <= 0.0 or p0 >= 1.0:
+        return 0.0
+    p1 = min(p0 + delta, 0.999)
+    se0 = math.sqrt(p0 * (1 - p0) / n)
+    if se0 == 0:
+        return 0.0
+    z_alpha = 1.6448536269514729  # norm.ppf(1 - 0.05)
+    threshold = p0 + z_alpha * se0
+    se1 = math.sqrt(p1 * (1 - p1) / n)
+    if se1 == 0:
+        return 0.0
+    z_power = (threshold - p1) / se1
+    power = 0.5 * math.erfc(z_power / math.sqrt(2))
+    return max(0.0, min(1.0, power))
+
+
+def red_flag_confidence_label(power: float | None) -> str | None:
+    """Classify power into a confidence label."""
+    if power is None:
+        return None
+    if power >= 0.80:
+        return "high"
+    if power >= 0.50:
+        return "moderate"
+    return "low"

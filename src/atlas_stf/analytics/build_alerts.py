@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from ..schema_validate import validate_records
+from ._atomic_io import AtomicJsonlWriter
 from .score import ALERT_SCORE_THRESHOLD, score_event_against_baseline
 
 ALERT_SCHEMA = Path("schemas/outlier_alert.schema.json")
@@ -155,8 +156,7 @@ def build_alerts(
     if on_progress:
         on_progress(2, 3, "Alerts: Gravando resultados...")
     validate_records(alert_records, ALERT_SCHEMA)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for record in alert_records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 

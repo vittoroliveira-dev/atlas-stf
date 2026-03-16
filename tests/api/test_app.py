@@ -331,12 +331,31 @@ async def test_rate_limit_can_trust_forwarded_headers_when_explicitly_enabled(
     monkeypatch.setenv("ATLAS_STF_RATE_LIMIT_WINDOW_SECONDS", "60")
     monkeypatch.setenv("ATLAS_STF_TRUST_PROXY_HEADERS", "true")
     async with _get_client(serving_db) as client:
-        first = await client.get("/filters/options", headers={"X-Forwarded-For": "1.1.1.1"})
-        second = await client.get("/filters/options", headers={"X-Forwarded-For": "2.2.2.2"})
-        third = await client.get("/filters/options", headers={"X-Forwarded-For": "3.3.3.3"})
+        # Last IP in XFF chain is used as client identifier
+        first = await client.get("/filters/options", headers={"X-Forwarded-For": "spoofed, 1.1.1.1"})
+        second = await client.get("/filters/options", headers={"X-Forwarded-For": "spoofed, 2.2.2.2"})
+        third = await client.get("/filters/options", headers={"X-Forwarded-For": "spoofed, 3.3.3.3"})
     assert first.status_code == 200
     assert second.status_code == 200
     assert third.status_code == 200
+
+
+@pytest.mark.anyio
+async def test_rate_limit_uses_last_ip_not_first(
+    serving_db: str,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("ATLAS_STF_RATE_LIMIT_MAX_REQUESTS", "2")
+    monkeypatch.setenv("ATLAS_STF_RATE_LIMIT_WINDOW_SECONDS", "60")
+    monkeypatch.setenv("ATLAS_STF_TRUST_PROXY_HEADERS", "true")
+    async with _get_client(serving_db) as client:
+        # Same last IP despite different spoofed first IPs — should hit rate limit
+        first = await client.get("/filters/options", headers={"X-Forwarded-For": "attacker1, real_ip"})
+        second = await client.get("/filters/options", headers={"X-Forwarded-For": "attacker2, real_ip"})
+        third = await client.get("/filters/options", headers={"X-Forwarded-For": "attacker3, real_ip"})
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert third.status_code == 429
 
 
 @pytest.mark.anyio
@@ -392,3 +411,21 @@ async def test_request_timeout_middleware_returns_504_for_slow_request(
 
     assert response.status_code == 504
     assert response.json()["detail"] == "request_timeout"
+
+
+@pytest.mark.anyio
+async def test_security_headers_present_on_responses(serving_db: str):
+    async with _get_client(serving_db) as client:
+        response = await client.get("/health")
+    assert response.status_code == 200
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+
+
+@pytest.mark.anyio
+async def test_security_headers_present_on_404(serving_db: str):
+    async with _get_client(serving_db) as client:
+        response = await client.get("/nonexistent-route")
+    assert response.status_code in {404, 405}
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"

@@ -51,15 +51,9 @@ def _prioritize_processes(
     processes: list[dict[str, Any]],
     alert_ids: set[str],
 ) -> list[dict[str, Any]]:
-    """Sort processes: alerts first, then by filing_date descending."""
-
-    def sort_key(proc: dict[str, Any]) -> tuple[int, str]:
-        has_alert = 0 if proc.get("process_id") in alert_ids else 1
-        filing_date = proc.get("filing_date") or "0000-00-00"
-        # Negate date for descending sort (newer first)
-        return (has_alert, "9999-99-99" if filing_date == "0000-00-00" else filing_date)
-
-    return sorted(processes, key=sort_key)
+    """Sort processes: alerts first, then by filing_date descending (newer first)."""
+    by_date = sorted(processes, key=lambda p: p.get("filing_date") or "", reverse=True)
+    return sorted(by_date, key=lambda p: 0 if p.get("process_id") in alert_ids else 1)
 
 
 def _should_refetch(output_path: Path, refetch_after_days: int) -> bool:

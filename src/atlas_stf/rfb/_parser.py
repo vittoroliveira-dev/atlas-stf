@@ -8,7 +8,7 @@ import io
 import logging
 from typing import Any, TextIO
 
-from ..core.identity import normalize_entity_name
+from ..core.identity import normalize_entity_name, normalize_tax_id
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +48,28 @@ def parse_socios_csv_filtered(
     csv_bytes: bytes,
     target_names: set[str],
     target_cnpjs: set[str],
+    *,
+    target_cpfs: set[str] | None = None,
+    target_partner_cnpjs: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], set[str]]:
     """Parse Socios CSV bytes, keeping only rows matching target_names or target_cnpjs."""
     encoding = detect_encoding(csv_bytes)
     text = csv_bytes.decode(encoding)
-    return parse_socios_csv_filtered_text(io.StringIO(text), target_names, target_cnpjs)
+    return parse_socios_csv_filtered_text(
+        io.StringIO(text),
+        target_names,
+        target_cnpjs,
+        target_cpfs=target_cpfs,
+        target_partner_cnpjs=target_partner_cnpjs,
+    )
 
 
 def _parse_socios_reader(
     reader: _csv.Reader,
     target_names: set[str],
     target_cnpjs: set[str],
+    target_cpfs: set[str],
+    target_partner_cnpjs: set[str],
 ) -> tuple[list[dict[str, Any]], set[str]]:
     records: list[dict[str, Any]] = []
     matched_cnpjs: set[str] = set()
@@ -71,6 +82,9 @@ def _parse_socios_reader(
         partner_name = row[2].strip()
         partner_name_normalized = normalize_entity_name(partner_name)
 
+        partner_cpf_cnpj_raw = row[3].strip()
+        partner_doc_normalized = normalize_tax_id(partner_cpf_cnpj_raw)
+
         rep_cpf_cnpj = row[7].strip() if len(row) > 7 else ""
         rep_name_raw = row[8].strip() if len(row) > 8 else ""
         rep_qual = row[9].strip() if len(row) > 9 else ""
@@ -79,11 +93,13 @@ def _parse_socios_reader(
         name_match = partner_name_normalized in target_names if partner_name_normalized else False
         rep_match = rep_name_normalized in target_names if rep_name_normalized else False
         cnpj_match = cnpj_basico in target_cnpjs
+        cpf_match = partner_doc_normalized in target_cpfs if partner_doc_normalized else False
+        partner_cnpj_match = partner_doc_normalized in target_partner_cnpjs if partner_doc_normalized else False
 
-        if not name_match and not rep_match and not cnpj_match:
+        if not name_match and not rep_match and not cnpj_match and not cpf_match and not partner_cnpj_match:
             continue
 
-        if name_match or rep_match:
+        if name_match or rep_match or cpf_match or partner_cnpj_match:
             matched_cnpjs.add(cnpj_basico)
 
         records.append(
@@ -92,7 +108,7 @@ def _parse_socios_reader(
                 "partner_type": row[1].strip(),
                 "partner_name": partner_name,
                 "partner_name_normalized": partner_name_normalized or partner_name,
-                "partner_cpf_cnpj": row[3].strip(),
+                "partner_cpf_cnpj": partner_cpf_cnpj_raw,
                 "qualification_code": row[4].strip(),
                 "entry_date": row[5].strip(),
                 "representative_cpf_cnpj": rep_cpf_cnpj,
@@ -109,10 +125,19 @@ def parse_socios_csv_filtered_text(
     text_stream: TextIO,
     target_names: set[str],
     target_cnpjs: set[str],
+    *,
+    target_cpfs: set[str] | None = None,
+    target_partner_cnpjs: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], set[str]]:
     """Parse Socios CSV from an already-open text stream."""
     reader = csv.reader(text_stream, delimiter=";")
-    return _parse_socios_reader(reader, target_names, target_cnpjs)
+    return _parse_socios_reader(
+        reader,
+        target_names,
+        target_cnpjs,
+        target_cpfs or set(),
+        target_partner_cnpjs or set(),
+    )
 
 
 def parse_empresas_csv_filtered(

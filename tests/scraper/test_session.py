@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 from atlas_stf.scraper import _session
@@ -70,11 +71,37 @@ def test_create_defaults_to_tls_verification(monkeypatch):
 
 def test_create_allows_explicit_tls_bypass(monkeypatch):
     fake = _FakePlaywright()
+    monkeypatch.delenv("ATLAS_STF_SCRAPER_IGNORE_HTTPS_ERRORS", raising=False)
+    monkeypatch.setattr(_session, "sync_playwright", lambda: _FakeSyncPlaywright(fake))
+
+    session = _session.ApiSession.create(ignore_tls=True)
+
+    assert fake.browser.context_args is not None
+    assert fake.browser.context_args["ignore_https_errors"] is True
+    session.close()
+
+
+def test_create_env_var_fallback_emits_deprecation_warning(monkeypatch, caplog):
+    fake = _FakePlaywright()
     monkeypatch.setenv("ATLAS_STF_SCRAPER_IGNORE_HTTPS_ERRORS", "true")
+    monkeypatch.setattr(_session, "sync_playwright", lambda: _FakeSyncPlaywright(fake))
+
+    with caplog.at_level(logging.WARNING, logger="atlas_stf.scraper"):
+        session = _session.ApiSession.create()
+
+    assert fake.browser.context_args is not None
+    assert fake.browser.context_args["ignore_https_errors"] is True
+    assert "deprecated" in caplog.text.lower()
+    session.close()
+
+
+def test_default_is_tls_enabled(monkeypatch):
+    fake = _FakePlaywright()
+    monkeypatch.delenv("ATLAS_STF_SCRAPER_IGNORE_HTTPS_ERRORS", raising=False)
     monkeypatch.setattr(_session, "sync_playwright", lambda: _FakeSyncPlaywright(fake))
 
     session = _session.ApiSession.create()
 
     assert fake.browser.context_args is not None
-    assert fake.browser.context_args["ignore_https_errors"] is True
+    assert fake.browser.context_args["ignore_https_errors"] is False
     session.close()

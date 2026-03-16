@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,11 +18,27 @@ from ..core.identity import (
     normalize_entity_name,
     normalize_tax_id,
 )
-from ..core.rules import classify_outcome_for_party, classify_outcome_materiality, classify_outcome_raw
+from ..core.rules import (
+    classify_judging_body_category,
+    classify_outcome_for_party,
+    classify_outcome_materiality,
+    classify_outcome_raw,
+)
+from .baseline import MIN_RELIABLE_SIZE
 
 logger = logging.getLogger(__name__)
 DEFAULT_ALIAS_PATH = Path("data/curated/entity_alias.jsonl")
-_MAX_FUZZY_CANDIDATES = 10_000
+@dataclass(frozen=True)
+class MatchThresholds:
+    """Tunable thresholds for the entity matching cascade."""
+
+    jaccard_min: float = 0.8
+    levenshtein_max: int = 2
+    length_prefilter_max: int = 2
+    max_fuzzy_candidates: int = 10_000
+
+
+DEFAULT_MATCH_THRESHOLDS = MatchThresholds()
 
 
 @dataclass(frozen=True)
@@ -33,6 +49,7 @@ class EntityMatchResult:
     matched_alias: str | None = None
     matched_tax_id: str | None = None
     uncertainty_note: str | None = None
+    candidate_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -153,13 +170,40 @@ def _resolve_unique_candidate(
     )
 
 
+def _collect_fuzzy_candidates(
+    canonical_name: str,
+    index: EntityMatchIndex,
+    max_candidates: int,
+) -> set[int]:
+    """Pre-filter candidate indices via token intersection (lossless for Jaccard >= 0.5)."""
+    query_tokens = _tokenize_for_similarity(canonical_name)
+    sorted_sets: list[tuple[int, set[int]]] = []
+    for token in query_tokens:
+        token_set = index.by_token.get(token)
+        if token_set:
+            sorted_sets.append((len(token_set), token_set))
+    sorted_sets.sort(key=lambda x: x[0])
+    candidate_indices: set[int] = set()
+    if len(sorted_sets) >= 2:
+        candidate_indices = sorted_sets[0][1] & sorted_sets[1][1]
+        if not candidate_indices:
+            candidate_indices = set(sorted_sets[0][1])
+    elif sorted_sets:
+        candidate_indices = set(sorted_sets[0][1])
+    if len(candidate_indices) > max_candidates:
+        candidate_indices = set()
+    return candidate_indices
+
+
 def match_entity_record(
     *,
     query_name: Any,
     query_tax_id: Any = None,
     index: EntityMatchIndex,
     name_field: str,
+    thresholds: MatchThresholds | None = None,
 ) -> EntityMatchResult | None:
+    t = thresholds or DEFAULT_MATCH_THRESHOLDS
     normalized_name = normalize_entity_name(query_name)
     canonical_name = canonicalize_entity_name(query_name)
     tax_id = normalize_tax_id(query_tax_id)
@@ -211,25 +255,7 @@ def match_entity_record(
             return match
 
     if canonical_name:
-        query_tokens = _tokenize_for_similarity(canonical_name)
-        # Frequency-aware candidate pre-filter: sort token sets by ascending
-        # frequency and intersect the 2 rarest.  For Jaccard >= 0.8 any valid
-        # match must share the query's rarest tokens, making this lossless.
-        sorted_sets: list[tuple[int, set[int]]] = []
-        for token in query_tokens:
-            token_set = index.by_token.get(token)
-            if token_set:
-                sorted_sets.append((len(token_set), token_set))
-        sorted_sets.sort(key=lambda x: x[0])
-        candidate_indices: set[int] = set()
-        if len(sorted_sets) >= 2:
-            candidate_indices = sorted_sets[0][1] & sorted_sets[1][1]
-            if not candidate_indices:
-                candidate_indices = set(sorted_sets[0][1])
-        elif sorted_sets:
-            candidate_indices = set(sorted_sets[0][1])
-        if len(candidate_indices) > _MAX_FUZZY_CANDIDATES:
-            candidate_indices = set()
+        candidate_indices = _collect_fuzzy_candidates(canonical_name, index, t.max_fuzzy_candidates)
 
         # Jaccard similarity (only meaningful for multi-word names)
         if " " in canonical_name:
@@ -240,7 +266,7 @@ def match_entity_record(
                 if not candidate_name:
                     continue
                 score = jaccard_similarity(canonical_name, candidate_name)
-                if score >= 0.8:
+                if score >= t.jaccard_min:
                     scored.append((score, record))
             if scored:
                 scored.sort(key=lambda item: item[0], reverse=True)
@@ -254,6 +280,7 @@ def match_entity_record(
                     strategy="ambiguous",
                     score=best_score,
                     uncertainty_note="multiple_candidates_same_jaccard_score",
+                    candidate_count=len(best_records),
                 )
 
         # Levenshtein distance (token-filtered candidates)
@@ -263,10 +290,10 @@ def match_entity_record(
             candidate_name = index.canonical_names[idx]
             if not candidate_name:
                 continue
-            if abs(len(candidate_name) - canonical_len) > 2:
+            if abs(len(candidate_name) - canonical_len) > t.length_prefilter_max:
                 continue
             distance = levenshtein_distance(canonical_name, candidate_name)
-            if distance <= 2:
+            if distance <= t.levenshtein_max:
                 scored_distance.append((distance, index.records[idx]))
         if scored_distance:
             scored_distance.sort(key=lambda item: item[0])
@@ -284,6 +311,7 @@ def match_entity_record(
                 strategy="ambiguous",
                 score=float(best_distance),
                 uncertainty_note="multiple_candidates_same_levenshtein_distance",
+                candidate_count=len(best_records),
             )
 
     return None
@@ -408,6 +436,87 @@ def build_baseline_rates(
         if rate is not None:
             rates[pc] = rate
     return rates
+
+
+def build_baseline_rates_stratified(
+    decision_event_path: Path,
+    process_path: Path,
+) -> tuple[dict[tuple[str, str], float], dict[str, float]]:
+    """Compute baseline favorable rate stratified by (process_class, jb_category).
+
+    Returns (stratified_rates, fallback_rates) where:
+    - stratified_rates: only cells with >= MIN_RELIABLE_SIZE events
+    - fallback_rates: per process_class (identical to build_baseline_rates)
+    """
+    class_map: dict[str, str] = {}
+    for record in read_jsonl(process_path):
+        pid = record.get("process_id")
+        pc = record.get("process_class")
+        if pid and pc:
+            class_map[pid] = pc
+
+    stratified_outcomes: dict[tuple[str, str], list[str]] = defaultdict(list)
+    class_outcomes: dict[str, list[str]] = defaultdict(list)
+
+    for record in read_jsonl(decision_event_path):
+        pid = record.get("process_id")
+        progress = record.get("decision_progress")
+        if not (pid and progress and pid in class_map):
+            continue
+        pc = class_map[pid]
+        jb_cat = classify_judging_body_category(
+            record.get("judging_body"),
+            record.get("is_collegiate"),
+        )
+        stratified_outcomes[(pc, jb_cat)].append(progress)
+        class_outcomes[pc].append(progress)
+
+    # Fallback rates: identical logic to build_baseline_rates
+    fallback_rates: dict[str, float] = {}
+    for pc, outcomes in class_outcomes.items():
+        rate = compute_favorable_rate(outcomes)
+        if rate is not None:
+            fallback_rates[pc] = rate
+
+    # Stratified rates: only cells with enough observations
+    stratified_rates: dict[tuple[str, str], float] = {}
+    for key, outcomes in stratified_outcomes.items():
+        if len(outcomes) < MIN_RELIABLE_SIZE:
+            continue
+        rate = compute_favorable_rate(outcomes)
+        if rate is not None:
+            stratified_rates[key] = rate
+
+    return stratified_rates, fallback_rates
+
+
+def build_process_jb_category_map(decision_event_path: Path) -> dict[str, str]:
+    """Map process_id -> predominant judging body category."""
+    counters: dict[str, Counter[str]] = defaultdict(Counter)
+    for record in read_jsonl(decision_event_path):
+        pid = record.get("process_id")
+        if not pid:
+            continue
+        jb_cat = classify_judging_body_category(
+            record.get("judging_body"),
+            record.get("is_collegiate"),
+        )
+        counters[pid][jb_cat] += 1
+
+    return {pid: counter.most_common(1)[0][0] for pid, counter in counters.items()}
+
+
+def lookup_baseline_rate(
+    stratified_rates: dict[tuple[str, str], float],
+    fallback_rates: dict[str, float],
+    process_class: str,
+    jb_category: str,
+) -> float | None:
+    """Look up baseline rate: stratified cell first, then class-level fallback."""
+    rate = stratified_rates.get((process_class, jb_category))
+    if rate is not None:
+        return rate
+    return fallback_rates.get(process_class)
 
 
 def build_process_class_map(process_path: Path) -> dict[str, str]:

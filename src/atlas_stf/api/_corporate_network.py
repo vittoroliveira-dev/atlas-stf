@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import cast
+from typing import Literal, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -84,6 +84,8 @@ def _row_to_item(row: ServingCorporateConflict) -> CorporateConflictItem:
         favorable_rate_substantive=row.favorable_rate_substantive,
         substantive_decision_count=row.substantive_decision_count,
         red_flag_substantive=row.red_flag_substantive,
+        red_flag_power=row.red_flag_power,
+        red_flag_confidence=cast(Literal["high", "moderate", "low"] | None, row.red_flag_confidence),
     )
 
 

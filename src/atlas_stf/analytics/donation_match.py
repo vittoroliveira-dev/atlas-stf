@@ -4,24 +4,32 @@ from __future__ import annotations
 
 import json
 import logging
-from collections import defaultdict
+import re
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..core.identity import normalize_entity_name, normalize_tax_id, stable_id
+from ..core.identity import normalize_entity_name, stable_id
+from ..core.stats import red_flag_confidence_label, red_flag_power
+from ..tse._resource_classifier import classify_resource_type
+from ._atomic_io import AtomicJsonlWriter
+from ._donor_identity import donor_identity_key as _donor_identity_key_fn
 from ._match_helpers import (
     DEFAULT_ALIAS_PATH,
-    build_baseline_rates,
+    EntityMatchResult,
+    build_baseline_rates_stratified,
     build_counsel_client_map_from_links,
     build_counsel_process_map,
     build_entity_match_index,
     build_party_index,
     build_party_process_map,
+    build_process_jb_category_map,
     build_process_outcomes,
     compute_favorable_rate_role_aware,
     compute_favorable_rate_substantive,
     iter_jsonl,
+    lookup_baseline_rate,
     read_jsonl,
 )
 from ._parallel import build_counsel_profiles_parallel, match_entities_parallel
@@ -42,22 +50,8 @@ MIN_CASES_FOR_RED_FLAG = 3
 
 
 def _donor_identity_key(name: str, cpf_cnpj: str) -> str:
-    """Build a stable identity key for a donor.
-
-    Uses ``normalize_tax_id(donor_cpf_cnpj)`` when it produces a valid
-    digit-only string (prevents homonym fusion and normalizes formatting).
-    Masked documents (``***.***-**``) and empty strings resolve to ``None``
-    and fall back to ``donor_name_normalized``.
-
-    Note: the name fallback still carries residual homonymy risk when
-    two distinct people share the same normalized name and neither has
-    a CPF/CNPJ on file.  This is a known limitation documented in the
-    audit (section E.1).
-    """
-    normalized_id = normalize_tax_id(cpf_cnpj)
-    if normalized_id:
-        return f"cpf:{normalized_id}"
-    return f"name:{name}"
+    """Delegate to shared helper (backward-compatible wrapper)."""
+    return _donor_identity_key_fn(name, cpf_cnpj)
 
 
 def _stream_aggregate_donations(
@@ -69,6 +63,8 @@ def _stream_aggregate_donations(
     The aggregation key is a stable identity key (CPF/CNPJ when available,
     else normalized name) to avoid homonym fusion.
     """
+    _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
     agg: dict[str, dict[str, Any]] = {}
     raw_count = 0
     all_years: set[int] = set()
@@ -92,10 +88,19 @@ def _stream_aggregate_donations(
                 "parties_donated_to": set(),
                 "candidates_donated_to": set(),
                 "positions_donated_to": set(),
+                "resource_types_seen": set(),
+                # Temporal / concentration accumulators
+                "min_donation_date": None,
+                "max_donation_date": None,
+                "max_single_donation_brl": 0.0,
+                "amount_by_candidate": defaultdict(float),
+                "amount_by_party": defaultdict(float),
+                "amount_by_state": defaultdict(float),
             }
         entry = agg[key]
         entry["donor_names_seen"].add(name)
-        entry["total_donated_brl"] += d.get("donation_amount", 0.0)
+        amount: float = d.get("donation_amount", 0.0)
+        entry["total_donated_brl"] += amount
         entry["donation_count"] += 1
         originator = d.get("donor_name_originator_normalized", "")
         if originator and not entry["donor_name_originator"]:
@@ -113,16 +118,91 @@ def _stream_aggregate_donations(
         position = d.get("position", "")
         if position:
             entry["positions_donated_to"].add(position)
+        rc = classify_resource_type(d.get("donation_description"))
+        entry["resource_types_seen"].add(rc.category)
 
-    # Convert sets to sorted lists for JSON serialization
+        # Temporal / concentration tracking
+        if amount > entry["max_single_donation_brl"]:
+            entry["max_single_donation_brl"] = amount
+        donation_date = d.get("donation_date", "")
+        if isinstance(donation_date, str) and _ISO_DATE_RE.match(donation_date):
+            if entry["min_donation_date"] is None or donation_date < entry["min_donation_date"]:
+                entry["min_donation_date"] = donation_date
+            if entry["max_donation_date"] is None or donation_date > entry["max_donation_date"]:
+                entry["max_donation_date"] = donation_date
+        if candidate:
+            entry["amount_by_candidate"][candidate] += amount
+        if party:
+            entry["amount_by_party"][party] += amount
+        state = d.get("state", "")
+        if state:
+            entry["amount_by_state"][state] += amount
+
+    # Derive recent_cycles from corpus-wide election years
+    sorted_all_years = sorted(all_years)
+    recent_cycles = sorted_all_years[-2:] if len(sorted_all_years) >= 2 else sorted_all_years
+
+    # Convert sets to sorted lists and compute derived metrics
     for entry in agg.values():
         entry["election_years"] = sorted(entry["election_years"])
         entry["parties_donated_to"] = sorted(entry["parties_donated_to"])
         entry["candidates_donated_to"] = sorted(entry["candidates_donated_to"])
         entry["positions_donated_to"] = sorted(entry["positions_donated_to"])
         entry["donor_names_seen"] = sorted(entry["donor_names_seen"])
+        entry["resource_types_seen"] = sorted(entry["resource_types_seen"])
+
+        # Temporal metrics
+        entry["first_donation_date"] = entry.pop("min_donation_date")
+        entry["last_donation_date"] = entry.pop("max_donation_date")
+        entry["active_election_year_count"] = len(entry["election_years"])
+
+        total = entry["total_donated_brl"]
+        count = entry["donation_count"]
+        entry["avg_donation_brl"] = round(total / count, 2) if count > 0 else 0.0
+
+        # Concentration shares
+        amt_cand = entry.pop("amount_by_candidate")
+        amt_party = entry.pop("amount_by_party")
+        amt_state = entry.pop("amount_by_state")
+        entry["top_candidate_share"] = round(max(amt_cand.values()) / total, 4) if amt_cand and total > 0 else None
+        entry["top_party_share"] = round(max(amt_party.values()) / total, 4) if amt_party and total > 0 else None
+        entry["top_state_share"] = round(max(amt_state.values()) / total, 4) if amt_state and total > 0 else None
+
+        # Year span
+        years = entry["election_years"]
+        entry["donation_year_span"] = (years[-1] - years[0] + 1) if years else None
+
+        # Recent donation flag
+        entry["recent_donation_flag"] = bool(set(years) & set(recent_cycles)) if years and recent_cycles else False
 
     return agg, raw_count, all_years
+
+
+def _build_ambiguous_record(
+    donor_key: str,
+    donor_info: dict[str, Any],
+    match: EntityMatchResult,
+    *,
+    entity_type: str,
+) -> dict[str, Any]:
+    return {
+        "donor_identity_key": donor_key,
+        "donor_name_normalized": donor_info["donor_name_normalized"],
+        "donor_cpf_cnpj": donor_info.get("donor_cpf_cnpj", ""),
+        "entity_type": entity_type,
+        "match_strategy": match.strategy,
+        "match_score": match.score,
+        "uncertainty_note": match.uncertainty_note,
+        "candidate_count": match.candidate_count,
+        "sample_candidate_name": (
+            match.record.get("party_name_normalized")
+            or match.record.get("counsel_name_normalized")
+            or ""
+        ),
+        "total_donated_brl": donor_info["total_donated_brl"],
+        "donation_count": donor_info["donation_count"],
+        "election_years": sorted(donor_info["election_years"]),
+    }
 
 
 def build_donation_matches(  # noqa: C901
@@ -167,7 +247,8 @@ def build_donation_matches(  # noqa: C901
 
     process_party_map = build_party_process_map(process_party_link_path, party_id_to_name)
     process_outcomes = build_process_outcomes(decision_event_path)
-    baseline_rates = build_baseline_rates(decision_event_path, process_path)
+    stratified_rates, fallback_rates = build_baseline_rates_stratified(decision_event_path, process_path)
+    process_jb_map = build_process_jb_category_map(decision_event_path)
 
     process_class_map: dict[str, str] = {}
     for record in read_jsonl(process_path):
@@ -188,9 +269,10 @@ def build_donation_matches(  # noqa: C901
 
     matches: list[dict[str, Any]] = []
     matched_party_names: set[str] = set()
-    ambiguous_candidate_count = 0
+    party_ambiguous_count = 0
     match_strategy_counts: dict[str, int] = defaultdict(int)
     now_iso = datetime.now(timezone.utc).isoformat()
+    ambiguous_records: list[dict[str, Any]] = []
 
     for donor_key, donor_info in donor_agg.items():
         donor_name = donor_info["donor_name_normalized"]
@@ -198,7 +280,8 @@ def build_donation_matches(  # noqa: C901
         if match is None:
             continue
         if match.strategy == "ambiguous":
-            ambiguous_candidate_count += 1
+            party_ambiguous_count += 1
+            ambiguous_records.append(_build_ambiguous_record(donor_key, donor_info, match, entity_type="party"))
             continue
 
         party = match.record
@@ -210,23 +293,25 @@ def build_donation_matches(  # noqa: C901
         # Gather all outcomes for this party (with role context)
         process_entries = process_party_map.get(party_name, [])
         outcomes_with_roles: list[tuple[str, str | None]] = []
-        party_classes: list[str] = []
+        class_jb_pairs: list[tuple[str, str]] = []
         seen_pids: set[str] = set()
         for pid, role in process_entries:
             for progress in process_outcomes.get(pid, []):
                 outcomes_with_roles.append((progress, role))
             if pid not in seen_pids:
                 seen_pids.add(pid)
-                if pid in process_class_map:
-                    party_classes.append(process_class_map[pid])
+                pc = process_class_map.get(pid)
+                if pc:
+                    jb = process_jb_map.get(pid, "incerto")
+                    class_jb_pairs.append((pc, jb))
 
         favorable_rate = compute_favorable_rate_role_aware(outcomes_with_roles)
         favorable_rate_sub, n_substantive = compute_favorable_rate_substantive(outcomes_with_roles)
 
         baseline_rate: float | None = None
-        if party_classes:
-            most_common = max(set(party_classes), key=party_classes.count)
-            baseline_rate = baseline_rates.get(most_common)
+        if class_jb_pairs:
+            most_common_class, most_common_jb = Counter(class_jb_pairs).most_common(1)[0][0]
+            baseline_rate = lookup_baseline_rate(stratified_rates, fallback_rates, most_common_class, most_common_jb)
 
         delta: float | None = None
         red_flag = False
@@ -237,6 +322,9 @@ def build_donation_matches(  # noqa: C901
         red_flag_substantive: bool | None = None
         if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
             red_flag_substantive = (favorable_rate_sub - baseline_rate) > RED_FLAG_DELTA_THRESHOLD
+
+        power = red_flag_power(len(seen_pids), baseline_rate) if baseline_rate is not None else None
+        confidence = red_flag_confidence_label(power)
 
         match_id = stable_id("dm-", f"{party_id}:{donor_key}")
         matches.append(
@@ -262,6 +350,16 @@ def build_donation_matches(  # noqa: C901
                 "parties_donated_to": donor_info["parties_donated_to"],
                 "candidates_donated_to": donor_info["candidates_donated_to"],
                 "positions_donated_to": donor_info["positions_donated_to"],
+                "first_donation_date": donor_info.get("first_donation_date"),
+                "last_donation_date": donor_info.get("last_donation_date"),
+                "active_election_year_count": donor_info.get("active_election_year_count", 0),
+                "max_single_donation_brl": donor_info.get("max_single_donation_brl", 0.0),
+                "avg_donation_brl": donor_info.get("avg_donation_brl", 0.0),
+                "top_candidate_share": donor_info.get("top_candidate_share"),
+                "top_party_share": donor_info.get("top_party_share"),
+                "top_state_share": donor_info.get("top_state_share"),
+                "donation_year_span": donor_info.get("donation_year_span"),
+                "recent_donation_flag": donor_info.get("recent_donation_flag", False),
                 "stf_case_count": len(seen_pids),
                 "favorable_rate": favorable_rate,
                 "favorable_rate_substantive": favorable_rate_sub,
@@ -270,6 +368,9 @@ def build_donation_matches(  # noqa: C901
                 "favorable_rate_delta": delta,
                 "red_flag": red_flag,
                 "red_flag_substantive": red_flag_substantive,
+                "red_flag_power": power,
+                "red_flag_confidence": confidence,
+                "resource_types_observed": donor_info.get("resource_types_seen", []),
                 "matched_at": now_iso,
             }
         )
@@ -314,6 +415,7 @@ def build_donation_matches(  # noqa: C901
             continue
         if match.strategy == "ambiguous":
             counsel_ambiguous_count += 1
+            ambiguous_records.append(_build_ambiguous_record(donor_key, donor_info, match, entity_type="counsel"))
             continue
 
         counsel = match.record
@@ -325,23 +427,25 @@ def build_donation_matches(  # noqa: C901
         # Gather outcomes for this counsel (with side context)
         process_entries = counsel_process_map.get(counsel_name, [])
         outcomes_with_roles: list[tuple[str, str | None]] = []
-        counsel_classes: list[str] = []
+        class_jb_pairs: list[tuple[str, str]] = []
         seen_pids: set[str] = set()
         for pid, side in process_entries:
             for progress in process_outcomes.get(pid, []):
                 outcomes_with_roles.append((progress, side))
             if pid not in seen_pids:
                 seen_pids.add(pid)
-                if pid in process_class_map:
-                    counsel_classes.append(process_class_map[pid])
+                pc = process_class_map.get(pid)
+                if pc:
+                    jb = process_jb_map.get(pid, "incerto")
+                    class_jb_pairs.append((pc, jb))
 
         favorable_rate = compute_favorable_rate_role_aware(outcomes_with_roles)
         favorable_rate_sub, n_substantive = compute_favorable_rate_substantive(outcomes_with_roles)
 
         baseline_rate = None
-        if counsel_classes:
-            most_common = max(set(counsel_classes), key=counsel_classes.count)
-            baseline_rate = baseline_rates.get(most_common)
+        if class_jb_pairs:
+            most_common_class, most_common_jb = Counter(class_jb_pairs).most_common(1)[0][0]
+            baseline_rate = lookup_baseline_rate(stratified_rates, fallback_rates, most_common_class, most_common_jb)
 
         delta = None
         red_flag = False
@@ -352,6 +456,9 @@ def build_donation_matches(  # noqa: C901
         red_flag_substantive: bool | None = None
         if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
             red_flag_substantive = (favorable_rate_sub - baseline_rate) > RED_FLAG_DELTA_THRESHOLD
+
+        power = red_flag_power(len(seen_pids), baseline_rate) if baseline_rate is not None else None
+        confidence = red_flag_confidence_label(power)
 
         match_id = stable_id("dm-", f"counsel:{counsel_id}:{donor_key}")
         matches.append(
@@ -375,6 +482,16 @@ def build_donation_matches(  # noqa: C901
                 "parties_donated_to": donor_info["parties_donated_to"],
                 "candidates_donated_to": donor_info["candidates_donated_to"],
                 "positions_donated_to": donor_info["positions_donated_to"],
+                "first_donation_date": donor_info.get("first_donation_date"),
+                "last_donation_date": donor_info.get("last_donation_date"),
+                "active_election_year_count": donor_info.get("active_election_year_count", 0),
+                "max_single_donation_brl": donor_info.get("max_single_donation_brl", 0.0),
+                "avg_donation_brl": donor_info.get("avg_donation_brl", 0.0),
+                "top_candidate_share": donor_info.get("top_candidate_share"),
+                "top_party_share": donor_info.get("top_party_share"),
+                "top_state_share": donor_info.get("top_state_share"),
+                "donation_year_span": donor_info.get("donation_year_span"),
+                "recent_donation_flag": donor_info.get("recent_donation_flag", False),
                 "stf_case_count": len(seen_pids),
                 "favorable_rate": favorable_rate,
                 "favorable_rate_substantive": favorable_rate_sub,
@@ -383,15 +500,53 @@ def build_donation_matches(  # noqa: C901
                 "favorable_rate_delta": delta,
                 "red_flag": red_flag,
                 "red_flag_substantive": red_flag_substantive,
+                "red_flag_power": power,
+                "red_flag_confidence": confidence,
+                "resource_types_observed": donor_info.get("resource_types_seen", []),
                 "matched_at": now_iso,
             }
         )
 
+    # Corporate enrichment (optional post-processing)
+    from ._corporate_enrichment import build_corporate_enrichment_index, enrich_match_corporate
+
+    corp_index = build_corporate_enrichment_index(output_dir)
+    for m in matches:
+        enrich_match_corporate(m, corp_index)
+    corporate_enriched_count = sum(
+        1
+        for m in matches
+        if any(
+            m.get(f) is not None
+            for f in (
+                "donor_document_type",
+                "donor_tax_id_normalized",
+                "donor_cnpj_basico",
+                "donor_company_name",
+                "economic_group_id",
+                "economic_group_member_count",
+                "is_law_firm_group",
+                "donor_group_has_minister_partner",
+                "donor_group_has_party_partner",
+                "donor_group_has_counsel_partner",
+                "min_link_degree_to_minister",
+                "corporate_link_red_flag",
+            )
+        )
+    )
+
     # Write all donation matches (party + counsel)
     match_path = output_dir / "donation_match.jsonl"
-    with match_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(match_path) as fh:
         for m in matches:
             fh.write(json.dumps(m, ensure_ascii=False) + "\n")
+
+    # Write ambiguous match trail
+    ambiguous_path = output_dir / "donation_match_ambiguous.jsonl"
+    with AtomicJsonlWriter(ambiguous_path) as afh:
+        for rec in ambiguous_records:
+            afh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    logger.info("Wrote %d ambiguous match records to %s", len(ambiguous_records), ambiguous_path)
 
     # Build matched donor identity keys for event extraction
     matched_identity_keys: dict[str, str] = {}
@@ -403,7 +558,9 @@ def build_donation_matches(  # noqa: C901
     # Write individual donation events for matched donors (P3: temporal granularity)
     event_path = output_dir / "donation_event.jsonl"
     event_count = 0
-    with event_path.open("w", encoding="utf-8") as efh:
+    resource_category_counts: dict[str, int] = defaultdict(int)
+    resource_subtype_counts: dict[str, int] = defaultdict(int)
+    with AtomicJsonlWriter(event_path) as efh:
         for d in iter_jsonl(donations_path):
             name = d.get("donor_name_normalized", "")
             if not name:
@@ -413,6 +570,9 @@ def build_donation_matches(  # noqa: C901
             match_id = matched_identity_keys.get(dk)
             if match_id is None:
                 continue
+            rc = classify_resource_type(d.get("donation_description"))
+            resource_category_counts[rc.category] += 1
+            resource_subtype_counts[rc.subtype] += 1
             event_id = stable_id(
                 "de-",
                 f"{dk}:{d.get('election_year', '')}:{d.get('donation_date', '')}:"
@@ -433,6 +593,15 @@ def build_donation_matches(  # noqa: C901
                 "donor_name_originator": d.get("donor_name_originator", ""),
                 "donor_cpf_cnpj": cpf_cnpj,
                 "donation_description": d.get("donation_description", ""),
+                "resource_type_category": rc.category,
+                "resource_type_subtype": rc.subtype,
+                "resource_classification_confidence": rc.confidence,
+                "resource_classification_rule": rc.rule,
+                "source_file": d.get("source_file", ""),
+                "source_url": d.get("source_url", ""),
+                "collected_at": d.get("collected_at", ""),
+                "ingest_run_id": d.get("ingest_run_id", ""),
+                "record_hash": d.get("record_hash", ""),
             }
             efh.write(json.dumps(event, ensure_ascii=False) + "\n")
             event_count += 1
@@ -467,7 +636,7 @@ def build_donation_matches(  # noqa: C901
     ]
 
     counsel_path_out = output_dir / "counsel_donation_profile.jsonl"
-    with counsel_path_out.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(counsel_path_out) as fh:
         for cp in counsel_profiles:
             fh.write(json.dumps(cp, ensure_ascii=False) + "\n")
 
@@ -495,9 +664,33 @@ def build_donation_matches(  # noqa: C901
         "matched_by_similarity_count": (
             match_strategy_counts.get("jaccard", 0) + match_strategy_counts.get("levenshtein", 0)
         ),
-        "ambiguous_candidate_count": ambiguous_candidate_count,
+        "party_ambiguous_candidate_count": party_ambiguous_count,
+        "counsel_ambiguous_candidate_count": counsel_ambiguous_count,
+        "total_ambiguous_candidate_count": party_ambiguous_count + counsel_ambiguous_count,
+        "ambiguous_records_written": len(ambiguous_records),
+        "corporate_links_present": corp_index.has_corporate_links,
+        "economic_groups_present": corp_index.has_economic_groups,
+        "corporate_network_present": corp_index.has_corporate_network,
+        "corporate_enriched_count": corporate_enriched_count,
         "donation_event_count": event_count,
         "election_years_covered": sorted(all_years),
+        "resource_category_counts": dict(resource_category_counts),
+        "resource_subtype_counts": dict(resource_subtype_counts),
+        "resource_classification_unknown_count": resource_category_counts.get("unknown", 0),
+        "resource_classification_empty_count": resource_category_counts.get("empty", 0),
+        "resource_classification_coverage_rate": (
+            round((event_count - resource_category_counts.get("unknown", 0)) / event_count, 4)
+            if event_count > 0
+            else 0.0
+        ),
+        "resource_classification_nonempty_coverage_rate": (
+            round(
+                (nonempty_total - resource_category_counts.get("unknown", 0)) / nonempty_total,
+                4,
+            )
+            if (nonempty_total := event_count - resource_category_counts.get("empty", 0)) > 0
+            else 0.0
+        ),
         "generated_at": now_iso,
     }
     summary_path = output_dir / "donation_match_summary.json"

@@ -77,7 +77,9 @@ def scrape_target(config: ScrapeConfig) -> int:
 
     total_docs = checkpoint.total_doc_count
 
-    with ApiSession.create(headless=config.headless, timeout_ms=config.timeout_ms) as session:
+    with ApiSession.create(
+        headless=config.headless, timeout_ms=config.timeout_ms, ignore_tls=config.ignore_tls,
+    ) as session:
         consecutive_403 = 0
 
         current_month = date.today().strftime("%Y-%m")
@@ -164,6 +166,7 @@ def scrape_target(config: ScrapeConfig) -> int:
                                 session = ApiSession.create(
                                     headless=config.headless,
                                     timeout_ms=config.timeout_ms,
+                                    ignore_tls=config.ignore_tls,
                                 )
                                 consecutive_403 = 0
                         wait = config.retry_backoff_base**attempt

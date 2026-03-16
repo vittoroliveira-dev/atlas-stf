@@ -16,6 +16,7 @@ from typing import Any
 from ._match_helpers import (
     EntityMatchIndex,
     EntityMatchResult,
+    MatchThresholds,
     compute_favorable_rate_role_aware,
     match_entity_record,
 )
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 # Module-level state shared with forked workers (copy-on-write).
 _worker_index: EntityMatchIndex | None = None
 _worker_name_field: str = ""
+_worker_thresholds: MatchThresholds | None = None
 _worker_state_lock = threading.Lock()
 
 # Module-level state for counsel profile workers.
@@ -50,6 +52,7 @@ def _match_one(item: tuple[str, str | None]) -> tuple[str, dict[str, Any] | None
         query_tax_id=tax_id,
         index=_worker_index,
         name_field=_worker_name_field,
+        thresholds=_worker_thresholds,
     )
     if result is None:
         return norm_name, None
@@ -60,6 +63,7 @@ def _match_one(item: tuple[str, str | None]) -> tuple[str, dict[str, Any] | None
         "matched_alias": result.matched_alias,
         "matched_tax_id": result.matched_tax_id,
         "uncertainty_note": result.uncertainty_note,
+        "candidate_count": result.candidate_count,
     }
 
 
@@ -72,6 +76,7 @@ def _result_from_dict(data: dict[str, Any]) -> EntityMatchResult:
         matched_alias=data["matched_alias"],
         matched_tax_id=data["matched_tax_id"],
         uncertainty_note=data["uncertainty_note"],
+        candidate_count=data.get("candidate_count"),
     )
 
 
@@ -101,9 +106,10 @@ def optimal_workers(ram_per_worker_gb: float = 1.5) -> int:
 
 
 def _clear_match_state() -> None:
-    global _worker_index, _worker_name_field  # noqa: PLW0603
+    global _worker_index, _worker_name_field, _worker_thresholds  # noqa: PLW0603
     _worker_index = None
     _worker_name_field = ""
+    _worker_thresholds = None
 
 
 def _clear_counsel_profile_state() -> None:
@@ -124,6 +130,7 @@ def match_entities_parallel(
     index: EntityMatchIndex,
     name_field: str,
     max_workers: int | None = None,
+    thresholds: MatchThresholds | None = None,
 ) -> dict[str, EntityMatchResult | None]:
     """Match a list of (name, tax_id) pairs against an index using multiple cores.
 
@@ -133,7 +140,7 @@ def match_entities_parallel(
     Falls back to sequential processing if there are fewer than 100 items
     or only 1 CPU core is available.
     """
-    global _worker_index, _worker_name_field  # noqa: PLW0603
+    global _worker_index, _worker_name_field, _worker_thresholds  # noqa: PLW0603
 
     workers = max_workers or optimal_workers()
 
@@ -146,6 +153,7 @@ def match_entities_parallel(
                 query_tax_id=tax_id,
                 index=index,
                 name_field=name_field,
+                thresholds=thresholds,
             )
             results[norm_name] = result
         return results
@@ -157,8 +165,12 @@ def match_entities_parallel(
 
     with _worker_state_lock:
         # Set module-level state BEFORE forking so workers inherit it.
+        # The "fork" start method copies the parent's memory to children (COW on Linux),
+        # so the index is shared without serialization. Thresholds are set here for
+        # the same reason — workers inherit the module-level state after fork.
         _worker_index = index
         _worker_name_field = name_field
+        _worker_thresholds = thresholds
 
         results: dict[str, EntityMatchResult | None] = {}
         try:

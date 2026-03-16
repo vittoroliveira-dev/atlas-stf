@@ -10,6 +10,8 @@ from atlas_stf.core.stats import (
     chi_square_p_value_approx,
     chi_square_statistic,
     odds_ratio,
+    red_flag_confidence_label,
+    red_flag_power,
     z_score,
 )
 
@@ -167,3 +169,69 @@ class TestBetaBinomialPosteriorMean:
     def test_rejects_invalid_counts(self):
         with pytest.raises(ValueError, match="successes must be between 0 and trials"):
             beta_binomial_posterior_mean(successes=3, trials=2)
+
+
+class TestRedFlagPower:
+    def test_large_sample_high_power(self):
+        p = red_flag_power(100, 0.5)
+        assert p >= 0.80
+
+    def test_small_sample_low_power(self):
+        p = red_flag_power(3, 0.5)
+        assert p < 0.30
+
+    def test_zero_n(self):
+        assert red_flag_power(0, 0.5) == 0.0
+
+    def test_negative_n(self):
+        assert red_flag_power(-1, 0.5) == 0.0
+
+    def test_p0_zero(self):
+        assert red_flag_power(50, 0.0) == 0.0
+
+    def test_p0_one(self):
+        assert red_flag_power(50, 1.0) == 0.0
+
+    def test_p0_near_one(self):
+        p = red_flag_power(50, 0.9)
+        assert 0.0 <= p <= 1.0
+
+    def test_moderate_sample(self):
+        p = red_flag_power(30, 0.5)
+        assert 0.30 <= p <= 0.90
+
+    @pytest.mark.parametrize("n,p0", [(1, 0.5), (5, 0.3), (50, 0.7), (200, 0.5)])
+    def test_returns_bounded(self, n, p0):
+        p = red_flag_power(n, p0)
+        assert 0.0 <= p <= 1.0
+
+    def test_custom_delta(self):
+        p_small = red_flag_power(30, 0.5, delta=0.05)
+        p_large = red_flag_power(30, 0.5, delta=0.30)
+        assert p_small < p_large
+
+    def test_monotonic_in_n(self):
+        p10 = red_flag_power(10, 0.5)
+        p50 = red_flag_power(50, 0.5)
+        p200 = red_flag_power(200, 0.5)
+        assert p10 <= p50 <= p200
+
+
+class TestRedFlagConfidenceLabel:
+    def test_high(self):
+        assert red_flag_confidence_label(0.85) == "high"
+
+    def test_moderate(self):
+        assert red_flag_confidence_label(0.60) == "moderate"
+
+    def test_low(self):
+        assert red_flag_confidence_label(0.30) == "low"
+
+    def test_boundary_high(self):
+        assert red_flag_confidence_label(0.80) == "high"
+
+    def test_boundary_moderate(self):
+        assert red_flag_confidence_label(0.50) == "moderate"
+
+    def test_none(self):
+        assert red_flag_confidence_label(None) is None

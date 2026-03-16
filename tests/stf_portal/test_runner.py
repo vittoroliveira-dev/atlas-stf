@@ -46,6 +46,18 @@ def test_prioritize_processes():
     assert result[0]["process_id"] == "proc_3"
 
 
+def test_prioritize_processes_newer_dates_first():
+    processes = [
+        {"process_id": "proc_a", "filing_date": "2020-01-01"},
+        {"process_id": "proc_b", "filing_date": "2025-06-15"},
+        {"process_id": "proc_c", "filing_date": "2022-03-10"},
+    ]
+    alert_ids: set[str] = set()
+    result = _prioritize_processes(processes, alert_ids)
+    dates = [p["filing_date"] for p in result]
+    assert dates == ["2025-06-15", "2022-03-10", "2020-01-01"]
+
+
 def test_sanitize_filename():
     assert _sanitize_filename("ADI 1234") == "ADI_1234"
     assert _sanitize_filename("RE/ARE 5555") == "RE_ARE_5555"

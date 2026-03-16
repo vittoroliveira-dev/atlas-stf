@@ -29,6 +29,7 @@ def test_match_entities_parallel_sequential_path_uses_direct_calls(monkeypatch) 
         query_tax_id: Any,
         index: EntityMatchIndex,
         name_field: str,
+        thresholds: Any = None,
     ):
         calls.append((str(query_name), name_field))
         return EntityMatchResult(record={"entity": query_name}, strategy="exact", score=1.0)
@@ -118,6 +119,7 @@ def test_match_entities_parallel_serializes_parallel_worker_state(monkeypatch) -
         query_tax_id: Any,
         index: EntityMatchIndex,
         name_field: str,
+        thresholds: Any = None,
     ):
         return EntityMatchResult(record={"query_name": query_name, "name_field": name_field}, strategy="exact")
 

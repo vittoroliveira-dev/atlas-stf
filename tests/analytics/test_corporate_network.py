@@ -174,3 +174,44 @@ class TestBuildCorporateNetwork:
         assert cc["linked_entity_name"] == "ADV B"
         assert cc["shared_process_count"] == 3
         assert cc["favorable_rate"] is not None
+        # Power analysis fields present with correct types
+        assert "red_flag_power" in cc
+        assert "red_flag_confidence" in cc
+        assert isinstance(cc["red_flag_power"], float)
+        assert isinstance(cc["red_flag_confidence"], str)
+
+    def test_stratified_baseline_with_decay(self, tmp_path: Path) -> None:
+        """Stratified baseline should work with degree decay in corporate network."""
+        paths = corporate_network_setup(tmp_path)
+
+        # Replace decision events with enough data for stratified cell (12+ turma events)
+        events = []
+        processes = []
+        for i in range(12):
+            pid = f"proc_{i + 1}"
+            processes.append({"process_id": pid, "process_class": "ADI"})
+            events.append({
+                "decision_event_id": f"e{i + 1}",
+                "process_id": pid,
+                "current_rapporteur": "MIN. TESTE",
+                "decision_progress": "Procedente" if i < 8 else "Improcedente",
+                "judging_body": "Segunda Turma",
+                "is_collegiate": True,
+            })
+        write_jsonl(paths["process_path"], processes)
+        write_jsonl(paths["decision_event_path"], events)
+
+        # Update party links to use new process IDs
+        party_links = [
+            {"link_id": f"pp{i}", "process_id": f"proc_{i + 1}", "party_id": "p1", "role_in_case": "REQTE.(S)"}
+            for i in range(3)
+        ]
+        write_jsonl(paths["process_party_link_path"], party_links)
+
+        result = build_corporate_network(**paths)
+        conflicts = [json.loads(line) for line in result.read_text(encoding="utf-8").strip().split("\n")]
+        party_conflicts = [c for c in conflicts if c["linked_entity_type"] == "party"]
+        assert len(party_conflicts) >= 1
+        c = party_conflicts[0]
+        assert c["baseline_favorable_rate"] is not None
+        assert c["decay_factor"] == 1.0  # degree 1

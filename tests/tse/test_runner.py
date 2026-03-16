@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -13,6 +14,7 @@ from atlas_stf.tse._runner import (
     _Checkpoint,
     _download_year_zip,
     _extract_zip,
+    _record_content_hash,
     _YearMeta,
     fetch_donation_data,
 )
@@ -194,6 +196,17 @@ class TestFetchDonationData:
         assert records[0]["donation_amount"] == 50000.0
         assert records[0]["election_year"] == 2022
         assert not (output_dir / "extracted_2022").exists()
+        # Provenance fields
+        r = records[0]
+        assert len(r["record_hash"]) == 64
+        assert re.fullmatch(r"[0-9a-f]{64}", r["record_hash"])
+        assert r["source_file"] == "receitas_candidatos_2022_BRASIL.csv"
+        assert r["source_url"] == _FAKE_META.url
+        assert "T" in r["collected_at"]  # ISO timestamp
+        assert re.fullmatch(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+            r["ingest_run_id"],
+        )
 
     @patch("atlas_stf.tse._runner._download_year_zip")
     def test_checkpoint_resumability(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
@@ -292,7 +305,7 @@ class TestFetchDonationData:
         zip_path = output_dir / "tse_2022.zip"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Pre-populate: 2022 already done with 3 old records
+        # Pre-populate: 2022 already done with 3 old records (no provenance)
         cp = _Checkpoint(completed_years={2022}, year_meta={2022: _FAKE_META})
         cp.save(output_dir)
         raw_path = output_dir / "donations_raw.jsonl"
@@ -316,6 +329,9 @@ class TestFetchDonationData:
         assert records[0]["donor_name"] == "ACME LTDA"
         # No OLD_ records surviving
         assert all("OLD_" not in r["donor_name"] for r in records)
+        # New records have provenance; old copied records may not
+        assert "record_hash" in records[0]
+        assert "ingest_run_id" in records[0]
 
     @patch("atlas_stf.tse._runner._download_year_zip")
     def test_force_refresh_preserves_other_years(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
@@ -354,6 +370,62 @@ class TestFetchDonationData:
         assert years.count(2020) == 1  # preserved
 
     @patch("atlas_stf.tse._runner._download_year_zip")
+    def test_record_hash_deterministic(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
+        """Same CSV parsed in two different runs must produce the same record_hash."""
+        output_dir = tmp_path / "output"
+        csv_content = _make_receitas_csv_content()
+        zip_bytes = _make_zip_with_csv("receitas_candidatos_2022_BRASIL.csv", csv_content)
+
+        hashes: list[str] = []
+        for run_idx in range(2):
+            run_dir = output_dir / f"run{run_idx}"
+            zip_path = run_dir / "tse_2022.zip"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            zip_path.write_bytes(zip_bytes)
+            mock_download_year_zip.return_value = (zip_path, _FAKE_META)
+
+            config = TseFetchConfig(output_dir=run_dir, years=(2022,))
+            fetch_donation_data(config)
+
+            raw_path = run_dir / "donations_raw.jsonl"
+            records = [json.loads(line) for line in raw_path.read_text().strip().split("\n")]
+            hashes.append(records[0]["record_hash"])
+
+        assert hashes[0] == hashes[1]
+
+    def test_record_hash_content_sensitive(self) -> None:
+        """Two records with different content must produce different hashes."""
+        r1 = {"donor_name": "A", "donation_amount": 100.0}
+        r2 = {"donor_name": "A", "donation_amount": 200.0}
+        assert _record_content_hash(r1) != _record_content_hash(r2)
+
+    @patch("atlas_stf.tse._runner._download_year_zip")
+    def test_source_file_preserves_relative_path(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
+        """source_file should distinguish files in different subdirectories."""
+        output_dir = tmp_path / "output"
+        csv_content = _make_receitas_csv_content()
+        # ZIP with per-UF subdirectories
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("candidato/SP/ReceitasCandidatos.txt", csv_content.encode("utf-8"))
+            zf.writestr("candidato/RJ/ReceitasCandidatos.txt", csv_content.encode("utf-8"))
+        zip_path = output_dir / "tse_2022.zip"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        zip_path.write_bytes(buf.getvalue())
+        mock_download_year_zip.return_value = (zip_path, _FAKE_META)
+
+        config = TseFetchConfig(output_dir=output_dir, years=(2022,))
+        fetch_donation_data(config)
+
+        raw_path = output_dir / "donations_raw.jsonl"
+        records = [json.loads(line) for line in raw_path.read_text().strip().split("\n")]
+        assert len(records) == 2
+        source_files = {r["source_file"] for r in records}
+        # Must have different relative paths, not just "ReceitasCandidatos.txt"
+        assert len(source_files) == 2
+        assert all("candidato/" in sf for sf in source_files)
+
+    @patch("atlas_stf.tse._runner._download_year_zip")
     def test_unchanged_file_skipped(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
         """If _download_year_zip returns (None, None), year is skipped without error."""
         output_dir = tmp_path / "output"
@@ -378,3 +450,46 @@ class TestFetchDonationData:
         records = [json.loads(line) for line in raw_path.read_text().strip().split("\n")]
         assert len(records) == 1
         assert records[0]["donor_name"] == "OLD"
+
+
+class TestExtractZipSafety:
+    def test_extract_zip_rejects_path_traversal(self, tmp_path: Path, caplog):
+        """ZIP with ../../etc/passwd should be rejected."""
+        import logging
+
+        zip_path = tmp_path / "evil.zip"
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("../../etc/passwd", "root:x:0:0")
+        zip_path.write_bytes(buf.getvalue())
+        extract_dir = tmp_path / "extract"
+        with caplog.at_level(logging.WARNING):
+            result = _extract_zip(zip_path, extract_dir)
+        assert result is not None  # returns extract_dir even if all members filtered
+        assert "unsafe" in caplog.text.lower() or "Skipping" in caplog.text
+
+    def test_extract_zip_rejects_absolute_path(self, tmp_path: Path, caplog):
+        """ZIP with /etc/shadow should be rejected."""
+        import logging
+
+        zip_path = tmp_path / "evil_abs.zip"
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("/etc/shadow", "root:x")
+        zip_path.write_bytes(buf.getvalue())
+        extract_dir = tmp_path / "extract"
+        with caplog.at_level(logging.WARNING):
+            _extract_zip(zip_path, extract_dir)
+        assert "unsafe" in caplog.text.lower() or "Skipping" in caplog.text
+
+    def test_extract_zip_accepts_safe_members(self, tmp_path: Path):
+        """ZIP with candidato/receitas.csv should extract normally."""
+        zip_path = tmp_path / "safe.zip"
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("candidato/receitas.csv", "header\ndata\n")
+        zip_path.write_bytes(buf.getvalue())
+        extract_dir = tmp_path / "extract"
+        result = _extract_zip(zip_path, extract_dir)
+        assert result == extract_dir
+        assert (extract_dir / "candidato" / "receitas.csv").exists()

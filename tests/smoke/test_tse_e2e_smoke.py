@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from atlas_stf.analytics.donation_match import build_donation_matches
+from atlas_stf.analytics.donor_corporate_link import build_donor_corporate_links
 from atlas_stf.api.app import create_app
 from atlas_stf.serving._builder_loaders_analytics import load_donation_events, load_donation_matches
 from atlas_stf.serving.models import Base, ServingMetric, ServingSchemaMeta
@@ -96,9 +97,15 @@ class TestTseEndToEnd:
         assert normalized[0]["donor_cpf_cnpj"] == "12.345.678/0001-99"
         assert normalized[1]["donor_cpf_cnpj"] == "12345678000199"
 
-        # --- Phase 3: Write raw JSONL ---
+        # --- Phase 3: Write raw JSONL (with provenance) ---
         tse_dir = tmp_path / "tse"
         tse_dir.mkdir()
+        for rec in normalized:
+            rec["source_file"] = "candidato/SP/ReceitasCandidatos.txt"
+            rec["source_url"] = "https://cdn.tse.jus.br/test.zip"
+            rec["collected_at"] = "2026-03-15T00:00:00+00:00"
+            rec["ingest_run_id"] = "11111111-2222-3333-4444-555555555555"
+            rec["record_hash"] = "a" * 64
         _write_jsonl(tse_dir / "donations_raw.jsonl", normalized)
 
         # --- Phase 4: Curated data ---
@@ -188,9 +195,16 @@ class TestTseEndToEnd:
         assert row.uncertainty_note is not None
         assert row.donor_name_normalized == "ACME CORP LTDA"
         assert row.donor_name_originator == "FUNDO ORIGEM SA"
+        # Provenance: donor_identity_key in match
+        assert row.donor_identity_key == "cpf:12345678000199"
 
         donation_event_rows = load_donation_events(analytics_dir)
         assert len(donation_event_rows) == 2
+        # Provenance fields in events
+        ev0 = donation_event_rows[0]
+        assert ev0.donor_identity_key == "cpf:12345678000199"
+        assert ev0.source_file == "candidato/SP/ReceitasCandidatos.txt"
+        assert ev0.collected_at == "2026-03-15T00:00:00+00:00"
 
         # --- Phase 7: API layer ---
         db_path = tmp_path / "test_e2e.db"
@@ -208,7 +222,7 @@ class TestTseEndToEnd:
                     session.add(
                         ServingSchemaMeta(
                             singleton_key="serving",
-                            schema_version=8,
+                            schema_version=9,
                             schema_fingerprint="e2e",
                             built_at=datetime.now(timezone.utc),
                         )
@@ -227,6 +241,7 @@ class TestTseEndToEnd:
             assert item["donor_name_normalized"] == "ACME CORP LTDA"
             assert item["donor_name_originator"] == "FUNDO ORIGEM SA"
             assert item["election_years"] == [2018, 2022]
+            assert item["donor_identity_key"] == "cpf:12345678000199"
             match_id = item["match_id"]
 
             # Get individual events
@@ -237,7 +252,35 @@ class TestTseEndToEnd:
             assert ev_data["items"][0]["election_year"] == 2022
             assert ev_data["items"][0]["donation_date"] == "2022-06-15"
             assert ev_data["items"][1]["election_year"] == 2018
+            # Provenance in API events
+            assert ev_data["items"][0]["donor_identity_key"] == "cpf:12345678000199"
+            assert ev_data["items"][0]["source_file"] == "candidato/SP/ReceitasCandidatos.txt"
+            assert ev_data["items"][0]["collected_at"] == "2026-03-15T00:00:00+00:00"
 
             # Events only for this match
             resp3 = client.get("/donations/nonexistent/events")
             assert resp3.json()["total"] == 0
+
+    def test_donor_corporate_link_optional(self, tmp_path: Path) -> None:
+        """donor_corporate_link builder runs without error on minimal data."""
+        tse_dir = tmp_path / "tse"
+        tse_dir.mkdir()
+        rfb_dir = tmp_path / "rfb"
+        rfb_dir.mkdir()
+        out_dir = tmp_path / "analytics"
+
+        # Minimal donation
+        _write_jsonl(
+            tse_dir / "donations_raw.jsonl",
+            [{"donor_name_normalized": "SMOKE DONOR", "donor_cpf_cnpj": ""}],
+        )
+
+        result = build_donor_corporate_links(tse_dir=tse_dir, rfb_dir=rfb_dir, output_dir=out_dir)
+        assert result == out_dir / "donor_corporate_link.jsonl"
+
+        records = [json.loads(line) for line in result.read_text().strip().split("\n") if line.strip()]
+        assert len(records) >= 1
+        assert records[0]["link_basis"] == "missing_document"
+
+        summary = json.loads((out_dir / "donor_corporate_link_summary.json").read_text())
+        assert summary["total_donors"] == 1

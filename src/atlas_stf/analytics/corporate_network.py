@@ -4,22 +4,26 @@ from __future__ import annotations
 
 import json
 import logging
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ..core.identity import normalize_entity_name, stable_id
+from ..core.stats import red_flag_confidence_label, red_flag_power
 from ..rfb._reference import load_all_reference_tables
+from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import (
-    build_baseline_rates,
+    build_baseline_rates_stratified,
     build_counsel_process_map,
     build_party_index,
     build_party_process_map,
     build_process_class_map,
+    build_process_jb_category_map,
     build_process_outcomes,
     compute_favorable_rate_role_aware,
     compute_favorable_rate_substantive,
+    lookup_baseline_rate,
     read_jsonl,
 )
 
@@ -205,7 +209,8 @@ def build_corporate_network(
 
     process_counsel_map = build_counsel_process_map(process_counsel_link_path, counsel_id_to_name)
     process_outcomes = build_process_outcomes(decision_event_path)
-    baseline_rates = build_baseline_rates(decision_event_path, process_path)
+    stratified_rates, fallback_rates = build_baseline_rates_stratified(decision_event_path, process_path)
+    process_jb_map = build_process_jb_category_map(decision_event_path)
     process_class_map = build_process_class_map(process_path)
 
     rapporteur_map: dict[str, str] = {}
@@ -261,7 +266,7 @@ def build_corporate_network(
                     shared_pids.append(pid)
 
         outcomes_with_roles: list[tuple[str, str | None]] = []
-        party_classes: list[str] = []
+        class_jb_pairs: list[tuple[str, str]] = []
         shared_pid_set = set(shared_pids)
         seen_pids: set[str] = set()
         if entity_type == "party":
@@ -273,7 +278,8 @@ def build_corporate_network(
                         seen_pids.add(pid)
                         pc = process_class_map.get(pid)
                         if pc:
-                            party_classes.append(pc)
+                            jb = process_jb_map.get(pid, "incerto")
+                            class_jb_pairs.append((pc, jb))
         elif entity_type == "counsel":
             for pid, _side in process_counsel_map.get(entity_name, []):
                 if pid in shared_pid_set:
@@ -283,15 +289,16 @@ def build_corporate_network(
                         seen_pids.add(pid)
                         pc = process_class_map.get(pid)
                         if pc:
-                            party_classes.append(pc)
+                            jb = process_jb_map.get(pid, "incerto")
+                            class_jb_pairs.append((pc, jb))
 
         favorable_rate = compute_favorable_rate_role_aware(outcomes_with_roles)
         favorable_rate_sub, n_substantive = compute_favorable_rate_substantive(outcomes_with_roles)
 
         baseline_rate: float | None = None
-        if party_classes:
-            most_common = max(set(party_classes), key=party_classes.count)
-            baseline_rate = baseline_rates.get(most_common)
+        if class_jb_pairs:
+            most_common_class, most_common_jb = Counter(class_jb_pairs).most_common(1)[0][0]
+            baseline_rate = lookup_baseline_rate(stratified_rates, fallback_rates, most_common_class, most_common_jb)
 
         delta: float | None = None
         risk_score: float | None = None
@@ -306,6 +313,9 @@ def build_corporate_network(
         if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
             sub_risk = (favorable_rate_sub - baseline_rate) * decay_factor
             red_flag_substantive = sub_risk > RED_FLAG_DELTA_THRESHOLD
+
+        power = red_flag_power(len(seen_pids), baseline_rate) if baseline_rate is not None else None
+        confidence = red_flag_confidence_label(power)
 
         conflict_id = stable_id("cn-", f"{minister_norm}:{cnpj}:{entity_name}:d{link_degree}")
 
@@ -362,6 +372,8 @@ def build_corporate_network(
             "decay_factor": decay_factor,
             "red_flag": red_flag,
             "red_flag_substantive": red_flag_substantive,
+            "red_flag_power": power,
+            "red_flag_confidence": confidence,
             "link_chain": link_chain,
             "link_degree": link_degree,
             "generated_at": now_iso,
@@ -464,7 +476,7 @@ def build_corporate_network(
 
     # Write conflicts
     output_path = output_dir / "corporate_network.jsonl"
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for c in conflicts:
             fh.write(json.dumps(c, ensure_ascii=False) + "\n")
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,8 @@ class SanctionMatchItem(BaseModel):
     baseline_favorable_rate: float | None = None
     favorable_rate_delta: float | None = None
     red_flag: bool
+    red_flag_power: float | None = None
+    red_flag_confidence: Literal["high", "moderate", "low"] | None = None
     match_strategy: str | None = None
     match_score: float | None = None
     match_confidence: str | None = None
@@ -79,12 +81,40 @@ class DonationMatchItem(BaseModel):
     favorable_rate_delta: float | None = None
     red_flag: bool
     red_flag_substantive: bool | None = None
+    red_flag_power: float | None = None
+    red_flag_confidence: Literal["high", "moderate", "low"] | None = None
     match_strategy: str | None = None
     match_score: float | None = None
     match_confidence: str | None = None
     matched_alias: str | None = None
     matched_tax_id: str | None = None
     uncertainty_note: str | None = None
+    donor_identity_key: str | None = None
+    # Corporate enrichment
+    donor_document_type: str | None = None
+    donor_tax_id_normalized: str | None = None
+    donor_cnpj_basico: str | None = None
+    donor_company_name: str | None = None
+    economic_group_id: str | None = None
+    economic_group_member_count: int | None = None
+    is_law_firm_group: bool | None = None
+    donor_group_has_minister_partner: bool | None = None
+    donor_group_has_party_partner: bool | None = None
+    donor_group_has_counsel_partner: bool | None = None
+    min_link_degree_to_minister: int | None = None
+    corporate_link_red_flag: bool | None = None
+    resource_types_observed: list[str] = Field(default_factory=list)
+    # Temporal / concentration metrics
+    first_donation_date: str | None = None
+    last_donation_date: str | None = None
+    active_election_year_count: int = 0
+    max_single_donation_brl: float = 0.0
+    avg_donation_brl: float = 0.0
+    top_candidate_share: float | None = None
+    top_party_share: float | None = None
+    top_state_share: float | None = None
+    donation_year_span: int | None = None
+    recent_donation_flag: bool = False
 
 
 class CounselDonationProfileItem(BaseModel):
@@ -126,6 +156,16 @@ class DonationEventItem(BaseModel):
     donor_name_originator: str | None = None
     donor_cpf_cnpj: str | None = None
     donation_description: str | None = None
+    donor_identity_key: str | None = None
+    resource_type_category: str | None = None
+    resource_type_subtype: str | None = None
+    resource_classification_confidence: str | None = None
+    resource_classification_rule: str | None = None
+    source_file: str | None = None
+    collected_at: str | None = None
+    source_url: str | None = None
+    ingest_run_id: str | None = None
+    record_hash: str | None = None
 
 
 class PaginatedDonationEventsResponse(BaseModel):
@@ -197,6 +237,8 @@ class CorporateConflictItem(BaseModel):
     favorable_rate_substantive: float | None = None
     substantive_decision_count: int | None = None
     red_flag_substantive: bool | None = None
+    red_flag_power: float | None = None
+    red_flag_confidence: Literal["high", "moderate", "low"] | None = None
 
 
 class PaginatedCorporateConflictsResponse(BaseModel):
@@ -276,6 +318,15 @@ class CompoundRiskItem(BaseModel):
     signal_details: dict[str, dict[str, Any]] | None = None
     earliest_year: int | None = None
     latest_year: int | None = None
+    sanction_corporate_link_count: int = 0
+    sanction_corporate_link_ids: list[str] = Field(default_factory=list)
+    sanction_corporate_min_degree: int | None = None
+    adjusted_rate_delta: float | None = None
+    has_law_firm_group: bool = False
+    donor_group_has_minister_partner: bool = False
+    donor_group_has_party_partner: bool = False
+    donor_group_has_counsel_partner: bool = False
+    min_link_degree_to_minister: int | None = None
 
 
 class PaginatedCompoundRiskResponse(BaseModel):
@@ -306,6 +357,7 @@ class CompoundRiskHeatmapCell(BaseModel):
     red_flag: bool
     max_alert_score: float | None = None
     max_rate_delta: float | None = None
+    adjusted_rate_delta: float | None = None
 
 
 class CompoundRiskHeatmapResponse(BaseModel):
@@ -339,6 +391,33 @@ class PaginatedEconomicGroupResponse(BaseModel):
     items: list[EconomicGroupItem]
 
 
+class PaymentCounterpartyItem(BaseModel):
+    counterparty_id: str
+    counterparty_identity_key: str
+    identity_basis: str = ""
+    counterparty_name: str
+    counterparty_tax_id: str | None = None
+    counterparty_tax_id_normalized: str | None = None
+    counterparty_document_type: str = ""
+    total_received_brl: float
+    payment_count: int
+    election_years: list[int] = Field(default_factory=list)
+    payer_parties: list[str] = Field(default_factory=list)
+    payer_actor_type: str = "party_org"
+    first_payment_date: str | None = None
+    last_payment_date: str | None = None
+    states: list[str] = Field(default_factory=list)
+    cnae_codes: list[str] = Field(default_factory=list)
+    provenance: dict[str, Any] | None = Field(default=None)
+
+
+class PaginatedPaymentCounterpartiesResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    items: list[PaymentCounterpartyItem] = Field(default_factory=list)
+
+
 class HealthResponse(BaseModel):
     status: str
     database_backend: str
@@ -347,3 +426,54 @@ class HealthResponse(BaseModel):
 class SourcesAuditResponse(BaseModel):
     source_files: list[SourceAuditItem]
     metrics: dict[str, int | float]
+
+
+class SanctionCorporateLinkItem(BaseModel):
+    link_id: str
+    sanction_id: str
+    sanction_source: str
+    sanction_entity_name: str
+    sanction_entity_tax_id: str | None = None
+    sanction_type: str | None = None
+    bridge_company_cnpj_basico: str
+    bridge_company_name: str | None = None
+    bridge_link_basis: str
+    bridge_confidence: str = "deterministic"
+    bridge_partner_role: str | None = None
+    bridge_qualification_code: str | None = None
+    bridge_qualification_label: str | None = None
+    economic_group_id: str | None = None
+    economic_group_member_count: int | None = None
+    is_law_firm_group: bool | None = None
+    stf_entity_type: str
+    stf_entity_id: str
+    stf_entity_name: str
+    stf_match_strategy: str | None = None
+    stf_match_score: float | None = None
+    stf_match_confidence: str | None = None
+    matched_alias: str | None = None
+    matched_tax_id: str | None = None
+    uncertainty_note: str | None = None
+    link_degree: int = Field(default=2, ge=2)
+    stf_process_count: int = 0
+    favorable_rate: float | None = None
+    baseline_favorable_rate: float | None = None
+    favorable_rate_delta: float | None = None
+    risk_score: float | None = None
+    red_flag: bool = False
+    red_flag_power: float | None = None
+    red_flag_confidence: Literal["high", "moderate", "low"] | None = None
+    evidence_chain: list[str] = Field(default_factory=list)
+    source_datasets: list[str] = Field(default_factory=list)
+
+
+class PaginatedSanctionCorporateLinksResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    items: list[SanctionCorporateLinkItem]
+
+
+class SanctionCorporateLinkRedFlagsResponse(BaseModel):
+    items: list[SanctionCorporateLinkItem]
+    total: int

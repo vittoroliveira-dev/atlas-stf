@@ -13,6 +13,7 @@ from typing import Any
 
 from ..core.identity import stable_id
 from ..schema_validate import validate_records
+from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import read_jsonl
 
 logger = logging.getLogger(__name__)
@@ -353,7 +354,7 @@ def build_procedural_timeline(
     validate_records(records, SCHEMA_PATH)
 
     output_path = output_dir / "procedural_timeline.jsonl"
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 

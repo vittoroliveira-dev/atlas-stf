@@ -14,6 +14,7 @@ from atlas_stf.core.identity import (
     normalize_process_code,
     normalize_tax_id,
     stable_id,
+    strip_accents,
 )
 
 
@@ -112,6 +113,40 @@ class TestNormalizeProcessCode:
     )
     def test_normalization(self, input_code, expected):
         assert normalize_process_code(input_code) == expected
+
+
+class TestStripAccents:
+    def test_removes_accents(self):
+        assert strip_accents("JOÃO") == "JOAO"
+        assert strip_accents("JOSÉ") == "JOSE"
+        assert strip_accents("CAÇÃO") == "CACAO"
+
+    def test_preserves_plain_ascii(self):
+        assert strip_accents("SILVA") == "SILVA"
+
+    def test_empty_string(self):
+        assert strip_accents("") == ""
+
+    def test_mixed_accents(self):
+        assert strip_accents("ANDRÉ MÜLLER") == "ANDRE MULLER"
+
+
+class TestJaccardWithAccents:
+    def test_accented_vs_plain_match(self):
+        assert jaccard_similarity("JOÃO SILVA", "JOAO SILVA") == 1.0
+
+    def test_partial_accent_match(self):
+        score = jaccard_similarity("JOÃO JOSÉ DA SILVA", "JOAO JOSE DA SILVA")
+        assert score == 1.0
+
+
+class TestLevenshteinWithAccents:
+    def test_accented_vs_plain_distance_zero(self):
+        assert levenshtein_distance("JOÃO SILVA", "JOAO SILVA") == 0
+
+    def test_accent_plus_typo(self):
+        dist = levenshtein_distance("JOÃO SILVAA", "JOAO SILVA")
+        assert dist == 1
 
 
 class TestInferProcessClass:

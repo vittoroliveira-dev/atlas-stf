@@ -48,6 +48,18 @@ def client(tmp_path) -> TestClient:
                         favorable_rate_delta=0.3,
                         red_flag=True,
                         matched_at=datetime.now(timezone.utc),
+                        donor_identity_key="cpf:12345678000199",
+                        resource_types_observed_json=json.dumps(["in_kind", "source_type"]),
+                        first_donation_date="2018-10-01",
+                        last_donation_date="2022-09-15",
+                        active_election_year_count=2,
+                        max_single_donation_brl=30000.0,
+                        avg_donation_brl=16666.67,
+                        top_candidate_share=1.0,
+                        top_party_share=0.6,
+                        top_state_share=0.7,
+                        donation_year_span=5,
+                        recent_donation_flag=True,
                     )
                 )
                 session.add(
@@ -115,6 +127,16 @@ def client(tmp_path) -> TestClient:
                         donor_name="ACME CORP",
                         donor_cpf_cnpj="12345678000199",
                         donation_description="Doacao em dinheiro",
+                        donor_identity_key="cpf:12345678000199",
+                        resource_type_category="in_kind",
+                        resource_type_subtype="other_item",
+                        resource_classification_confidence="medium",
+                        resource_classification_rule="keyword:DOACAO",
+                        source_file="candidato/SP/ReceitasCandidatos.txt",
+                        collected_at="2026-03-15T00:00:00+00:00",
+                        source_url="https://cdn.tse.jus.br/test.zip",
+                        ingest_run_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                        record_hash="a" * 64,
                     )
                 )
                 session.add(
@@ -260,6 +282,76 @@ class TestDonationsEndpoints:
         assert "entity_id" in item
         assert "donor_name_normalized" in item
         assert "donor_name_originator" in item
+        assert "donor_identity_key" in item
+
+    def test_donation_match_has_corporate_enrichment_fields(self, client: TestClient) -> None:
+        """Corporate enrichment fields should be present in the API response (nullable)."""
+        resp = client.get("/donations", params={"page": 1, "page_size": 10})
+        data = resp.json()
+        item = data["items"][0]
+        for field in (
+            "donor_document_type",
+            "donor_tax_id_normalized",
+            "donor_cnpj_basico",
+            "donor_company_name",
+            "economic_group_id",
+            "economic_group_member_count",
+            "is_law_firm_group",
+            "donor_group_has_minister_partner",
+            "donor_group_has_party_partner",
+            "donor_group_has_counsel_partner",
+            "min_link_degree_to_minister",
+            "corporate_link_red_flag",
+        ):
+            assert field in item, f"Missing field: {field}"
+
+    def test_donation_match_donor_identity_key(self, client: TestClient) -> None:
+        """donor_identity_key should be returned for matches that have it."""
+        resp = client.get("/donations", params={"page": 1, "page_size": 10})
+        data = resp.json()
+        item = next(i for i in data["items"] if i["match_id"] == "dm-abc123")
+        assert item["donor_identity_key"] == "cpf:12345678000199"
+
+    def test_donation_events_provenance_fields(self, client: TestClient) -> None:
+        """Provenance fields should be returned in donation events."""
+        resp = client.get("/donations/dm-abc123/events", params={"page": 1, "page_size": 10})
+        data = resp.json()
+        # First event (2022) has full provenance
+        evt = next(e for e in data["items"] if e["election_year"] == 2022)
+        assert evt["donor_identity_key"] == "cpf:12345678000199"
+        assert evt["source_file"] == "candidato/SP/ReceitasCandidatos.txt"
+        assert evt["collected_at"] == "2026-03-15T00:00:00+00:00"
+        assert evt["source_url"] == "https://cdn.tse.jus.br/test.zip"
+        assert evt["ingest_run_id"] == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        assert evt["record_hash"] == "a" * 64
+        # Second event (2018) has no provenance — fields should be null
+        evt2 = next(e for e in data["items"] if e["election_year"] == 2018)
+        assert evt2["source_file"] is None
+        assert evt2["record_hash"] is None
+
+    def test_donation_event_has_classification_fields(self, client: TestClient) -> None:
+        """Resource classification fields should be returned in donation events."""
+        resp = client.get("/donations/dm-abc123/events", params={"page": 1, "page_size": 10})
+        data = resp.json()
+        evt = next(e for e in data["items"] if e["election_year"] == 2022)
+        assert evt["resource_type_category"] == "in_kind"
+        assert evt["resource_type_subtype"] == "other_item"
+        assert evt["resource_classification_confidence"] == "medium"
+        assert evt["resource_classification_rule"] == "keyword:DOACAO"
+
+    def test_donation_event_classification_nullable(self, client: TestClient) -> None:
+        """Events without classification should have null fields."""
+        resp = client.get("/donations/dm-abc123/events", params={"page": 1, "page_size": 10})
+        data = resp.json()
+        evt2 = next(e for e in data["items"] if e["election_year"] == 2018)
+        assert evt2["resource_type_category"] is None
+
+    def test_donation_match_has_resource_types_observed(self, client: TestClient) -> None:
+        """resource_types_observed should be returned for matches."""
+        resp = client.get("/donations", params={"page": 1, "page_size": 10})
+        data = resp.json()
+        item = next(i for i in data["items"] if i["match_id"] == "dm-abc123")
+        assert item["resource_types_observed"] == ["in_kind", "source_type"]
 
     def test_entity_id_does_not_break_entity_type_filter(self, client: TestClient) -> None:
         """P5: entity_id column must not break entity_type filters or serialization."""
@@ -303,3 +395,35 @@ class TestDonationsEndpoints:
 
         resp2 = client.get("/donations/dm-def456/events")
         assert resp2.json()["total"] == 0
+
+    def test_donation_match_has_temporal_concentration_fields(self, client: TestClient) -> None:
+        """Temporal and concentration metrics should appear in API response."""
+        resp = client.get("/donations", params={"page": 1, "page_size": 10})
+        data = resp.json()
+        item = next(i for i in data["items"] if i["match_id"] == "dm-abc123")
+        assert item["first_donation_date"] == "2018-10-01"
+        assert item["last_donation_date"] == "2022-09-15"
+        assert item["active_election_year_count"] == 2
+        assert item["max_single_donation_brl"] == 30000.0
+        assert item["avg_donation_brl"] == 16666.67
+        assert item["top_candidate_share"] == 1.0
+        assert item["top_party_share"] == 0.6
+        assert item["top_state_share"] == 0.7
+        assert item["donation_year_span"] == 5
+        assert item["recent_donation_flag"] is True
+
+    def test_donation_match_temporal_fields_nullable(self, client: TestClient) -> None:
+        """Matches without temporal data should have null/default values."""
+        resp = client.get("/donations", params={"page": 1, "page_size": 10})
+        data = resp.json()
+        item = next(i for i in data["items"] if i["match_id"] == "dm-def456")
+        assert item["first_donation_date"] is None
+        assert item["last_donation_date"] is None
+        assert item["active_election_year_count"] == 0
+        assert item["max_single_donation_brl"] == 0.0
+        assert item["avg_donation_brl"] == 0.0
+        assert item["top_candidate_share"] is None
+        assert item["top_party_share"] is None
+        assert item["top_state_share"] is None
+        assert item["donation_year_span"] is None
+        assert item["recent_donation_flag"] is False

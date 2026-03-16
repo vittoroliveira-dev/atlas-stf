@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import os
 import time
@@ -16,6 +17,8 @@ from sqlalchemy.orm import sessionmaker
 from starlette.responses import JSONResponse
 
 from .service import QueryFilters
+
+logger = logging.getLogger("atlas_stf.api")
 
 DEFAULT_DATABASE_ENV = "ATLAS_STF_DATABASE_URL"
 DEFAULT_RATE_LIMIT_ENABLED_ENV = "ATLAS_STF_RATE_LIMIT_ENABLED"
@@ -89,11 +92,18 @@ def _get_trust_proxy_headers() -> bool:
 
 
 def _make_client_identifier(trust_proxy: bool):
+    if trust_proxy:
+        logger.warning(
+            "ATLAS_STF_TRUST_PROXY_HEADERS is enabled — rate limiter uses "
+            "last X-Forwarded-For IP. Only enable behind a trusted reverse proxy."
+        )
+
     def _get_client_identifier(request: Request) -> str:
         if trust_proxy:
             forwarded_for = request.headers.get("x-forwarded-for")
             if forwarded_for:
-                return forwarded_for.split(",", 1)[0].strip() or "anonymous"
+                parts = [p.strip() for p in forwarded_for.split(",")]
+                return parts[-1] or "anonymous"
             real_ip = request.headers.get("x-real-ip")
             if real_ip:
                 return real_ip.strip() or "anonymous"
@@ -132,6 +142,13 @@ def create_app(*, database_url: str | None = None) -> FastAPI:
     app.state.database_url = resolved_database_url
     app.state.engine = engine
     app.state.session_factory = factory
+
+    @app.middleware("http")
+    async def security_headers_middleware(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        return response
 
     rate_limit_enabled, rate_limit_max_requests, rate_limit_window_seconds = _get_rate_limit_settings()
     request_timeout_seconds = _get_request_timeout_seconds()

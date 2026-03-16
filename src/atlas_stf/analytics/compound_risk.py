@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.identity import stable_id
+from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import build_process_class_map, read_jsonl
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,26 @@ class PairEvidence:
     donation_total_brl: float = 0.0
     corporate_conflict_count: int = 0
     affinity_count: int = 0
+    sanction_corporate_link_count: int = 0
+    sanction_corporate_link_ids: set[str] = field(default_factory=set)
+    sanction_corporate_min_degree: int | None = None
+    has_law_firm_group: bool = False
+    donor_group_has_minister_partner: bool = False
+    donor_group_has_party_partner: bool = False
+    donor_group_has_counsel_partner: bool = False
+    min_link_degree_to_minister: int | None = None
+    max_economic_group_member_count: int | None = None
+    donation_enrichment_meta: dict[str, set[str]] = field(
+        default_factory=lambda: {
+            "economic_group_ids": set(),
+            "donor_cnpj_basicos": set(),
+            "donor_company_names": set(),
+            "match_strategies": set(),
+            "red_flag_confidences": set(),
+        }
+    )
+    max_red_flag_power: float | None = None
+    donation_has_corporate_link_red_flag: bool = False
 
     def add_process_ids(self, process_ids: set[str]) -> None:
         self.process_ids.update(process_ids)
@@ -60,12 +81,77 @@ class PairEvidence:
         if self.max_rate_delta is None or value > self.max_rate_delta:
             self.max_rate_delta = value
 
+    def accumulate_donation_enrichment(self, row: dict[str, Any]) -> None:
+        if row.get("is_law_firm_group") is True:
+            self.has_law_firm_group = True
+        if row.get("donor_group_has_minister_partner") is True:
+            self.donor_group_has_minister_partner = True
+        if row.get("donor_group_has_party_partner") is True:
+            self.donor_group_has_party_partner = True
+        if row.get("donor_group_has_counsel_partner") is True:
+            self.donor_group_has_counsel_partner = True
+        degree = row.get("min_link_degree_to_minister")
+        if degree is not None:
+            try:
+                d = int(degree)
+            except (TypeError, ValueError):
+                d = None  # type: ignore[assignment]
+            if d is not None and (self.min_link_degree_to_minister is None or d < self.min_link_degree_to_minister):
+                self.min_link_degree_to_minister = d
+        member_count = row.get("economic_group_member_count")
+        if member_count is not None:
+            try:
+                mc = int(member_count)
+            except (TypeError, ValueError):
+                mc = None  # type: ignore[assignment]
+            if mc is not None and (
+                self.max_economic_group_member_count is None or mc > self.max_economic_group_member_count
+            ):
+                self.max_economic_group_member_count = mc
+        power = row.get("red_flag_power")
+        if power is not None:
+            try:
+                p = float(power)
+            except (TypeError, ValueError):
+                p = None  # type: ignore[assignment]
+            if p is not None and (self.max_red_flag_power is None or p > self.max_red_flag_power):
+                self.max_red_flag_power = p
+        confidence = row.get("red_flag_confidence")
+        if confidence:
+            self.donation_enrichment_meta["red_flag_confidences"].add(str(confidence))
+        if row.get("corporate_link_red_flag") is True:
+            self.donation_has_corporate_link_red_flag = True
+        for meta_key, row_key in [
+            ("economic_group_ids", "economic_group_id"),
+            ("donor_cnpj_basicos", "donor_cnpj_basico"),
+            ("donor_company_names", "donor_company_name"),
+            ("match_strategies", "match_strategy"),
+        ]:
+            val = row.get(row_key)
+            if val:
+                self.donation_enrichment_meta[meta_key].add(str(val))
+
 
 def _coerce_float(value: Any) -> float | None:
     try:
         result = float(value)
     except TypeError, ValueError:
         return None
+    return result if math.isfinite(result) else None
+
+
+def _compute_adjusted_rate_delta(evidence: PairEvidence) -> float | None:
+    base = evidence.max_rate_delta
+    if base is None:
+        return None
+    multiplier = 1.0
+    if evidence.has_law_firm_group:
+        multiplier *= 1.5
+    if evidence.donor_group_has_minister_partner:
+        multiplier *= 2.0
+    if evidence.min_link_degree_to_minister is not None and evidence.min_link_degree_to_minister > 2:
+        multiplier *= 0.5 ** (evidence.min_link_degree_to_minister - 2)
+    result = base * multiplier
     return result if math.isfinite(result) else None
 
 
@@ -240,11 +326,41 @@ def _build_signal_details(evidence: PairEvidence) -> dict[str, dict[str, Any]]:
             "count": evidence.sanction_match_count,
             "sources": sorted(s for s in evidence.sanction_sources if s),
         }
+        if evidence.sanction_corporate_link_count > 0:
+            details["sanction"]["scl_count"] = evidence.sanction_corporate_link_count
+            details["sanction"]["scl_min_degree"] = evidence.sanction_corporate_min_degree
     if "donation" in evidence.signals:
         details["donation"] = {
             "count": evidence.donation_match_count,
             "total_brl": round(evidence.donation_total_brl, 2),
         }
+        if evidence.has_law_firm_group:
+            details["donation"]["is_law_firm_group"] = True
+        if evidence.donor_group_has_minister_partner:
+            details["donation"]["donor_group_has_minister_partner"] = True
+        if evidence.donor_group_has_party_partner:
+            details["donation"]["donor_group_has_party_partner"] = True
+        if evidence.donor_group_has_counsel_partner:
+            details["donation"]["donor_group_has_counsel_partner"] = True
+        if evidence.min_link_degree_to_minister is not None:
+            details["donation"]["min_link_degree_to_minister"] = evidence.min_link_degree_to_minister
+        if evidence.max_economic_group_member_count is not None:
+            details["donation"]["economic_group_member_count"] = evidence.max_economic_group_member_count
+        if evidence.max_red_flag_power is not None:
+            details["donation"]["red_flag_power"] = evidence.max_red_flag_power
+        if evidence.donation_has_corporate_link_red_flag:
+            details["donation"]["corporate_link_red_flag"] = True
+        meta = evidence.donation_enrichment_meta
+        if meta["economic_group_ids"]:
+            details["donation"]["economic_group_ids"] = sorted(meta["economic_group_ids"])
+        if meta["donor_cnpj_basicos"]:
+            details["donation"]["donor_cnpj_basicos"] = sorted(meta["donor_cnpj_basicos"])
+        if meta["donor_company_names"]:
+            details["donation"]["donor_company_names"] = sorted(meta["donor_company_names"])
+        if meta["match_strategies"]:
+            details["donation"]["match_strategies"] = sorted(meta["match_strategies"])
+        if meta["red_flag_confidences"]:
+            details["donation"]["red_flag_confidences"] = sorted(meta["red_flag_confidences"])
     if "corporate" in evidence.signals:
         min_degree = min(
             (c["link_degree"] for c in evidence.corporate_companies.values()),
@@ -277,8 +393,8 @@ def _sort_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rows,
         key=lambda row: (
             -int(row["signal_count"]),
+            -(row["adjusted_rate_delta"] or 0.0),
             -(row["max_alert_score"] or 0.0),
-            -(row["max_rate_delta"] or 0.0),
             -int(row["shared_process_count"]),
             row["minister_name"],
             row["entity_name"],
@@ -318,6 +434,7 @@ def build_compound_risk(
     alert_rows = _load_rows(analytics_dir / "outlier_alert.jsonl")
     velocity_rows = _load_rows(analytics_dir / "decision_velocity.jsonl")
     redistribution_rows = _load_rows(analytics_dir / "rapporteur_change.jsonl", red_flag_only=True)
+    scl_rows = _load_rows(analytics_dir / "sanction_corporate_link.jsonl")
 
     sanction_by_party: dict[str, list[dict[str, Any]]] = defaultdict(list)
     donation_by_party: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -373,6 +490,7 @@ def build_compound_risk(
                 evidence.donation_total_brl += _coerce_float(row.get("total_donated_brl")) or 0.0
                 evidence.update_max_rate_delta(_coerce_float(row.get("favorable_rate_delta")))
                 evidence.add_process_ids(process_ids)
+                evidence.accumulate_donation_enrichment(row)
         else:
             party_id = str(row.get("party_id") or row.get("entity_id") or "")
             if not party_id or party_id not in party_names:
@@ -385,6 +503,7 @@ def build_compound_risk(
                 evidence.donation_total_brl += _coerce_float(row.get("total_donated_brl")) or 0.0
                 evidence.update_max_rate_delta(_coerce_float(row.get("favorable_rate_delta")))
                 evidence.add_process_ids(process_ids)
+                evidence.accumulate_donation_enrichment(row)
 
     for row in corporate_rows:
         minister_name = str(row.get("minister_name") or "")
@@ -457,6 +576,7 @@ def build_compound_risk(
                         )
                         for row in donation_by_party[party_id]:
                             evidence.update_max_rate_delta(_coerce_float(row.get("favorable_rate_delta")))
+                            evidence.accumulate_donation_enrichment(row)
 
     # Velocity signals: flag processes with queue-jump or stalled status
     velocity_flagged = [r for r in velocity_rows if r.get("velocity_flag")]
@@ -488,6 +608,38 @@ def build_compound_risk(
             evidence = _evidence_for(pairs, minister_name, "counsel", counsel_id, counsel_name)
             evidence.signals.add("redistribution")
             evidence.add_process_ids({process_id})
+
+    for row in scl_rows:
+        stf_entity_type = str(row.get("stf_entity_type") or "")
+        stf_entity_id = str(row.get("stf_entity_id") or "")
+        stf_entity_name = str(row.get("stf_entity_name") or "")
+        if stf_entity_type not in {"party", "counsel"} or not stf_entity_id:
+            continue
+        link_id = str(row.get("link_id") or "")
+        link_degree = int(row.get("link_degree") or 2)
+        if stf_entity_type == "party":
+            for minister_name, process_ids in party_pair_processes.get(stf_entity_id, []):
+                evidence = _evidence_for(pairs, minister_name, "party", stf_entity_id, stf_entity_name)
+                evidence.sanction_corporate_link_count += 1
+                if link_id:
+                    evidence.sanction_corporate_link_ids.add(link_id)
+                cur_min = evidence.sanction_corporate_min_degree
+                if cur_min is None or link_degree < cur_min:
+                    evidence.sanction_corporate_min_degree = link_degree
+        elif stf_entity_type == "counsel":
+            for minister_name, process_ids in counsel_pair_processes.get(stf_entity_id, []):
+                evidence = _evidence_for(pairs, minister_name, "counsel", stf_entity_id, stf_entity_name)
+                evidence.sanction_corporate_link_count += 1
+                if link_id:
+                    evidence.sanction_corporate_link_ids.add(link_id)
+                cur_min = evidence.sanction_corporate_min_degree
+                if cur_min is None or link_degree < cur_min:
+                    evidence.sanction_corporate_min_degree = link_degree
+
+    # SCL promotion: promote "sanction" family when SCL exists but no direct sanction
+    for evidence in pairs.values():
+        if evidence.sanction_corporate_link_count > 0 and "sanction" not in evidence.signals:
+            evidence.signals.add("sanction")
 
     if on_progress:
         on_progress(2, 4, "Compound Risk: Vinculando alertas...")
@@ -561,6 +713,17 @@ def build_compound_risk(
                 "signal_details": _build_signal_details(evidence),
                 "earliest_year": earliest_year,
                 "latest_year": latest_year,
+                "sanction_corporate_link_count": evidence.sanction_corporate_link_count,
+                "sanction_corporate_link_ids": sorted(
+                    lid for lid in evidence.sanction_corporate_link_ids if lid
+                ),
+                "sanction_corporate_min_degree": evidence.sanction_corporate_min_degree,
+                "adjusted_rate_delta": _compute_adjusted_rate_delta(evidence),
+                "has_law_firm_group": evidence.has_law_firm_group,
+                "donor_group_has_minister_partner": evidence.donor_group_has_minister_partner,
+                "donor_group_has_party_partner": evidence.donor_group_has_party_partner,
+                "donor_group_has_counsel_partner": evidence.donor_group_has_counsel_partner,
+                "min_link_degree_to_minister": evidence.min_link_degree_to_minister,
                 "generated_at": generated_at,
             }
         )
@@ -569,7 +732,7 @@ def build_compound_risk(
     if on_progress:
         on_progress(3, 4, "Compound Risk: Gravando resultados...")
     output_path = output_dir / "compound_risk.jsonl"
-    with output_path.open("w", encoding="utf-8") as handle:
+    with AtomicJsonlWriter(output_path) as handle:
         for row in rows:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
@@ -592,6 +755,7 @@ def build_compound_risk(
                 "signals": row["signals"],
                 "max_alert_score": row["max_alert_score"],
                 "max_rate_delta": row["max_rate_delta"],
+                "adjusted_rate_delta": row["adjusted_rate_delta"],
             }
             for row in rows[:TOP_PAIR_LIMIT]
         ],

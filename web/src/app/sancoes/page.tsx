@@ -10,7 +10,12 @@ import {
   RedFlagPill,
 } from "@/components/dashboard/cross-ref-card";
 import { emptyStateMessage } from "@/lib/ui-copy";
-import { getPartySanctionsPageData, getCounselSanctionsPageData, getSanctionRedFlags } from "@/lib/sanctions-data";
+import {
+  getPartySanctionsPageData,
+  getCounselSanctionsPageData,
+  getSanctionRedFlags,
+  getSanctionCorporateLinksPageData,
+} from "@/lib/sanctions-data";
 import Link from "next/link";
 import { readSearchParam } from "@/lib/filter-context";
 
@@ -60,10 +65,13 @@ export default async function SancoesPage({
     return qs ? `/sancoes?${qs}` : "/sancoes";
   }
 
-  const [partyData, counselData, redFlags] = await Promise.all([
+  const sclPage = Number(readSearchParam(query.scl_page) ?? "1");
+
+  const [partyData, counselData, redFlags, sclData] = await Promise.all([
     getPartySanctionsPageData({ page, source: source ?? undefined, redFlagOnly }),
     getCounselSanctionsPageData({ page: counselPage, source: source ?? undefined, redFlagOnly }),
     getSanctionRedFlags(),
+    getSanctionCorporateLinksPageData({ page: sclPage, sanctionSource: source ?? undefined, redFlagOnly }),
   ]);
 
   return (
@@ -87,7 +95,7 @@ export default async function SancoesPage({
       }}
     >
       {/* KPI cards */}
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-5">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Partes sancionadas</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{partyData.total}</p>
@@ -103,6 +111,10 @@ export default async function SancoesPage({
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
           <p className="text-sm text-red-600">Pontos criticos (advogados)</p>
           <p className="mt-1 text-3xl font-semibold text-red-700">{redFlags.totalCounselFlags}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">Vinculos corporativos indiretos</p>
+          <p className="mt-1 text-3xl font-semibold text-slate-900">{sclData.total}</p>
         </div>
       </section>
 
@@ -324,6 +336,88 @@ export default async function SancoesPage({
                 </ExpandableCard>
               ))}
             </CardGrid>
+          </div>
+        )}
+      </section>
+      {/* Vinculos corporativos indiretos */}
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-slate-900">Vinculos corporativos indiretos</h2>
+        <p className="mb-4 text-sm text-slate-500">
+          Entidades sancionadas conectadas a atores STF via empresas-ponte (RFB).
+          O grau indica o numero de saltos na cadeia societaria.
+        </p>
+
+        <PaginationControls
+          pathname="/sancoes"
+          query={{
+            ...filterQuery,
+            page: page !== 1 ? String(page) : undefined,
+            counsel_page: counselPage !== 1 ? String(counselPage) : undefined,
+          }}
+          page={sclData.page}
+          pageSize={sclData.pageSize}
+          total={sclData.total}
+          orderingLabel="vinculos corporativos indiretos"
+          pageParam="scl_page"
+          pageSizeParam="scl_page_size"
+          pageSizeOptions={[8, 16, 24]}
+        />
+
+        {sclData.links.length === 0 ? (
+          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <p className="text-sm text-amber-800">{emptyStateMessage("sanctions")}</p>
+          </div>
+        ) : (
+          <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-slate-100">
+              <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 text-left">Entidade sancionada</th>
+                  <th className="px-4 py-3 text-left">Empresa-ponte</th>
+                  <th className="px-4 py-3 text-left">Ator STF</th>
+                  <th className="px-4 py-3 text-center">Grau</th>
+                  <th className="px-4 py-3 text-right">Risk score</th>
+                  <th className="px-4 py-3 text-center">Ponto critico</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50 text-sm">
+                {sclData.links.map((l) => (
+                  <tr key={l.link_id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-slate-900">{l.sanction_entity_name}</div>
+                      <div className="text-xs text-slate-400">{l.sanction_source.toUpperCase()}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-slate-700">{l.bridge_company_name ?? l.bridge_company_cnpj_basico}</div>
+                      <div className="text-xs text-slate-400">CNPJ base {l.bridge_company_cnpj_basico}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/${l.stf_entity_type === "counsel" ? "advogados" : "partes"}/${encodeURIComponent(l.stf_entity_id)}`}
+                        className="font-medium text-verde-700 hover:underline"
+                      >
+                        {l.stf_entity_name}
+                      </Link>
+                      <div className="text-xs text-slate-400">
+                        {l.stf_entity_type === "counsel" ? "advogado" : "parte"} · {l.stf_process_count} processos
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
+                        {l.link_degree}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-sm">
+                      {l.risk_score != null ? l.risk_score.toFixed(3) : "---"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <RedFlagPill show={l.red_flag} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>

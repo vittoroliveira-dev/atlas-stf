@@ -89,16 +89,16 @@ O repositório combina quatro frentes operacionais:
 | `raw` e `staging` | Limpeza e padronização das exportações estruturadas | `src/atlas_stf/staging/`, `tests/staging/` |
 | `core` | Domínio puro: identidade, parsers, regras, estatística, mapeamento de origem, TPU | `src/atlas_stf/core/`, `tests/core/` |
 | `curated` | Entidades canônicas de processo, decisão, parte, advogado, assunto, biografia ministerial, movimentos, eventos de sessão, representação (advogados, escritórios, arestas, eventos) e agenda (agenda_event, agenda_coverage) | `src/atlas_stf/curated/`, `tests/curated/` |
-| `analytics` | Grupos comparáveis, baseline, score, alertas, perfil de relator, auditoria de distribuição, análise temporal, counsel affinity, risco composto, velocidade decisória, mudança de relatoria, rede de advogados, linha do tempo processual, anomalia de pauta, identidade econômica, grupos econômicos, grafo de representação, recorrência, janelas temporais, rede amicus, clusters de escritórios, agenda exposure | `src/atlas_stf/analytics/`, `tests/analytics/` |
+| `analytics` | Grupos comparáveis, baseline, score, alertas, perfil de relator, auditoria de distribuição, análise temporal, counsel affinity, risco composto, velocidade decisória, mudança de relatoria, rede de advogados, linha do tempo processual, anomalia de pauta, identidade econômica, grupos econômicos, grafo de representação, recorrência, janelas temporais, rede amicus, clusters de escritórios, agenda exposure, contrapartes de pagamento, vínculos corporativos de doadores, vínculos corporativos de sancionados (CEIS→RFB→STF), calibração de fuzzy matching | `src/atlas_stf/analytics/`, `tests/analytics/` |
 | `evidence` | Bundles técnicos por alerta | `src/atlas_stf/evidence/`, `tests/evidence/` |
 | `agenda` | Fetcher de agenda ministerial da API GraphQL do STF, builder de eventos e analytics de exposição | `src/atlas_stf/agenda/`, `tests/agenda/` |
-| `serving` | Banco de serving (38 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
-| `api` | Endpoints FastAPI (68) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
+| `serving` | Banco de serving (41 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
+| `api` | Endpoints FastAPI (73) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
 | `stf_portal` | Extrator de linha do tempo processual do portal STF (httpx) | `src/atlas_stf/stf_portal/`, `tests/stf_portal/` |
 | `cgu` | Dados CGU (CEIS/CNEP/Leniência) para cruzamento de sanções | `src/atlas_stf/cgu/`, `tests/cgu/` |
-| `tse` | Doações eleitorais TSE (12 ciclos, 2002–2024) | `src/atlas_stf/tse/`, `tests/tse/` |
+| `tse` | Doações eleitorais TSE (12 ciclos, 2002–2024), despesas de campanha de candidatos (7 ciclos, 2002–2024), finanças de órgãos partidários (2018–2024) e vínculos corporativos de doadores (join TSE→RFB) | `src/atlas_stf/tse/`, `tests/tse/` |
 | `cvm` | Processos sancionadores CVM (mercado de capitais) | `src/atlas_stf/cvm/`, `tests/cvm/` |
-| `rfb` | Dados abertos CNPJ da Receita Federal (Sócios, Empresas, Estabelecimentos e tabelas de domínio) para rede corporativa e grupos econômicos | `src/atlas_stf/rfb/`, `tests/rfb/` |
+| `rfb` | Dados abertos CNPJ da Receita Federal (Sócios, Empresas, Estabelecimentos e tabelas de domínio) para rede corporativa, grupos econômicos e resolução de identidade corporativa de doadores TSE | `src/atlas_stf/rfb/`, `tests/rfb/` |
 | `datajud` | Cliente API DataJud CNJ para contexto de tribunais de origem | `src/atlas_stf/datajud/`, `tests/datajud/` |
 | `web` | Dashboard em Next.js 16 com páginas auditáveis | `web/src/app/`, `web/src/components/` |
 | Governança | Regras, decisões, risco e auditoria | `docs/`, `governance/` |
@@ -111,6 +111,8 @@ O repositório combina quatro frentes operacionais:
 | Jurisprudência STF | API + Playwright | Ementas e inteiro teor |
 | CGU Portal da Transparência | API REST (httpx) | CEIS, CNEP, Leniência |
 | TSE Doações Eleitorais | CSV público CDN | 12 ciclos (2002–2024), ~20,8M registros |
+| TSE Despesas de Campanha | CSV público CDN | 7 ciclos (2002–2010, 2022–2024), 6 gerações de schema |
+| TSE Órgãos Partidários | ZIP público CDN | Receitas e despesas contratadas (2018–2024) |
 | CVM Processo Sancionador | ZIP/CSV dados abertos | Sanções do mercado de capitais |
 | RFB Dados Abertos CNPJ | ZIP/CSV dados abertos | Sócios, Empresas e Estabelecimentos (~3,3M registros) |
 | DataJud CNJ | API REST (httpx) | Agregações por tribunal de origem |
@@ -146,9 +148,9 @@ flowchart LR
 |---|---|
 | Backend analítico | Python 3.14+, pandas 3, scikit-learn, scipy |
 | API | FastAPI + SQLAlchemy 2.x |
-| Serving database | SQLite (38 tabelas) |
+| Serving database | SQLite (41 tabelas) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 + Recharts |
-| Qualidade | pytest (83%), ruff, pyright, ESLint 10, vulture |
+| Qualidade | pytest (~1707 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
 | Infra | Docker, GitHub Actions, uv |
 
 ### Configuração operacional canônica
@@ -164,13 +166,13 @@ flowchart LR
 
 ```bash
 docker pull ghcr.io/vittoroliveira-dev/atlas-stf:latest
-docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.0.4
+docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.0.6
 ```
 
 ### Via wheel (release asset)
 
 ```bash
-pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.0.4-py3-none-any.whl
+pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.0.6-py3-none-any.whl
 ```
 
 Após a instalação, a CLI fica disponível:
@@ -219,8 +221,14 @@ make scrape          # Baixa decisões e acórdãos da API do STF
 make staging         # Limpeza e padronização dos CSVs brutos
 make curate          # Curadoria de entidades canônicas
 make analytics       # Grupos, baselines, alertas e módulos analíticos
-make cgu             # Sanções CGU (CEIS/CNEP/Leniência)
+make cgu             # Sanções CGU (CEIS/CNEP/Leniência) + vínculos corporativos
+make cgu-corporate-links  # Vínculos corporativos de sancionados (CEIS→RFB→STF)
 make tse             # Doações eleitorais TSE
+make tse-expenses    # Despesas de campanha de candidatos TSE (2002–2024)
+make tse-party-org   # Finanças de órgãos partidários TSE (2018–2024)
+make tse-counterparties  # Contrapartes de pagamento de órgãos partidários
+make tse-donor-links # Vínculos corporativos de doadores (join TSE→RFB)
+make tse-empirical-report  # Relatório empírico de qualidade do corpus TSE
 make cvm             # Sanções CVM
 make rfb             # Rede corporativa RFB
 make agenda           # Agenda ministerial (fetch + build + exposure)
@@ -311,8 +319,13 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | Auditoria | `uv run atlas-stf audit stage` / `curated` / `analytics` |
 | Curadoria | `uv run atlas-stf curate ...` |
 | Scraper de jurisprudência | `make scrape` (decisões + acórdãos) |
-| CGU (CEIS/CNEP/Leniência) | `uv run atlas-stf cgu fetch` / `build-matches` |
+| CGU (CEIS/CNEP/Leniência) | `uv run atlas-stf cgu fetch` / `build-matches` / `build-corporate-links` |
 | TSE (doações eleitorais) | `uv run atlas-stf tse fetch` / `build-matches` |
+| TSE (despesas de campanha) | `uv run atlas-stf tse fetch-expenses` |
+| TSE (órgãos partidários) | `uv run atlas-stf tse fetch-party-org` |
+| TSE (contrapartes pagamento) | `uv run atlas-stf tse build-counterparties` |
+| TSE (vínculos corporativos) | `uv run atlas-stf tse build-donor-links` |
+| TSE (relatório empírico) | `uv run atlas-stf tse empirical-report` |
 | CVM (sanções mercado) | `uv run atlas-stf cvm fetch` / `build-matches` |
 | RFB (quadro societário) | `uv run atlas-stf rfb fetch` / `build-groups` / `build-network` |
 | Compound Risk | `uv run atlas-stf analytics compound-risk` |
@@ -331,6 +344,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | Agenda Fetch | `uv run atlas-stf agenda fetch` |
 | Agenda Build Events | `uv run atlas-stf agenda build-events` |
 | Agenda Exposure | `uv run atlas-stf analytics agenda-exposure` |
+| Match Calibration | `uv run atlas-stf analytics calibrate-match` |
 | Curadoria de representação | `uv run atlas-stf curate representation` |
 | Validação OAB | `uv run atlas-stf oab validate --provider null` |
 | Extração de documentos | `uv run atlas-stf doc-extract run` |
@@ -342,7 +356,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 
 ## API HTTP
 
-### Endpoints principais (68)
+### Endpoints principais (73)
 
 <details>
 <summary>Expandir lista completa de endpoints</summary>
@@ -360,6 +374,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | `GET /alerts/{alert_id}` | Detalhe de alerta |
 | `GET /cases` | Lista paginada de casos |
 | `GET /cases/{decision_event_id}` | Detalhe de caso no recorte filtrado atual |
+| `GET /cases/{decision_event_id}/ml-outlier` | Score ML outlier do caso |
 | `GET /cases/{decision_event_id}/related-alerts` | Alertas relacionados ao caso |
 | `GET /counsels` e `/counsels/{counsel_id}` | Índice e detalhe de advogados |
 | `GET /counsels/{counsel_id}/ministers` | Correlação do advogado com ministros |
@@ -377,6 +392,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | `GET /donations` | Cruzamentos com doações eleitorais (TSE) |
 | `GET /donations/red-flags` | Red flags de doações |
 | `GET /parties/{party_id}/donations` | Doações da parte |
+| `GET /donations/{match_id}/events` | Doações individuais de um match (paginado) |
 | `GET /counsels/{counsel_id}/donation-profile` | Perfil de doações do advogado |
 | `GET /corporate-network` | Vínculos societários (RFB) |
 | `GET /corporate-network/red-flags` | Red flags de rede corporativa |
@@ -402,10 +418,21 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | `GET /economic-groups/{group_id}` | Detalhe do grupo econômico |
 | `GET /agenda/events` | Lista paginada de eventos de agenda ministerial |
 | `GET /agenda/events/{event_id}` | Detalhe de evento de agenda |
-| `GET /agenda/coverage` | Cobertura de agenda por ministro |
-| `GET /agenda/exposure` | Scoring de proximidade temporal agenda-decisão |
+| `GET /agenda/ministers` | Cobertura de agenda por ministro |
+| `GET /agenda/exposures` | Scoring de proximidade temporal agenda-decisão |
 | `GET /agenda/ministers/{slug}` | Agenda detalhada de um ministro |
 | `GET /agenda/summary` | Resumo geral do módulo de agenda |
+| `GET /representation/lawyers` | Lista paginada de advogados com identidade OAB |
+| `GET /representation/lawyers/{id}` | Detalhe do advogado com arestas e eventos |
+| `GET /representation/firms` | Lista paginada de escritórios |
+| `GET /representation/firms/{id}` | Detalhe do escritório |
+| `GET /representation/process/{id}` | Representação processual de um caso |
+| `GET /representation/events` | Eventos de representação |
+| `GET /representation/summary` | Resumo da rede de representação |
+| `GET /payment-counterparties` | Contrapartes de pagamento de órgãos partidários |
+| `GET /sanction-corporate-links` | Vínculos corporativos indiretos de sancionados (CEIS/CVM→RFB→STF) |
+| `GET /sanction-corporate-links/red-flags` | Red flags de vínculos corporativos de sancionados |
+| `GET /parties/{party_id}/sanction-corporate-links` | Vínculos corporativos de sancionados da parte |
 
 </details>
 
@@ -431,20 +458,20 @@ atlas-stf/
 │   ├── evidence/         # Bundles de evidência
 │   ├── stf_portal/       # Extrator de linha do tempo do portal STF
 │   ├── agenda/           # Agenda ministerial STF (GraphQL fetcher + builder + analytics)
-│   ├── serving/          # Banco de serving (38 tabelas SQLAlchemy)
-│   ├── api/              # FastAPI (68 endpoints)
+│   ├── serving/          # Banco de serving (41 tabelas SQLAlchemy)
+│   ├── api/              # FastAPI (73 endpoints)
 │   ├── cgu/              # CGU CEIS/CNEP/Leniência (httpx)
-│   ├── tse/              # TSE doações eleitorais (CSV)
+│   ├── tse/              # TSE doações eleitorais + despesas de campanha + finanças órgãos partidários (CSV)
 │   ├── cvm/              # CVM processos sancionadores (CSV)
 │   ├── rfb/              # RFB dados abertos CNPJ (CSV)
 │   ├── datajud/          # DataJud CNJ (httpx)
 │   ├── oab/              # Validação OAB CNA/CNSA
 │   └── doc_extractor/    # Extração seletiva de PDFs
 ├── web/                  # Dashboard Next.js 16 + React 19 + TypeScript
-│   ├── src/app/          # 21 páginas (App Router, async Server Components)
-│   ├── src/components/   # 35+ componentes
+│   ├── src/app/          # 26 páginas (App Router, async Server Components)
+│   ├── src/components/   # 19 componentes
 │   └── src/lib/          # 18+ módulos (API client, types, mappers)
-├── tests/                # 100+ arquivos, 998 testes (mirror da src/)
+├── tests/                # 100+ arquivos, ~1707 testes (mirror da src/)
 ├── docs/                 # Documentação metodológica (11 documentos)
 ├── governance/           # Regras, decisões, auditoria e risco
 ├── schemas/              # Contratos JSON das entidades
@@ -462,7 +489,7 @@ atlas-stf/
 uv run ruff check src/ tests/
 uv run pyright src/
 
-# Testes (998, 83% cobertura mínima)
+# Testes (~1707, 83% cobertura mínima)
 uv run pytest
 
 # Lint e typecheck (Frontend)
@@ -518,7 +545,17 @@ O pipeline de CI roda em cada push/PR para `main`:
 - Banco de serving para consumo de produto.
 - API HTTP com filtros e detalhes de entidades, origem, sanções, doações, vínculos, afinidade, velocidade decisória, redistribuição de relatoria e rede de advogados.
 - Dashboard navegável por recortes, alertas, casos, entidades, análise temporal, risco composto, velocidade decisória, redistribuição, rede de advogados e módulos complementares.
-- Cruzamento com 7 fontes externas (CGU, TSE, CVM, RFB, DataJud, Jurisprudência, DJe).
+- Cruzamento com 9 fontes externas (CGU, TSE doações, TSE despesas de campanha, TSE órgãos partidários, CVM, RFB, DataJud, Jurisprudência, DJe).
+- Proveniência por registro nas doações TSE (record_hash, source_file, source_url, collected_at, ingest_run_id).
+- Rollup analítico de contrapartes de pagamento de órgãos partidários (identidade estável, proveniência resumida).
+- Join formal TSE→RFB para identidade corporativa de doadores (CPF/CNPJ determinístico, trilha auditável completa com `donor_corporate_link.jsonl`).
+- Enriquecimento corporativo de donation matches com cadeia societária, grupo econômico e proximidade ao ministro via rede corporativa (12 campos rastreáveis).
+- Classificação determinística de tipos de recurso TSE (payment_method, source_type, in_kind) por match e por evento individual, com métricas de cobertura no summary.
+- Métricas temporais e de concentração por doador (datas, valores extremos, shares, year span, recent flag).
+- Trilha revisável de matches ambíguos (`donation_match_ambiguous.jsonl`) e relatório empírico de qualidade do corpus (`donation_empirical_metrics.json`).
+- Harness de calibração reprodutível para thresholds de fuzzy matching (`match_calibration_summary.json`, `match_calibration_review.jsonl`) com distribuição de scores e análise de impacto de acentos.
+- Rota CEIS→RFB→STF para vínculos corporativos indiretos de sancionados (`sanction_corporate_link.jsonl`): 3 caminhos determinísticos (CNPJ direto, sócio PJ, sócio PF), expansão por grupo econômico, decaimento de risk score por grau de separação, red flags e trilha de evidência completa.
+- Risco composto enriquecido com `adjusted_rate_delta` (multiplicadores corporativos: escritório ×1.5, sócio de ministro ×2.0, atenuação por grau >2), promoção de SCL para família "sanction" e metadados corporativos em `signal_details`.
 - Governança explícita do projeto.
 
 ### Ainda em evolução

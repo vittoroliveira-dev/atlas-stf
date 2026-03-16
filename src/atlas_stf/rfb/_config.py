@@ -30,5 +30,6 @@ class RfbFetchConfig:
     minister_bio_path: Path = field(default_factory=lambda: Path("data/curated/minister_bio.json"))
     party_path: Path = field(default_factory=lambda: Path("data/curated/party.jsonl"))
     counsel_path: Path = field(default_factory=lambda: Path("data/curated/counsel.jsonl"))
+    donations_path: Path = field(default_factory=lambda: Path("data/raw/tse/donations_raw.jsonl"))
     timeout_seconds: int = 300
     dry_run: bool = False

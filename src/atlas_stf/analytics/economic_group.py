@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.identity import stable_id
+from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import read_jsonl
 
 logger = logging.getLogger(__name__)
@@ -268,7 +269,7 @@ def build_economic_groups(
 
     # Write groups
     output_path = output_dir / "economic_group.jsonl"
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for g in groups:
             fh.write(json.dumps(g, ensure_ascii=False) + "\n")
 

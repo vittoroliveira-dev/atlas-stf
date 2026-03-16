@@ -4,23 +4,27 @@ from __future__ import annotations
 
 import json
 import logging
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ..core.identity import normalize_entity_name, stable_id
+from ..core.stats import red_flag_confidence_label, red_flag_power
+from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import (
     DEFAULT_ALIAS_PATH,
-    build_baseline_rates,
+    build_baseline_rates_stratified,
     build_counsel_client_map_from_links,
     build_counsel_process_map,
     build_entity_match_index,
     build_party_index,
     build_party_process_map,
+    build_process_jb_category_map,
     build_process_outcomes,
     compute_favorable_rate_role_aware,
     compute_favorable_rate_substantive,
+    lookup_baseline_rate,
     read_jsonl,
 )
 from ._parallel import build_counsel_profiles_parallel, match_entities_parallel
@@ -104,7 +108,8 @@ def build_sanction_matches(
 
     process_party_map = build_party_process_map(process_party_link_path, party_id_to_name)
     process_outcomes = build_process_outcomes(decision_event_path)
-    baseline_rates = build_baseline_rates(decision_event_path, process_path)
+    stratified_rates, fallback_rates = build_baseline_rates_stratified(decision_event_path, process_path)
+    process_jb_map = build_process_jb_category_map(decision_event_path)
 
     # Process class map for baseline lookup
     process_class_map: dict[str, str] = {}
@@ -147,24 +152,26 @@ def build_sanction_matches(
         # Gather all outcomes for this party (with role context)
         process_entries = process_party_map.get(party_name, [])
         outcomes_with_roles: list[tuple[str, str | None]] = []
-        party_classes: list[str] = []
+        class_jb_pairs: list[tuple[str, str]] = []
         seen_pids: set[str] = set()
         for pid, role in process_entries:
             for progress in process_outcomes.get(pid, []):
                 outcomes_with_roles.append((progress, role))
             if pid not in seen_pids:
                 seen_pids.add(pid)
-                if pid in process_class_map:
-                    party_classes.append(process_class_map[pid])
+                pc = process_class_map.get(pid)
+                if pc:
+                    jb = process_jb_map.get(pid, "incerto")
+                    class_jb_pairs.append((pc, jb))
 
         favorable_rate = compute_favorable_rate_role_aware(outcomes_with_roles)
         favorable_rate_sub, n_substantive = compute_favorable_rate_substantive(outcomes_with_roles)
 
-        # Determine most common process class for baseline
+        # Determine most common (process_class, jb_category) pair for baseline
         baseline_rate: float | None = None
-        if party_classes:
-            most_common = max(set(party_classes), key=party_classes.count)
-            baseline_rate = baseline_rates.get(most_common)
+        if class_jb_pairs:
+            most_common_class, most_common_jb = Counter(class_jb_pairs).most_common(1)[0][0]
+            baseline_rate = lookup_baseline_rate(stratified_rates, fallback_rates, most_common_class, most_common_jb)
 
         delta: float | None = None
         red_flag = False
@@ -176,6 +183,9 @@ def build_sanction_matches(
         red_flag_substantive: bool | None = None
         if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
             red_flag_substantive = (favorable_rate_sub - baseline_rate) > RED_FLAG_DELTA_THRESHOLD
+
+        power = red_flag_power(len(seen_pids), baseline_rate) if baseline_rate is not None else None
+        confidence = red_flag_confidence_label(power)
 
         for sanction in sanction_list:
             match_id = stable_id("sm-", f"{party_id}:{sanction.get('sanction_id', '')}")
@@ -207,6 +217,8 @@ def build_sanction_matches(
                     "favorable_rate_delta": delta,
                     "red_flag": red_flag,
                     "red_flag_substantive": red_flag_substantive,
+                    "red_flag_power": power,
+                    "red_flag_confidence": confidence,
                     "matched_at": now_iso,
                 }
             )
@@ -261,23 +273,25 @@ def build_sanction_matches(
         # Gather outcomes for this counsel (with side context)
         process_entries = counsel_process_map.get(counsel_name, [])
         outcomes_with_roles: list[tuple[str, str | None]] = []
-        counsel_classes: list[str] = []
+        class_jb_pairs: list[tuple[str, str]] = []
         seen_pids: set[str] = set()
         for pid, side in process_entries:
             for progress in process_outcomes.get(pid, []):
                 outcomes_with_roles.append((progress, side))
             if pid not in seen_pids:
                 seen_pids.add(pid)
-                if pid in process_class_map:
-                    counsel_classes.append(process_class_map[pid])
+                pc = process_class_map.get(pid)
+                if pc:
+                    jb = process_jb_map.get(pid, "incerto")
+                    class_jb_pairs.append((pc, jb))
 
         favorable_rate = compute_favorable_rate_role_aware(outcomes_with_roles)
         favorable_rate_sub, n_substantive = compute_favorable_rate_substantive(outcomes_with_roles)
 
         baseline_rate = None
-        if counsel_classes:
-            most_common = max(set(counsel_classes), key=counsel_classes.count)
-            baseline_rate = baseline_rates.get(most_common)
+        if class_jb_pairs:
+            most_common_class, most_common_jb = Counter(class_jb_pairs).most_common(1)[0][0]
+            baseline_rate = lookup_baseline_rate(stratified_rates, fallback_rates, most_common_class, most_common_jb)
 
         delta = None
         red_flag = False
@@ -288,6 +302,9 @@ def build_sanction_matches(
         red_flag_substantive: bool | None = None
         if favorable_rate_sub is not None and baseline_rate is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
             red_flag_substantive = (favorable_rate_sub - baseline_rate) > RED_FLAG_DELTA_THRESHOLD
+
+        power = red_flag_power(len(seen_pids), baseline_rate) if baseline_rate is not None else None
+        confidence = red_flag_confidence_label(power)
 
         for sanction in sanction_list:
             match_id = stable_id("sm-", f"counsel:{counsel_id}:{sanction.get('sanction_id', '')}")
@@ -317,13 +334,15 @@ def build_sanction_matches(
                     "favorable_rate_delta": delta,
                     "red_flag": red_flag,
                     "red_flag_substantive": red_flag_substantive,
+                    "red_flag_power": power,
+                    "red_flag_confidence": confidence,
                     "matched_at": now_iso,
                 }
             )
 
     # Write all sanction matches (party + counsel)
     match_path = output_dir / "sanction_match.jsonl"
-    with match_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(match_path) as fh:
         for m in matches:
             fh.write(json.dumps(m, ensure_ascii=False) + "\n")
 
@@ -356,7 +375,7 @@ def build_sanction_matches(
     ]
 
     counsel_path_out = output_dir / "counsel_sanction_profile.jsonl"
-    with counsel_path_out.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(counsel_path_out) as fh:
         for cp in counsel_profiles:
             fh.write(json.dumps(cp, ensure_ascii=False) + "\n")
 

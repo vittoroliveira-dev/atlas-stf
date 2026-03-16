@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from typing import Any
 
 from .parsers import as_optional_str
@@ -22,6 +23,12 @@ _CORPORATE_SUFFIX_TOKENS = {
     "SS",
 }
 _INITIAL_MATCH_BLOCKLIST = {"A", "E", "O"}
+
+
+def strip_accents(text: str) -> str:
+    """Remove diacritical marks, preserving base characters."""
+    nfkd = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 def stable_id(prefix: str, value: str, length: int = 16) -> str:
@@ -110,7 +117,7 @@ def _tokenize_for_similarity(value: Any) -> list[str]:
     canonical = canonicalize_entity_name(value)
     if canonical is None:
         return []
-    return [token for token in canonical.split(" ") if token]
+    return [token for token in strip_accents(canonical).split(" ") if token]
 
 
 def _tokens_match(left: str, right: str) -> bool:
@@ -146,8 +153,8 @@ def jaccard_similarity(left: Any, right: Any) -> float:
 
 
 def levenshtein_distance(left: Any, right: Any) -> int:
-    left_text = canonicalize_entity_name(left) or ""
-    right_text = canonicalize_entity_name(right) or ""
+    left_text = strip_accents(canonicalize_entity_name(left) or "")
+    right_text = strip_accents(canonicalize_entity_name(right) or "")
     if left_text == right_text:
         return 0
     if not left_text:

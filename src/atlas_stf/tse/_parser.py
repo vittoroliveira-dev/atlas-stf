@@ -134,7 +134,7 @@ def _parse_donation_date(raw: str) -> str:
         if len(parts) == 3 and len(parts[2]) == 4:
             try:
                 return f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
-            except (ValueError, IndexError):
+            except ValueError, IndexError:
                 return ""
     # Already ISO?
     if len(stripped) == 10 and stripped[4] == "-":

@@ -12,9 +12,11 @@ from atlas_stf.rfb import _runner
 from atlas_stf.rfb._config import RfbFetchConfig
 from atlas_stf.rfb._runner import (
     _build_target_names,
+    _compute_tse_targets_hash,
     _discover_latest_month,
     _download_zip,
     _extract_csv_from_zip,
+    _extract_tse_donor_targets,
     fetch_rfb_data,
 )
 
@@ -106,6 +108,139 @@ class TestBuildTargetNames:
         names = _build_target_names(config)
         assert "DIAS TOFFOLI" in names
         assert "JOSE ANTONIO DIAS TOFFOLI" in names
+
+
+class TestExtractTseDonorTargets:
+    def test_pj(self, tmp_path: Path) -> None:
+        """Valid 14-digit CNPJ -> cnpj_basico in pj set + full CNPJ in pj_full set."""
+        donations = tmp_path / "donations_raw.jsonl"
+        # 11222333000181 is a valid CNPJ
+        _write_jsonl(donations, [{"donor_cpf_cnpj": "11222333000181", "donor_name_normalized": "X"}])
+        pj_basico, pf_cpfs, pj_full = _extract_tse_donor_targets(donations)
+        assert "11222333" in pj_basico
+        assert "11222333000181" in pj_full
+        assert len(pf_cpfs) == 0
+
+    def test_pf(self, tmp_path: Path) -> None:
+        """Valid 11-digit CPF -> in pf set."""
+        donations = tmp_path / "donations_raw.jsonl"
+        # 52998224725 is a valid CPF
+        _write_jsonl(donations, [{"donor_cpf_cnpj": "52998224725", "donor_name_normalized": "Y"}])
+        pj_basico, pf_cpfs, pj_full = _extract_tse_donor_targets(donations)
+        assert "52998224725" in pf_cpfs
+        assert len(pj_basico) == 0
+        assert len(pj_full) == 0
+
+    def test_masked(self, tmp_path: Path) -> None:
+        """Masked CPF -> ignored."""
+        donations = tmp_path / "donations_raw.jsonl"
+        _write_jsonl(donations, [{"donor_cpf_cnpj": "***.982.247-**", "donor_name_normalized": "Z"}])
+        pj_basico, pf_cpfs, pj_full = _extract_tse_donor_targets(donations)
+        assert len(pj_basico) == 0
+        assert len(pf_cpfs) == 0
+        assert len(pj_full) == 0
+
+    def test_empty(self, tmp_path: Path) -> None:
+        """No file -> 3 empty sets."""
+        pj_basico, pf_cpfs, pj_full = _extract_tse_donor_targets(tmp_path / "nonexistent.jsonl")
+        assert pj_basico == set()
+        assert pf_cpfs == set()
+        assert pj_full == set()
+
+    def test_invalid_checksum(self, tmp_path: Path) -> None:
+        """Invalid CNPJ/CPF -> ignored."""
+        donations = tmp_path / "donations_raw.jsonl"
+        _write_jsonl(donations, [{"donor_cpf_cnpj": "12345678000100", "donor_name_normalized": "BAD"}])
+        pj_basico, pf_cpfs, pj_full = _extract_tse_donor_targets(donations)
+        assert len(pj_basico) == 0
+        assert len(pj_full) == 0
+
+    def test_missing_file(self, tmp_path: Path) -> None:
+        """Missing file -> 3 empty sets, no error."""
+        pj, cpfs, full = _extract_tse_donor_targets(tmp_path / "does_not_exist.jsonl")
+        assert pj == set()
+        assert cpfs == set()
+        assert full == set()
+
+    def test_load_tse_targets_logs_malformed_jsonl(self, tmp_path: Path, caplog) -> None:
+        """Malformed JSONL line -> logged warning, valid lines still processed."""
+        import logging
+
+        donations = tmp_path / "donations_raw.jsonl"
+        # 11222333000181 is a valid CNPJ
+        donations.write_text(
+            '{"donor_cpf_cnpj": "11222333000181", "donor_name_normalized": "OK"}\n'
+            "NOT VALID JSON\n",
+            encoding="utf-8",
+        )
+        with caplog.at_level(logging.WARNING, logger="atlas_stf.rfb._runner"):
+            pj_basico, pf_cpfs, pj_full = _extract_tse_donor_targets(donations)
+        assert "malformed" in caplog.text.lower()
+        assert "11222333" in pj_basico
+
+
+class TestTseTargetsHash:
+    def test_deterministic(self) -> None:
+        h1 = _compute_tse_targets_hash({"A", "B"}, {"C"}, {"D"})
+        h2 = _compute_tse_targets_hash({"B", "A"}, {"C"}, {"D"})
+        assert h1 == h2
+
+    def test_changes_on_different_input(self) -> None:
+        h1 = _compute_tse_targets_hash({"A"}, set(), set())
+        h2 = _compute_tse_targets_hash({"B"}, set(), set())
+        assert h1 != h2
+
+
+class TestCheckpointTseIntegration:
+    def test_checkpoint_without_tse_hash(self, tmp_path: Path) -> None:
+        """Old checkpoint without tse_targets_hash loads normally."""
+        from atlas_stf.rfb._runner import _load_checkpoint
+
+        checkpoint_path = tmp_path / "_rfb_checkpoint.json"
+        checkpoint_path.write_text(json.dumps({
+            "completed_socios_pass1": [0, 1],
+            "completed_socios_pass2": [],
+            "completed_empresas": [],
+            "completed_estabelecimentos": [],
+            "completed_reference": True,
+            "cnpjs": ["12345678"],
+        }))
+        cp = _load_checkpoint(tmp_path)
+        assert "tse_targets_hash" not in cp
+        assert cp["completed_socios_pass1"] == [0, 1]
+
+    def test_checkpoint_invalidation_on_tse_change(self, tmp_path: Path) -> None:
+        """When TSE hash changes, passes are invalidated."""
+        from atlas_stf.rfb._runner import _load_checkpoint, _save_checkpoint
+
+        old_hash = _compute_tse_targets_hash({"A"}, set(), set())
+        checkpoint_path = tmp_path / "_rfb_checkpoint.json"
+        checkpoint_path.write_text(json.dumps({
+            "completed_socios_pass1": [0, 1, 2],
+            "completed_socios_pass2": [0],
+            "completed_empresas": [0],
+            "completed_estabelecimentos": [0],
+            "completed_reference": True,
+            "cnpjs": ["12345678"],
+            "tse_targets_hash": old_hash,
+        }))
+
+        cp = _load_checkpoint(tmp_path)
+        new_hash = _compute_tse_targets_hash({"A", "B"}, set(), set())
+        assert old_hash != new_hash
+
+        # Simulate what fetch_rfb_data does
+        if cp.get("tse_targets_hash", "") and cp["tse_targets_hash"] != new_hash:
+            cp["completed_socios_pass1"] = []
+            cp["completed_socios_pass2"] = []
+            cp["completed_empresas"] = []
+            cp["completed_estabelecimentos"] = []
+            cp["cnpjs"] = []
+            _save_checkpoint(tmp_path, cp)
+
+        reloaded = _load_checkpoint(tmp_path)
+        assert reloaded["completed_socios_pass1"] == []
+        assert reloaded["completed_empresas"] == []
 
 
 class TestExtractCsvFromZip:

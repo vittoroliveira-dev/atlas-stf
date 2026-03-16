@@ -16,6 +16,7 @@ def _add_analytics_parsers(subparsers: Any) -> None:
     scrape.add_argument("--no-headless", action="store_true", help="Show browser window")
     scrape.add_argument("--verbose", "-v", action="store_true", help="Debug-level logging")
     scrape.add_argument("--dry-run", action="store_true", help="List partitions without downloading")
+    scrape.add_argument("--ignore-tls", action="store_true", help="Disable TLS verification for STF site")
 
     analytics = subparsers.add_parser("analytics", help="Build analytics-layer artifacts")
     analytics_sub = analytics.add_subparsers(dest="analytics_target", required=True)
@@ -465,3 +466,27 @@ def _add_analytics_parsers(subparsers: Any) -> None:
         type=Path,
         help="Output minister flow JSON path",
     )
+
+    analytics_calibrate = analytics_sub.add_parser(
+        "calibrate-match", help="Run fuzzy matching calibration harness"
+    )
+    analytics_calibrate.add_argument("--tse-dir", type=Path, default=Path("data/raw/tse"))
+    analytics_calibrate.add_argument(
+        "--party-path",
+        type=Path,
+        default=Path("data/curated/party.jsonl"),
+        help="Curated party JSONL path",
+    )
+    analytics_calibrate.add_argument(
+        "--counsel-path",
+        type=Path,
+        default=Path("data/curated/counsel.jsonl"),
+        help="Curated counsel JSONL path",
+    )
+    analytics_calibrate.add_argument(
+        "--alias-path",
+        type=Path,
+        default=Path("data/curated/entity_alias.jsonl"),
+        help="Entity alias JSONL path",
+    )
+    analytics_calibrate.add_argument("--output-dir", type=Path, default=Path("data/analytics"))

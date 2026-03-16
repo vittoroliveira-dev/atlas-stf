@@ -12,6 +12,7 @@ from typing import Any
 
 from ..core.identity import stable_id
 from ..core.rules import classify_outcome_materiality, classify_outcome_raw
+from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import (
     build_process_class_map,
     compute_favorable_rate,
@@ -247,7 +248,7 @@ def build_counsel_affinity(
         on_progress(2, 3, "Affinity: Gravando resultados...")
     # Write affinity records
     output_path = output_dir / "counsel_affinity.jsonl"
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for a in affinities:
             fh.write(json.dumps(a, ensure_ascii=False) + "\n")
 

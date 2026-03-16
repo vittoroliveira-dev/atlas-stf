@@ -297,4 +297,16 @@ def dispatch_analytics(parser: argparse.ArgumentParser, args: argparse.Namespace
             )
         return 0
 
+    if args.command == "analytics" and args.analytics_target == "calibrate-match":
+        from ..analytics.match_calibration import run_match_calibration
+
+        run_match_calibration(
+            tse_dir=args.tse_dir,
+            party_path=args.party_path,
+            counsel_path=args.counsel_path,
+            alias_path=args.alias_path,
+            output_dir=args.output_dir,
+        )
+        return 0
+
     return None

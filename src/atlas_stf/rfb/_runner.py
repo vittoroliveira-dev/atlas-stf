@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import zipfile
@@ -13,7 +14,7 @@ from typing import Any
 import httpx
 
 from ..core.http_stream_safety import write_limited_stream_to_file
-from ..core.identity import normalize_entity_name
+from ..core.identity import is_valid_cnpj, is_valid_cpf, normalize_entity_name, normalize_tax_id
 from ..core.zip_safety import enforce_max_uncompressed_size, is_safe_zip_member
 from ._config import (
     RFB_EMPRESAS_FILE_COUNT,
@@ -273,6 +274,64 @@ def _parse_csv_from_zip_text(
         return None
 
 
+def _extract_tse_donor_targets(
+    donations_path: Path,
+) -> tuple[set[str], set[str], set[str]]:
+    """Extract TSE donor CPF/CNPJ targets for RFB scan.
+
+    Returns ``(pj_cnpjs_basico, pf_cpfs, pj_cnpjs_full)``:
+    - pj_cnpjs_basico: first 8 digits of valid 14-digit CNPJs (for direct matched_cnpjs injection)
+    - pf_cpfs: normalized valid 11-digit CPFs (for partner scan)
+    - pj_cnpjs_full: normalized valid 14-digit CNPJs (for partner-as-PJ scan)
+    """
+    pj_basico: set[str] = set()
+    pf_cpfs: set[str] = set()
+    pj_full: set[str] = set()
+
+    if not donations_path.exists():
+        return pj_basico, pf_cpfs, pj_full
+
+    with donations_path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                logger.warning("Skipping malformed JSONL line in %s", donations_path)
+                continue
+            raw_doc = record.get("donor_cpf_cnpj", "")
+            normalized = normalize_tax_id(raw_doc)
+            if not normalized:
+                continue
+            if len(normalized) == 14 and is_valid_cnpj(normalized):
+                pj_basico.add(normalized[:8])
+                pj_full.add(normalized)
+            elif len(normalized) == 11 and is_valid_cpf(normalized):
+                pf_cpfs.add(normalized)
+
+    logger.info(
+        "TSE donor targets: %d PJ cnpj_basico, %d PF CPFs, %d PJ full CNPJs",
+        len(pj_basico),
+        len(pf_cpfs),
+        len(pj_full),
+    )
+    return pj_basico, pf_cpfs, pj_full
+
+
+def _compute_tse_targets_hash(
+    pj_cnpjs: set[str],
+    pf_cpfs: set[str],
+    pj_cnpjs_full: set[str],
+) -> str:
+    """Compute a stable hash of TSE targets for checkpoint invalidation."""
+    payload = "\n".join(
+        sorted(pj_cnpjs) + ["---"] + sorted(pf_cpfs) + ["---"] + sorted(pj_cnpjs_full)
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def fetch_rfb_data(
     config: RfbFetchConfig,
     *,
@@ -283,6 +342,9 @@ def fetch_rfb_data(
 
     target_names = _build_target_names(config)
     logger.info("Target names for RFB matching: %d", len(target_names))
+
+    # Extract TSE donor targets (backward-compatible: no-op when file missing)
+    pj_cnpjs_basico, pf_cpfs, pj_cnpjs_full = _extract_tse_donor_targets(config.donations_path)
 
     # Discover latest month from NextCloud, fallback to legacy URL
     month = _discover_latest_month(timeout=15)
@@ -309,6 +371,21 @@ def fetch_rfb_data(
         return config.output_dir
 
     checkpoint = _load_checkpoint(config.output_dir)
+
+    # TSE targets checkpoint invalidation
+    has_tse_targets = bool(pj_cnpjs_basico or pf_cpfs or pj_cnpjs_full)
+    if has_tse_targets:
+        new_hash = _compute_tse_targets_hash(pj_cnpjs_basico, pf_cpfs, pj_cnpjs_full)
+        old_hash = checkpoint.get("tse_targets_hash", "")
+        if old_hash and old_hash != new_hash:
+            logger.info("TSE targets changed — invalidating RFB passes for rescan")
+            checkpoint["completed_socios_pass1"] = []
+            checkpoint["completed_socios_pass2"] = []
+            checkpoint["completed_empresas"] = []
+            checkpoint["completed_estabelecimentos"] = []
+            checkpoint["cnpjs"] = []
+            _save_checkpoint(config.output_dir, checkpoint)
+        checkpoint["tse_targets_hash"] = new_hash
 
     # Cache check: all passes complete and output files exist
     partners_path = config.output_dir / "partners_raw.jsonl"
@@ -354,7 +431,7 @@ def fetch_rfb_data(
         _save_checkpoint(config.output_dir, checkpoint)
     step += 1
 
-    # Pass 1: Socios by name
+    # Pass 1: Socios by name + TSE CPF/CNPJ targets
     all_partners, matched_cnpjs, step = run_pass1_socios(
         base_url=base_url,
         socios_file_count=RFB_SOCIOS_FILE_COUNT,
@@ -368,7 +445,20 @@ def fetch_rfb_data(
         on_progress=on_progress,
         step=step,
         total_steps=total_steps,
+        target_cpfs=pf_cpfs,
+        target_partner_cnpjs=pj_cnpjs_full,
     )
+
+    # Inject PJ cnpj_basico from TSE donors (empresa própria — caminho A)
+    if pj_cnpjs_basico:
+        pre_count = len(matched_cnpjs)
+        matched_cnpjs.update(pj_cnpjs_basico)
+        logger.info(
+            "Injected %d TSE PJ cnpj_basico into matched_cnpjs (%d -> %d)",
+            len(pj_cnpjs_basico),
+            pre_count,
+            len(matched_cnpjs),
+        )
 
     # Pass 2: Socios co-partners by CNPJ
     pass2_partners, step = run_pass2_socios(

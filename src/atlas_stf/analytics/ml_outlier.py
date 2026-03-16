@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ..schema_validate import validate_records
+from ._atomic_io import AtomicJsonlWriter
 
 DEFAULT_DECISION_EVENT_PATH = Path("data/curated/decision_event.jsonl")
 DEFAULT_BASELINE_PATH = Path("data/analytics/baseline.jsonl")
@@ -151,7 +152,7 @@ def build_ml_outlier_scores(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "ml_outlier_score.jsonl"
-    with output_path.open("w", encoding="utf-8") as fh:
+    with AtomicJsonlWriter(output_path) as fh:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 

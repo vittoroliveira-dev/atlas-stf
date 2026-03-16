@@ -271,6 +271,7 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
             headless=not args.no_headless,
             verbose=args.verbose,
             dry_run=args.dry_run,
+            ignore_tls=getattr(args, "ignore_tls", False),
         )
         try:
             scrape_target(config)

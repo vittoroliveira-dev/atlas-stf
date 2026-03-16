@@ -157,3 +157,94 @@ export async function getCounselSanctionProfile(counselId: string): Promise<Coun
     throw error;
   }
 }
+
+// --- Sanction Corporate Links ---
+
+export type SanctionCorporateLink = {
+  link_id: string;
+  sanction_id: string;
+  sanction_source: string;
+  sanction_entity_name: string;
+  sanction_entity_tax_id: string | null;
+  sanction_type: string | null;
+  bridge_company_cnpj_basico: string;
+  bridge_company_name: string | null;
+  bridge_link_basis: string;
+  bridge_confidence: string;
+  stf_entity_type: string;
+  stf_entity_id: string;
+  stf_entity_name: string;
+  stf_match_confidence: string | null;
+  link_degree: number;
+  stf_process_count: number;
+  risk_score: number | null;
+  red_flag: boolean;
+  evidence_chain: string[];
+};
+
+type PaginatedSanctionCorporateLinksResponse = {
+  total: number;
+  page: number;
+  page_size: number;
+  items: SanctionCorporateLink[];
+};
+
+type SanctionCorporateLinkRedFlagsResponse = {
+  items: SanctionCorporateLink[];
+  total: number;
+};
+
+export type SanctionCorporateLinksPageData = {
+  links: SanctionCorporateLink[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export async function getSanctionCorporateLinksPageData(params: {
+  page?: number;
+  pageSize?: number;
+  sanctionSource?: string;
+  redFlagOnly?: boolean;
+} = {}): Promise<SanctionCorporateLinksPageData> {
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 24;
+  const payload = await fetchApiJson<PaginatedSanctionCorporateLinksResponse>("/sanction-corporate-links", {
+    page,
+    page_size: pageSize,
+    sanction_source: params.sanctionSource,
+    red_flag_only: params.redFlagOnly,
+  });
+  const totalPages = Math.max(1, Math.ceil(payload.total / payload.page_size));
+  const normalizedPayload = payload.total > 0 && page > totalPages
+    ? await fetchApiJson<PaginatedSanctionCorporateLinksResponse>("/sanction-corporate-links", {
+        page: totalPages,
+        page_size: pageSize,
+        sanction_source: params.sanctionSource,
+        red_flag_only: params.redFlagOnly,
+      })
+    : payload;
+  return {
+    links: normalizedPayload.items,
+    total: normalizedPayload.total,
+    page: normalizedPayload.page,
+    pageSize: normalizedPayload.page_size,
+  };
+}
+
+export async function getSanctionCorporateLinkRedFlags(): Promise<SanctionCorporateLinkRedFlagsResponse> {
+  return fetchApiJson<SanctionCorporateLinkRedFlagsResponse>("/sanction-corporate-links/red-flags");
+}
+
+export async function getPartySanctionCorporateLinks(partyId: string): Promise<SanctionCorporateLink[]> {
+  try {
+    return await fetchApiJson<SanctionCorporateLink[]>(
+      `/parties/${encodeURIComponent(partyId)}/sanction-corporate-links`,
+    );
+  } catch (error) {
+    if (isApiFetchError(error)) {
+      return [];
+    }
+    throw error;
+  }
+}

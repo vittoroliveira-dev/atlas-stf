@@ -191,9 +191,9 @@ export function CompoundRiskRanking({
                     </p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-sm text-slate-500">Maior delta</p>
+                    <p className="text-sm text-slate-500">Delta ajustado</p>
                     <p className="mt-2 text-3xl font-semibold text-slate-950">
-                      {formatDelta(item.max_rate_delta)}
+                      {formatDelta(item.adjusted_rate_delta)}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 p-4">

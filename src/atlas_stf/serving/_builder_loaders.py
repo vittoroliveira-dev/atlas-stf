@@ -34,10 +34,16 @@ from ._builder_loaders_analytics import (
     load_origin_contexts as load_origin_contexts,
 )
 from ._builder_loaders_analytics import (
+    load_payment_counterparties as load_payment_counterparties,
+)
+from ._builder_loaders_analytics import (
     load_rapporteur_changes as load_rapporteur_changes,
 )
 from ._builder_loaders_analytics import (
     load_rapporteur_profiles as load_rapporteur_profiles,
+)
+from ._builder_loaders_analytics import (
+    load_sanction_corporate_links as load_sanction_corporate_links,
 )
 from ._builder_loaders_analytics import (
     load_sanction_matches as load_sanction_matches,
@@ -233,9 +239,7 @@ def build_source_audits(source_files: list[SourceFile]) -> list[ServingSourceAud
         ServingSourceAudit(
             label=source.label,
             category=source.category,
-            relative_path=(
-                str(source.path.relative_to(Path.cwd())) if source.path.is_relative_to(Path.cwd()) else str(source.path)
-            ),
+            relative_path=f"{source.label}/{source.path.name}",
             checksum=_source_checksum(source.path),
             updated_at=_source_updated_at(source.path),
         )

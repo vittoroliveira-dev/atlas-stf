@@ -90,6 +90,17 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
         )
         return 0
 
+    if args.command == "cgu" and args.cgu_target == "build-corporate-links":
+        from ..analytics.sanction_corporate_link import build_sanction_corporate_links
+
+        build_sanction_corporate_links(
+            cgu_dir=args.cgu_dir,
+            cvm_dir=args.cvm_dir,
+            rfb_dir=args.rfb_dir,
+            output_dir=args.output_dir,
+        )
+        return 0
+
     if args.command == "tse" and args.tse_target == "fetch":
         from ..tse._config import TSE_ELECTION_YEARS, TseFetchConfig
         from ..tse._runner import fetch_donation_data
@@ -109,10 +120,75 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
                 fetch_donation_data(config, on_progress=on_progress)
         return 0
 
+    if args.command == "tse" and args.tse_target == "fetch-expenses":
+        from ..tse._config import TseExpenseFetchConfig
+        from ..tse._runner_expenses import fetch_expense_data
+        from ._progress import cli_progress
+
+        years = tuple(args.years) if args.years else None
+        config = TseExpenseFetchConfig(
+            output_dir=args.output_dir,
+            years=years,
+            dry_run=args.dry_run,
+            force_refresh=getattr(args, "force_refresh", False),
+        )
+        if config.dry_run:
+            fetch_expense_data(config)
+        else:
+            with cli_progress("TSE Despesas") as on_progress:
+                fetch_expense_data(config, on_progress=on_progress)
+        return 0
+
+    if args.command == "tse" and args.tse_target == "fetch-party-org":
+        from ..tse._config import TSE_PARTY_ORG_YEARS, TsePartyOrgFetchConfig
+        from ..tse._runner_party_org import fetch_party_org_data
+        from ._progress import cli_progress
+
+        if args.years:
+            invalid = [y for y in args.years if y not in TSE_PARTY_ORG_YEARS]
+            if invalid:
+                parser.error(
+                    f"Ano(s) {invalid} não suportado(s) para órgãos partidários. "
+                    f"Anos disponíveis: {', '.join(str(y) for y in TSE_PARTY_ORG_YEARS)}."
+                )
+            years = tuple(args.years)
+        else:
+            years = TSE_PARTY_ORG_YEARS
+        config = TsePartyOrgFetchConfig(
+            output_dir=args.output_dir,
+            years=years,
+            dry_run=args.dry_run,
+            force_refresh=getattr(args, "force_refresh", False),
+        )
+        if config.dry_run:
+            fetch_party_org_data(config)
+        else:
+            with cli_progress("TSE Party Org") as on_progress:
+                fetch_party_org_data(config, on_progress=on_progress)
+        return 0
+
     if args.command == "tse" and args.tse_target == "build-matches":
         from ..analytics.donation_match import build_donation_matches
 
         build_donation_matches(tse_dir=args.tse_dir, output_dir=args.output_dir)
+        return 0
+
+    if args.command == "tse" and args.tse_target == "build-counterparties":
+        from ..analytics.payment_counterparty import build_payment_counterparties
+
+        build_payment_counterparties(tse_dir=args.tse_dir, output_dir=args.output_dir)
+        return 0
+
+    if args.command == "tse" and args.tse_target == "build-donor-links":
+        from ..analytics.donor_corporate_link import build_donor_corporate_links
+
+        build_donor_corporate_links(tse_dir=args.tse_dir, rfb_dir=args.rfb_dir, output_dir=args.output_dir)
+        return 0
+
+    if args.command == "tse" and args.tse_target == "empirical-report":
+        from ..analytics.donation_empirical import build_empirical_report
+
+        build_empirical_report(tse_dir=args.tse_dir, analytics_dir=args.analytics_dir, output_dir=args.output_dir)
         return 0
 
     if args.command == "cvm" and args.cvm_target == "fetch":

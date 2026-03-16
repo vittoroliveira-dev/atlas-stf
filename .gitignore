@@ -27,6 +27,9 @@ data/analytics/
 data/evidence/
 data/serving/
 
+# Documentação privada (não versionada)
+docs_private/
+
 # Scripts internos (release, probing)
 scripts/release.sh
 scripts/probe_results/
@@ -48,11 +51,16 @@ credentials*.json
 .claude/
 .claude-flow/
 .swarm/
+.mcp.json
 CLAUDE.md
 AGENTS.md
+plans/
+.plans/
 
 # IDE / Editor
+.vscode
 .vscode/
+.idea
 .idea/
 *.swp
 *.swo
@@ -69,6 +77,23 @@ htmlcov/
 playwright-report/
 test-results/
 .playwright-mcp/
+
+# Shell dotfiles (gerados por hooks de sessão)
+.bash_profile
+.bashrc
+.profile
+.zprofile
+.zshrc
+.gitconfig
+.gitmodules
+.ripgreprc
+
+# Git internals espúrios na raiz (gerados por hooks de sessão)
+HEAD
+config
+hooks
+objects
+refs
 
 # OS
 Thumbs.db

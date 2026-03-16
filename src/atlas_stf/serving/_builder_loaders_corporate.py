@@ -82,6 +82,8 @@ def load_corporate_conflicts(analytics_dir: Path) -> list[ServingCorporateConfli
                 favorable_rate_substantive=_coerce_float(record.get("favorable_rate_substantive")),
                 substantive_decision_count=record.get("substantive_decision_count"),
                 red_flag_substantive=record.get("red_flag_substantive"),
+                red_flag_power=_coerce_float(record.get("red_flag_power")),
+                red_flag_confidence=record.get("red_flag_confidence"),
             )
         )
     return results
