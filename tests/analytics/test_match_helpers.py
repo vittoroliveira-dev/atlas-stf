@@ -103,6 +103,7 @@ def test_substantive_rate_excludes_unknown_embargos() -> None:
 # Helpers for stratified baseline tests
 # ---------------------------------------------------------------------------
 
+
 def _write_jsonl(path: Path, records: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fh:
@@ -132,6 +133,7 @@ def _make_decision_events(
 # ---------------------------------------------------------------------------
 # build_baseline_rates_stratified
 # ---------------------------------------------------------------------------
+
 
 def test_build_baseline_rates_stratified_uses_stratified_cell(tmp_path: Path) -> None:
     """Cell with >= MIN_RELIABLE_SIZE events should appear in stratified_rates."""
@@ -182,12 +184,8 @@ def test_build_baseline_rates_stratified_fallback_matches_legacy(tmp_path: Path)
     _write_jsonl(tmp_path / "process.jsonl", processes)
     _write_jsonl(tmp_path / "decision_event.jsonl", events)
 
-    _, fallback = build_baseline_rates_stratified(
-        tmp_path / "decision_event.jsonl", tmp_path / "process.jsonl"
-    )
-    legacy = build_baseline_rates(
-        tmp_path / "decision_event.jsonl", tmp_path / "process.jsonl"
-    )
+    _, fallback = build_baseline_rates_stratified(tmp_path / "decision_event.jsonl", tmp_path / "process.jsonl")
+    legacy = build_baseline_rates(tmp_path / "decision_event.jsonl", tmp_path / "process.jsonl")
     assert fallback == legacy
 
 
@@ -207,6 +205,7 @@ def test_build_baseline_rates_stratified_no_data(tmp_path: Path) -> None:
 # build_process_jb_category_map
 # ---------------------------------------------------------------------------
 
+
 def test_build_process_jb_category_map(tmp_path: Path) -> None:
     """Predominant jb_category should win; missing judging_body → incerto."""
     events = [
@@ -224,6 +223,7 @@ def test_build_process_jb_category_map(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # lookup_baseline_rate
 # ---------------------------------------------------------------------------
+
 
 def test_lookup_baseline_rate_stratified_hit() -> None:
     """Stratified cell exists → return its rate."""

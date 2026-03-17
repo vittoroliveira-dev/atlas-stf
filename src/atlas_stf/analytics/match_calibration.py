@@ -70,8 +70,10 @@ class MatchDiagnostic:
 def _diag_outcome_kwargs(diag: MatchDiagnostic) -> dict[str, Any]:
     """Extract the fields needed by _derive_outcome from a diagnostic."""
     return {
-        "tax_id_hit": diag.tax_id_hit, "alias_hit": diag.alias_hit,
-        "exact_hit": diag.exact_hit, "canonical_hit": diag.canonical_hit,
+        "tax_id_hit": diag.tax_id_hit,
+        "alias_hit": diag.alias_hit,
+        "exact_hit": diag.exact_hit,
+        "canonical_hit": diag.canonical_hit,
         "best_jaccard_score": diag.best_jaccard_score,
         "jaccard_candidate_count": diag.jaccard_candidate_count,
         "best_levenshtein_distance": diag.best_levenshtein_distance,
@@ -193,15 +195,18 @@ def match_entity_record_diagnostic(
             lev_within_threshold = sum(1 for d, _ in lev_scored if d == best_d and d <= t.levenshtein_max)
 
     outcome_kwargs = {
-        "tax_id_hit": tax_id_hit, "alias_hit": alias_hit,
-        "exact_hit": exact_hit, "canonical_hit": canonical_hit,
+        "tax_id_hit": tax_id_hit,
+        "alias_hit": alias_hit,
+        "exact_hit": exact_hit,
+        "canonical_hit": canonical_hit,
         "best_jaccard_score": best_jaccard_score,
         "jaccard_candidate_count": jaccard_above_threshold,
         "best_levenshtein_distance": best_lev_distance,
         "levenshtein_candidate_count": lev_within_threshold,
     }
     winning_strategy, winning_score, is_ambiguous, ambiguity_count = _derive_outcome(
-        **outcome_kwargs, thresholds=t,
+        **outcome_kwargs,
+        thresholds=t,
     )
 
     return MatchDiagnostic(
@@ -222,7 +227,6 @@ def match_entity_record_diagnostic(
         is_ambiguous=is_ambiguous,
         ambiguity_count=ambiguity_count,
     )
-
 
 
 def _raw_levenshtein(left: str, right: str) -> int:
@@ -272,8 +276,11 @@ def _compute_accent_impact(
         query_canonical = canonicalize_entity_name(diag.query_name)
         if not query_canonical:
             continue
-        if not (_has_accent(query_canonical) or _has_accent(diag.best_jaccard_candidate)
-                or _has_accent(diag.best_levenshtein_candidate)):
+        if not (
+            _has_accent(query_canonical)
+            or _has_accent(diag.best_jaccard_candidate)
+            or _has_accent(diag.best_levenshtein_candidate)
+        ):
             continue
         accent_affected += 1
 
@@ -317,7 +324,8 @@ def _compute_accent_impact(
 
 
 def _build_review_records(
-    diagnostics: list[MatchDiagnostic], entity_type: str,
+    diagnostics: list[MatchDiagnostic],
+    entity_type: str,
 ) -> tuple[list[dict[str, Any]], int]:
     """Build review records for borderline/ambiguous/accent cases. Returns (capped, omitted)."""
     raw: list[dict[str, Any]] = []
@@ -341,20 +349,22 @@ def _build_review_records(
             review_reason = "accent_affected"
 
         if review_reason:
-            raw.append({
-                "entity_type": entity_type,
-                "query_name": diag.query_name,
-                "query_tax_id": diag.query_tax_id,
-                "best_jaccard_score": diag.best_jaccard_score,
-                "best_jaccard_candidate": diag.best_jaccard_candidate,
-                "best_levenshtein_distance": diag.best_levenshtein_distance,
-                "best_levenshtein_candidate": diag.best_levenshtein_candidate,
-                "accent_affected": review_reason == "accent_affected",
-                "current_winning_strategy": diag.winning_strategy,
-                "configs_that_match": configs_match,
-                "configs_that_reject": configs_reject,
-                "review_reason": review_reason,
-            })
+            raw.append(
+                {
+                    "entity_type": entity_type,
+                    "query_name": diag.query_name,
+                    "query_tax_id": diag.query_tax_id,
+                    "best_jaccard_score": diag.best_jaccard_score,
+                    "best_jaccard_candidate": diag.best_jaccard_candidate,
+                    "best_levenshtein_distance": diag.best_levenshtein_distance,
+                    "best_levenshtein_candidate": diag.best_levenshtein_candidate,
+                    "accent_affected": review_reason == "accent_affected",
+                    "current_winning_strategy": diag.winning_strategy,
+                    "configs_that_match": configs_match,
+                    "configs_that_reject": configs_reject,
+                    "review_reason": review_reason,
+                }
+            )
 
     # Cap per review_reason
     by_reason: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -402,7 +412,7 @@ def run_match_calibration(
     """Run calibration harness over TSE donations × party + counsel indices."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    from .donation_match import _stream_aggregate_donations
+    from ._donation_aggregator import _stream_aggregate_donations
 
     donations_path = tse_dir / "donations_raw.jsonl"
     if not donations_path.exists():
@@ -414,13 +424,17 @@ def run_match_calibration(
 
     party_records = read_jsonl(party_path) if party_path.exists() else []
     party_index = build_entity_match_index(
-        party_records, name_field="party_name_normalized",
-        alias_path=alias_path, entity_kind="party",
+        party_records,
+        name_field="party_name_normalized",
+        alias_path=alias_path,
+        entity_kind="party",
     )
     counsel_records = read_jsonl(counsel_path) if counsel_path.exists() else []
     counsel_index = build_entity_match_index(
-        counsel_records, name_field="counsel_name_normalized",
-        alias_path=alias_path, entity_kind="counsel",
+        counsel_records,
+        name_field="counsel_name_normalized",
+        alias_path=alias_path,
+        entity_kind="counsel",
     )
 
     indices: dict[str, tuple[EntityMatchIndex, str]] = {
@@ -433,8 +447,10 @@ def run_match_calibration(
     for entity_type, (index, name_field) in indices.items():
         diagnostics = [
             match_entity_record_diagnostic(
-                query_name=d["donor_name_normalized"], query_tax_id=d.get("donor_cpf_cnpj"),
-                index=index, name_field=name_field,
+                query_name=d["donor_name_normalized"],
+                query_tax_id=d.get("donor_cpf_cnpj"),
+                index=index,
+                name_field=name_field,
             )
             for d in donor_agg.values()
         ]
@@ -444,7 +460,8 @@ def run_match_calibration(
             by_strategy: dict[str, int] = defaultdict(int)
             for diag in diagnostics:
                 strategy, _, amb, _ = _derive_outcome(
-                    **_diag_outcome_kwargs(diag), thresholds=config_thresholds,
+                    **_diag_outcome_kwargs(diag),
+                    thresholds=config_thresholds,
                 )
                 if strategy is not None:
                     matched += 1
@@ -477,7 +494,9 @@ def run_match_calibration(
 
         logger.info(
             "Calibration [%s]: %d diagnostics, %d review cases",
-            entity_type, len(diagnostics), len(review),
+            entity_type,
+            len(diagnostics),
+            len(review),
         )
 
     summary = {
@@ -494,6 +513,8 @@ def run_match_calibration(
 
     logger.info(
         "Calibration complete: summary → %s, review → %s (%d records)",
-        summary_path, review_path, len(all_review),
+        summary_path,
+        review_path,
+        len(all_review),
     )
     return summary_path

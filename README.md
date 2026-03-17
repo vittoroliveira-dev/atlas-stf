@@ -195,8 +195,15 @@ atlas-stf --help
 ```bash
 git clone https://github.com/vittoroliveira-dev/atlas-stf.git
 cd atlas-stf
+make setup    # uv sync + npm ci + playwright install
+```
+
+Ou manualmente:
+
+```bash
 uv sync
-cd web && npm install && cd ..
+cd web && npm ci && cd ..
+uv run playwright install --with-deps chromium
 ```
 
 ### 2. Verificação rápida dos artefatos
@@ -216,11 +223,17 @@ Se eles não existirem, materialize o pipeline antes do serving build.
 # Tudo de uma vez (scrape → staging → curate → analytics → external → evidence → serving)
 make pipeline
 
+# Reproduzir pipeline a partir de data/raw (sem re-download, sequencial estrito)
+make reproduce
+
+# Baixar todas as fontes de uma vez (STF + externas + agenda, exceto DataJud)
+make fetch-all
+
 # Ou por etapas:
 make scrape          # Baixa decisões e acórdãos da API do STF
 make staging         # Limpeza e padronização dos CSVs brutos
 make curate          # Curadoria de entidades canônicas
-make analytics       # Grupos, baselines, alertas e módulos analíticos
+make analytics       # Grupos, baselines, alertas e módulos analíticos (-j6)
 make cgu             # Sanções CGU (CEIS/CNEP/Leniência) + vínculos corporativos
 make cgu-corporate-links  # Vínculos corporativos de sancionados (CEIS→RFB→STF)
 make tse             # Doações eleitorais TSE
@@ -231,10 +244,14 @@ make tse-donor-links # Vínculos corporativos de doadores (join TSE→RFB)
 make tse-empirical-report  # Relatório empírico de qualidade do corpus TSE
 make cvm             # Sanções CVM
 make rfb             # Rede corporativa RFB
-make agenda           # Agenda ministerial (fetch + build + exposure)
+make agenda          # Agenda ministerial (fetch + build + exposure)
 make stf-portal      # Linha do tempo do portal STF
 make evidence        # Bundles de evidência
 make serving-build   # Materializa banco SQLite para API
+
+# Limpeza
+make clean           # Remove artefatos de build e cache
+make clean-all       # Remove build + dados gerados (preserva data/raw)
 ```
 
 ### 4. Serving database + API
@@ -485,18 +502,23 @@ atlas-stf/
 ## Qualidade e CI
 
 ```bash
-# Lint e typecheck (Python)
-uv run ruff check src/ tests/
-uv run pyright src/
+# Simula CI local completo (Python lint + typecheck + testes + frontend lint + typecheck + build)
+make ci
 
-# Testes (~1707, 83% cobertura mínima)
-uv run pytest
+# Ou individualmente:
+make check           # Lint + typecheck + deadcode (Python)
+make test            # Testes (~1707, 83% cobertura mínima)
+make format          # Formata código (ruff format)
+make format-check    # Verifica formatação sem alterar (para CI)
+make lint-fix        # Corrige problemas de lint auto-fixáveis
 
-# Lint e typecheck (Frontend)
-cd web && npm run lint && npm run typecheck
+# Frontend
+make web-ci          # npm ci + lint + typecheck + build
+make web-typecheck   # Apenas typecheck
+make web-build       # Build de produção
 
-# Todos de uma vez
-make check && make test
+# Listar todos os targets disponíveis
+make help
 ```
 
 O pipeline de CI roda em cada push/PR para `main`:
@@ -590,11 +612,10 @@ Contribuições são bem-vindas, desde que mantenham o rigor metodológico do pr
 Antes de abrir PR:
 
 ```bash
-uv run pytest
-uv run ruff check src/ tests/
-uv run pyright src/
-cd web && npm run lint && npm run typecheck
+make ci
 ```
+
+Isso executa lint, typecheck, testes com cobertura (Python) e lint, typecheck e build (frontend).
 
 Leituras obrigatórias:
 

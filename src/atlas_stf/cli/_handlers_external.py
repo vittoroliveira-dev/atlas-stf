@@ -83,11 +83,14 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
 
     if args.command == "cgu" and args.cgu_target == "build-matches":
         from ..analytics.sanction_match import build_sanction_matches
+        from ._progress import cli_progress
 
-        build_sanction_matches(
-            cgu_dir=args.cgu_dir,
-            output_dir=args.output_dir,
-        )
+        with cli_progress("CGU Matches") as on_progress:
+            build_sanction_matches(
+                cgu_dir=args.cgu_dir,
+                output_dir=args.output_dir,
+                on_progress=on_progress,
+            )
         return 0
 
     if args.command == "cgu" and args.cgu_target == "build-corporate-links":
@@ -169,8 +172,10 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
 
     if args.command == "tse" and args.tse_target == "build-matches":
         from ..analytics.donation_match import build_donation_matches
+        from ._progress import cli_progress
 
-        build_donation_matches(tse_dir=args.tse_dir, output_dir=args.output_dir)
+        with cli_progress("TSE Matches") as on_progress:
+            build_donation_matches(tse_dir=args.tse_dir, output_dir=args.output_dir, on_progress=on_progress)
         return 0
 
     if args.command == "tse" and args.tse_target == "build-counterparties":
@@ -206,8 +211,10 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
 
     if args.command == "cvm" and args.cvm_target == "build-matches":
         from ..analytics.sanction_match import build_sanction_matches
+        from ._progress import cli_progress
 
-        build_sanction_matches(cvm_dir=args.cvm_dir, output_dir=args.output_dir)
+        with cli_progress("CVM Matches") as on_progress:
+            build_sanction_matches(cvm_dir=args.cvm_dir, output_dir=args.output_dir, on_progress=on_progress)
         return 0
 
     if args.command == "rfb" and args.rfb_target == "fetch":
@@ -271,19 +278,47 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
     if args.command == "stf-portal" and args.stf_portal_target == "fetch":
         from ..stf_portal._config import StfPortalConfig
         from ..stf_portal._runner import run_extraction
+        from ._progress import cli_progress
 
         config = StfPortalConfig(
             output_dir=args.output_dir,
             curated_dir=args.curated_dir,
             max_processes=args.max_processes,
             rate_limit_seconds=args.rate_limit,
+            max_concurrent=getattr(args, "workers", 1),
+            ignore_tls=args.ignore_tls,
         )
-        run_extraction(config, dry_run=args.dry_run)
+        if args.dry_run:
+            run_extraction(config, dry_run=True)
+        else:
+            with cli_progress("STF Portal") as on_progress:
+                run_extraction(config, on_progress=on_progress)
+        return 0
+
+    if args.command == "transparencia" and args.transparencia_target == "fetch":
+        from ..transparencia._config import ALL_PAINEL_SLUGS, TransparenciaFetchConfig
+        from ..transparencia._runner import fetch_transparencia_data
+        from ._progress import cli_progress
+
+        paineis = tuple(args.paineis) if args.paineis else ALL_PAINEL_SLUGS
+        config = TransparenciaFetchConfig(
+            output_dir=args.output_dir,
+            paineis=paineis,
+            headless=args.headless,
+            ignore_tls=args.ignore_tls,
+            dry_run=args.dry_run,
+        )
+        if config.dry_run:
+            fetch_transparencia_data(config)
+        else:
+            with cli_progress("Transparência") as on_progress:
+                fetch_transparencia_data(config, on_progress=on_progress)
         return 0
 
     if args.command == "agenda" and args.agenda_target == "fetch":
         from ..agenda._config import AgendaFetchConfig
         from ..agenda._runner import run_agenda_fetch
+        from ._progress import cli_progress
 
         config = AgendaFetchConfig(
             output_dir=args.output_dir,
@@ -292,7 +327,11 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
             rate_limit_seconds=args.rate_limit,
             dry_run=args.dry_run,
         )
-        run_agenda_fetch(config)
+        if config.dry_run:
+            run_agenda_fetch(config)
+        else:
+            with cli_progress("Agenda") as on_progress:
+                run_agenda_fetch(config, on_progress=on_progress)
         return 0
 
     if args.command == "agenda" and args.agenda_target == "build-events":

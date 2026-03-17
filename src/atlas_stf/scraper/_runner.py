@@ -78,7 +78,9 @@ def scrape_target(config: ScrapeConfig) -> int:
     total_docs = checkpoint.total_doc_count
 
     with ApiSession.create(
-        headless=config.headless, timeout_ms=config.timeout_ms, ignore_tls=config.ignore_tls,
+        headless=config.headless,
+        timeout_ms=config.timeout_ms,
+        ignore_tls=config.ignore_tls,
     ) as session:
         consecutive_403 = 0
 

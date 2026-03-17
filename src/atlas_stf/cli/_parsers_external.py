@@ -260,9 +260,7 @@ def _add_external_parsers(subparsers: Any) -> None:
         help="Re-download all requested years even if already cached",
     )
 
-    tse_counterparties = tse_sub.add_parser(
-        "build-counterparties", help="Build payment counterparty rollup analytics"
-    )
+    tse_counterparties = tse_sub.add_parser("build-counterparties", help="Build payment counterparty rollup analytics")
     tse_counterparties.add_argument("--tse-dir", type=Path, default=Path("data/raw/tse"))
     tse_counterparties.add_argument("--output-dir", type=Path, default=DEFAULT_ANALYTICS_DIR)
 
@@ -342,6 +340,13 @@ def _add_external_parsers(subparsers: Any) -> None:
         default=2.0,
         help="Seconds between requests (default: 2.0)",
     )
+    stf_portal_fetch.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of concurrent workers (default: 1, max: 16)",
+    )
+    stf_portal_fetch.add_argument("--ignore-tls", action="store_true", help="Bypass TLS certificate verification")
     stf_portal_fetch.add_argument("--dry-run", action="store_true", help="List processes without fetching")
 
     oab = subparsers.add_parser("oab", help="Validate OAB numbers against CNA/CNSA")
@@ -377,6 +382,25 @@ def _add_external_parsers(subparsers: Any) -> None:
         help="Only process edges below this confidence (default: 0.7)",
     )
     doc_extract_run.add_argument("--max-documents", type=int, default=None, help="Limit documents to process")
+
+    transparencia = subparsers.add_parser("transparencia", help="Download CSVs from STF transparency portal")
+    transparencia_sub = transparencia.add_subparsers(dest="transparencia_target", required=True)
+    transparencia_fetch = transparencia_sub.add_parser("fetch", help="Download transparency panel CSVs")
+    transparencia_fetch.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/raw/transparencia"),
+        help="Output directory for raw CSVs",
+    )
+    transparencia_fetch.add_argument(
+        "--paineis",
+        nargs="*",
+        default=None,
+        help="Panel slugs to download (default: all)",
+    )
+    transparencia_fetch.add_argument("--headless", action="store_true", help="Run browser without GUI")
+    transparencia_fetch.add_argument("--ignore-tls", action="store_true", help="Bypass TLS certificate verification")
+    transparencia_fetch.add_argument("--dry-run", action="store_true", help="List panels without downloading")
 
     agenda = subparsers.add_parser("agenda", help="Fetch and process ministerial agenda data")
     agenda_sub = agenda.add_subparsers(dest="agenda_target", required=True)

@@ -241,10 +241,10 @@ def normalize_raw_day(
         minister_slug, owner_scope, owner_role, resolved_name = determine_owner_scope_and_role(
             minister_name_raw, event_date, president_mapping
         )
-        for evento in ministro.get("evento") or []:
+        for evento in ministro.get("eventos") or []:
             titulo = _clean_html(evento.get("titulo", ""))
-            descricao = _clean_html(evento.get("descricao", ""))
-            hora_raw = evento.get("horaInicio", "")
+            descricao = ""
+            hora_raw = evento.get("hora", "")
             time_obj = _parse_time(hora_raw)
 
             cat, nature, conf, pub, priv = classify_event_category(titulo, descricao)

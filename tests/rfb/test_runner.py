@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from atlas_stf.rfb import _runner
+from atlas_stf.rfb import _runner_http
 from atlas_stf.rfb._config import RfbFetchConfig
 from atlas_stf.rfb._runner import (
     _build_target_names,
@@ -17,8 +17,10 @@ from atlas_stf.rfb._runner import (
     _download_zip,
     _extract_csv_from_zip,
     _extract_tse_donor_targets,
+    _is_rfb_data_member,
     fetch_rfb_data,
 )
+from atlas_stf.rfb._runner_fetch import enrich_and_write_results
 
 
 class _FakeStreamResponse:
@@ -169,8 +171,7 @@ class TestExtractTseDonorTargets:
         donations = tmp_path / "donations_raw.jsonl"
         # 11222333000181 is a valid CNPJ
         donations.write_text(
-            '{"donor_cpf_cnpj": "11222333000181", "donor_name_normalized": "OK"}\n'
-            "NOT VALID JSON\n",
+            '{"donor_cpf_cnpj": "11222333000181", "donor_name_normalized": "OK"}\nNOT VALID JSON\n',
             encoding="utf-8",
         )
         with caplog.at_level(logging.WARNING, logger="atlas_stf.rfb._runner"):
@@ -197,14 +198,18 @@ class TestCheckpointTseIntegration:
         from atlas_stf.rfb._runner import _load_checkpoint
 
         checkpoint_path = tmp_path / "_rfb_checkpoint.json"
-        checkpoint_path.write_text(json.dumps({
-            "completed_socios_pass1": [0, 1],
-            "completed_socios_pass2": [],
-            "completed_empresas": [],
-            "completed_estabelecimentos": [],
-            "completed_reference": True,
-            "cnpjs": ["12345678"],
-        }))
+        checkpoint_path.write_text(
+            json.dumps(
+                {
+                    "completed_socios_pass1": [0, 1],
+                    "completed_socios_pass2": [],
+                    "completed_empresas": [],
+                    "completed_estabelecimentos": [],
+                    "completed_reference": True,
+                    "cnpjs": ["12345678"],
+                }
+            )
+        )
         cp = _load_checkpoint(tmp_path)
         assert "tse_targets_hash" not in cp
         assert cp["completed_socios_pass1"] == [0, 1]
@@ -215,15 +220,19 @@ class TestCheckpointTseIntegration:
 
         old_hash = _compute_tse_targets_hash({"A"}, set(), set())
         checkpoint_path = tmp_path / "_rfb_checkpoint.json"
-        checkpoint_path.write_text(json.dumps({
-            "completed_socios_pass1": [0, 1, 2],
-            "completed_socios_pass2": [0],
-            "completed_empresas": [0],
-            "completed_estabelecimentos": [0],
-            "completed_reference": True,
-            "cnpjs": ["12345678"],
-            "tse_targets_hash": old_hash,
-        }))
+        checkpoint_path.write_text(
+            json.dumps(
+                {
+                    "completed_socios_pass1": [0, 1, 2],
+                    "completed_socios_pass2": [0],
+                    "completed_empresas": [0],
+                    "completed_estabelecimentos": [0],
+                    "completed_reference": True,
+                    "cnpjs": ["12345678"],
+                    "tse_targets_hash": old_hash,
+                }
+            )
+        )
 
         cp = _load_checkpoint(tmp_path)
         new_hash = _compute_tse_targets_hash({"A", "B"}, set(), set())
@@ -300,7 +309,7 @@ class TestExtractCsvFromZip:
         zip_path.unlink(missing_ok=True)
 
     def test_rejects_zip_above_uncompressed_limit(self, monkeypatch) -> None:
-        monkeypatch.setattr("atlas_stf.rfb._runner._RFB_MAX_ZIP_UNCOMPRESSED_BYTES", 1)
+        monkeypatch.setattr("atlas_stf.rfb._runner_http._RFB_MAX_ZIP_UNCOMPRESSED_BYTES", 1)
         zip_path = Path("/tmp/test-rfb-too-large.zip")
         zip_path.write_bytes(_make_zip("a;b;c\n1;2;3\n"))
         assert _extract_csv_from_zip(zip_path) is None
@@ -309,20 +318,20 @@ class TestExtractCsvFromZip:
 
 class TestDiscoverLatestMonth:
     def test_skips_webdav_without_token(self, monkeypatch) -> None:
-        original = _runner._active_share_token[0]
-        _runner._active_share_token[0] = ""
+        original = _runner_http._active_share_token[0]
+        _runner_http._active_share_token[0] = ""
         try:
-            with patch("atlas_stf.rfb._runner.httpx.Client") as client_cls:
+            with patch("atlas_stf.rfb._runner_http.httpx.Client") as client_cls:
                 assert _discover_latest_month(timeout=5) is None
             client_cls.assert_not_called()
         finally:
-            _runner._active_share_token[0] = original
+            _runner_http._active_share_token[0] = original
 
 
 class TestDownloadZip:
-    @patch("atlas_stf.rfb._runner.httpx.stream")
+    @patch("atlas_stf.rfb._runner_http.httpx.stream")
     def test_rejects_oversized_stream(self, mock_stream, monkeypatch, tmp_path: Path) -> None:
-        monkeypatch.setattr("atlas_stf.rfb._runner._RFB_MAX_DOWNLOAD_BYTES", 4)
+        monkeypatch.setattr("atlas_stf.rfb._runner_http._RFB_MAX_DOWNLOAD_BYTES", 4)
         destination = tmp_path / "Socios0.zip"
         mock_stream.return_value = _FakeStreamResponse([b"12", b"345"])
 
@@ -382,3 +391,75 @@ class TestFetchRfbData:
 
         companies_path = config.output_dir / "companies_raw.jsonl"
         assert companies_path.exists()
+
+
+class TestIsRfbDataMember:
+    def test_csv_extension(self) -> None:
+        assert _is_rfb_data_member("data.csv") is True
+
+    def test_sociocsv_mainframe(self) -> None:
+        assert _is_rfb_data_member("K3241.K03200Y0.D60214.SOCIOCSV") is True
+
+    def test_emprecsv_mainframe(self) -> None:
+        assert _is_rfb_data_member("K3241.K03200Y0.D60214.EMPRECSV") is True
+
+    def test_estabele_mainframe(self) -> None:
+        assert _is_rfb_data_member("K3241.K03200Y0.D60214.ESTABELE") is True
+
+    def test_readme_rejected(self) -> None:
+        assert _is_rfb_data_member("readme.txt") is False
+
+    def test_case_insensitive(self) -> None:
+        assert _is_rfb_data_member("DATA.CSV") is True
+        assert _is_rfb_data_member("K3241.ESTABELE") is True
+
+
+class TestMainframeEstabeleFilename:
+    def test_extract_csv_from_zip_accepts_estabele(self, tmp_path: Path) -> None:
+        """ZIP with ESTABELE member should be accepted by _extract_csv_from_zip."""
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("K3241.K03200Y0.D60214.ESTABELE", "a;b;c\n1;2;3\n")
+        zip_path = tmp_path / "test-rfb-estabele.zip"
+        zip_path.write_bytes(buf.getvalue())
+        result = _extract_csv_from_zip(zip_path)
+        assert result is not None
+        assert b"a;b;c" in result
+
+
+class TestEnrichAndWriteSafeSkip:
+    def test_skips_when_empty_and_file_exists(self, tmp_path: Path) -> None:
+        """Empty lists + existing files with content -> files are NOT overwritten."""
+        partners = tmp_path / "partners_raw.jsonl"
+        companies = tmp_path / "companies_raw.jsonl"
+        establishments = tmp_path / "establishments_raw.jsonl"
+        partners.write_text('{"cnpj_basico":"12345678"}\n', encoding="utf-8")
+        companies.write_text('{"cnpj_basico":"12345678"}\n', encoding="utf-8")
+        establishments.write_text('{"cnpj_basico":"12345678"}\n', encoding="utf-8")
+
+        enrich_and_write_results(
+            config_output_dir=tmp_path,
+            unique_partners=[],
+            all_companies=[],
+            all_establishments=[],
+        )
+
+        assert partners.read_text(encoding="utf-8").strip() == '{"cnpj_basico":"12345678"}'
+        assert companies.read_text(encoding="utf-8").strip() == '{"cnpj_basico":"12345678"}'
+        assert establishments.read_text(encoding="utf-8").strip() == '{"cnpj_basico":"12345678"}'
+
+    def test_creates_when_no_file(self, tmp_path: Path) -> None:
+        """Empty lists + no existing files -> creates empty files."""
+        enrich_and_write_results(
+            config_output_dir=tmp_path,
+            unique_partners=[],
+            all_companies=[],
+            all_establishments=[],
+        )
+
+        assert (tmp_path / "partners_raw.jsonl").exists()
+        assert (tmp_path / "partners_raw.jsonl").stat().st_size == 0
+        assert (tmp_path / "companies_raw.jsonl").exists()
+        assert (tmp_path / "companies_raw.jsonl").stat().st_size == 0
+        assert (tmp_path / "establishments_raw.jsonl").exists()
+        assert (tmp_path / "establishments_raw.jsonl").stat().st_size == 0

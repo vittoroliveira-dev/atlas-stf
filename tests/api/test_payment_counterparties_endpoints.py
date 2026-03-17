@@ -46,12 +46,14 @@ def client(tmp_path) -> TestClient:
                         last_payment_date="2022-11-15",
                         states_json=json.dumps(["SP", "RJ"]),
                         cnae_codes_json=json.dumps(["4110700"]),
-                        provenance_json=json.dumps({
-                            "source_file_count": 3,
-                            "ingest_run_count": 2,
-                            "first_collected_at": "2026-01-01T00:00:00",
-                            "last_collected_at": "2026-03-01T00:00:00",
-                        }),
+                        provenance_json=json.dumps(
+                            {
+                                "source_file_count": 3,
+                                "ingest_run_count": 2,
+                                "first_collected_at": "2026-01-01T00:00:00",
+                                "last_collected_at": "2026-03-01T00:00:00",
+                            }
+                        ),
                         generated_at=datetime.now(timezone.utc),
                     )
                 )

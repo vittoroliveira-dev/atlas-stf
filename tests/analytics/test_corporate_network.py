@@ -190,14 +190,16 @@ class TestBuildCorporateNetwork:
         for i in range(12):
             pid = f"proc_{i + 1}"
             processes.append({"process_id": pid, "process_class": "ADI"})
-            events.append({
-                "decision_event_id": f"e{i + 1}",
-                "process_id": pid,
-                "current_rapporteur": "MIN. TESTE",
-                "decision_progress": "Procedente" if i < 8 else "Improcedente",
-                "judging_body": "Segunda Turma",
-                "is_collegiate": True,
-            })
+            events.append(
+                {
+                    "decision_event_id": f"e{i + 1}",
+                    "process_id": pid,
+                    "current_rapporteur": "MIN. TESTE",
+                    "decision_progress": "Procedente" if i < 8 else "Improcedente",
+                    "judging_body": "Segunda Turma",
+                    "is_collegiate": True,
+                }
+            )
         write_jsonl(paths["process_path"], processes)
         write_jsonl(paths["decision_event_path"], events)
 

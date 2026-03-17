@@ -31,7 +31,5 @@ def test_build_source_audits_never_contains_absolute_path(tmp_path: Path):
     ]
     result = build_source_audits(sources)
     for audit in result:
-        assert not audit.relative_path.startswith("/"), (
-            f"Absolute path leaked: {audit.relative_path}"
-        )
+        assert not audit.relative_path.startswith("/"), f"Absolute path leaked: {audit.relative_path}"
         assert ".." not in audit.relative_path

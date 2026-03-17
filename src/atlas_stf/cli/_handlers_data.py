@@ -127,9 +127,11 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         from ..curated.build_entity_identifier import build_entity_identifier_jsonl
         from ..curated.build_entity_identifier_reconciliation import build_entity_identifier_reconciliation_jsonl
         from ..curated.build_links import build_process_links_jsonl
+        from ..curated.build_movement import build_movement_jsonl
         from ..curated.build_party import build_party_jsonl
         from ..curated.build_process import build_process_jsonl
         from ..curated.build_representation import build_representation_jsonl
+        from ..curated.build_session_event import build_session_event_jsonl
         from ..curated.build_subject import build_subject_jsonl
         from ._progress import cli_progress
 
@@ -143,7 +145,8 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
             juris_index = _resolve_process_index(args.juris_dir)
             decision_index = _resolve_decision_index(args.juris_dir)
 
-        total = 9
+        portal_dir = Path("data/raw/stf_portal")
+        total = 11
         with cli_progress("Curate") as on_progress:
             process_path = args.output_dir / "process.jsonl"
             on_progress(0, total, "Curate: Construindo processos...")
@@ -152,7 +155,7 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
                 output_path=process_path,
                 juris_index=juris_index,
             )
-            on_progress(1, total, "Curate: Construindo decisoes...")
+            on_progress(1, total, "Curate: Construindo decisões...")
             build_decision_event_jsonl(
                 staging_file=args.staging_dir / "decisoes.csv",
                 output_path=args.output_dir / "decision_event.jsonl",
@@ -164,7 +167,7 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
             build_party_jsonl(process_path=process_path, output_path=args.output_dir / "party.jsonl")
             on_progress(4, total, "Curate: Construindo advogados...")
             build_counsel_jsonl(process_path=process_path, output_path=args.output_dir / "counsel.jsonl")
-            on_progress(5, total, "Curate: Construindo vinculos...")
+            on_progress(5, total, "Curate: Construindo vínculos...")
             build_process_links_jsonl(
                 process_path=process_path,
                 party_output_path=args.output_dir / "process_party_link.jsonl",
@@ -176,7 +179,7 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
                 juris_dir=args.juris_dir,
                 output_path=args.output_dir / "entity_identifier.jsonl",
             )
-            on_progress(7, total, "Curate: Reconciliacao de entidades...")
+            on_progress(7, total, "Curate: Reconciliação de entidades...")
             build_entity_identifier_reconciliation_jsonl(
                 entity_identifier_path=args.output_dir / "entity_identifier.jsonl",
                 party_path=args.output_dir / "party.jsonl",
@@ -185,13 +188,28 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
                 process_counsel_link_path=args.output_dir / "process_counsel_link.jsonl",
                 output_path=args.output_dir / "entity_identifier_reconciliation.jsonl",
             )
-            on_progress(8, total, "Curate: Construindo rede de representacao...")
+            on_progress(8, total, "Curate: Construindo rede de representação...")
             build_representation_jsonl(
                 process_path=process_path,
-                portal_dir=Path("data/raw/stf_portal"),
+                portal_dir=portal_dir,
                 curated_dir=args.output_dir,
             )
-            on_progress(total, total, "Curate: Concluido")
+            movement_path = args.output_dir / "movement.jsonl"
+            if portal_dir.exists():
+                on_progress(9, total, "Curate: Construindo movimentações...")
+                build_movement_jsonl(portal_dir=portal_dir, output_path=movement_path)
+            else:
+                on_progress(9, total, "Curate: Movimentações (sem dados do portal)")
+            if movement_path.exists() and portal_dir.exists():
+                on_progress(10, total, "Curate: Construindo sessões...")
+                build_session_event_jsonl(
+                    movement_path=movement_path,
+                    portal_dir=portal_dir,
+                    output_path=args.output_dir / "session_event.jsonl",
+                )
+            else:
+                on_progress(10, total, "Curate: Sessões (sem dados do portal)")
+            on_progress(total, total, "Curate: Concluído")
         return 0
 
     if args.command == "curate" and args.curate_target == "subject":

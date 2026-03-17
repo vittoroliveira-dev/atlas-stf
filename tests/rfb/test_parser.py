@@ -164,7 +164,6 @@ class TestParseSociosCsvFiltered:
         assert records[0]["representative_name"] == ""
         assert records[0]["representative_cpf_cnpj"] == ""
 
-
     def test_filter_by_cpf(self) -> None:
         """partner_cpf_cnpj matches target_cpfs -> record included + cnpj_basico in matched."""
         csv_bytes = self._make_csv(

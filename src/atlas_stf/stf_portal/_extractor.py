@@ -45,11 +45,13 @@ class PortalExtractor:
         timeout_seconds: float = 30.0,
         max_retries: int = 3,
         retry_delay_seconds: float = 5.0,
+        ignore_tls: bool = False,
     ) -> None:
         self._rate_limit = rate_limit_seconds
         self._timeout = timeout_seconds
         self._max_retries = max_retries
         self._retry_delay = retry_delay_seconds
+        self._ignore_tls = ignore_tls
         self._client: httpx.Client | None = None
         self._last_request_time: float = 0
 
@@ -59,6 +61,7 @@ class PortalExtractor:
                 timeout=self._timeout,
                 follow_redirects=True,
                 headers={"User-Agent": USER_AGENT},
+                verify=not self._ignore_tls,
             )
         return self._client
 

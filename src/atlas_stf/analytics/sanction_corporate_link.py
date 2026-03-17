@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from collections import Counter, defaultdict
@@ -11,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..core.identity import normalize_entity_name, normalize_tax_id, stable_id
+from ..core.identity import normalize_tax_id, stable_id
 from ..core.stats import red_flag_confidence_label, red_flag_power
 from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import (
@@ -24,14 +23,22 @@ from ._match_helpers import (
     build_process_outcomes,
     compute_favorable_rate_role_aware,
     lookup_baseline_rate,
-    read_jsonl,
+)
+from ._match_helpers import (
+    degree_decay as _degree_decay,
+)
+from ._scl_bridge import (
+    _build_stf_entity_index,
+    _compute_modal_class_jb,
+    _load_economic_groups,
+    _load_sanctions,
+    _record_hash,
 )
 from .donor_corporate_link import (
     _build_company_index,
     _build_establishment_index,
     _build_partner_index,
     _classify_document,
-    _iter_jsonl,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,110 +52,6 @@ DEFAULT_OUTPUT_DIR = Path("data/analytics")
 
 RED_FLAG_DELTA_THRESHOLD = 0.15
 MIN_CASES_FOR_RED_FLAG = 3
-
-
-def _degree_decay(link_degree: int) -> float:
-    return 1.0 if link_degree <= 2 else 0.5 ** (link_degree - 2)
-
-
-def _canonical_json(record: dict[str, Any]) -> str:
-    """Serialize record to canonical JSON (sorted keys, no whitespace)."""
-    return json.dumps(record, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-
-
-def _record_hash(record: dict[str, Any]) -> str:
-    """Compute SHA-256 of the canonical payload (excluding hash and timestamp)."""
-    payload = {k: v for k, v in record.items() if k not in {"record_hash", "generated_at"}}
-    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
-
-
-def _load_sanctions(cgu_dir: Path, cvm_dir: Path) -> list[dict[str, Any]]:
-    """Load sanctions from CGU and CVM raw files."""
-    sanctions: list[dict[str, Any]] = []
-    cgu_path = cgu_dir / "sanctions_raw.jsonl"
-    if cgu_path.exists():
-        for rec in _iter_jsonl(cgu_path):
-            rec.setdefault("sanction_source_origin", "cgu")
-            sanctions.append(rec)
-    cvm_path = cvm_dir / "sanctions_raw.jsonl"
-    if cvm_path.exists():
-        for rec in _iter_jsonl(cvm_path):
-            rec.setdefault("sanction_source_origin", "cvm")
-            sanctions.append(rec)
-    return sanctions
-
-
-def _load_economic_groups(analytics_dir: Path) -> dict[str, dict[str, Any]]:
-    """Load economic groups indexed by cnpj_basico -> group record."""
-    eg_path = analytics_dir / "economic_group.jsonl"
-    if not eg_path.exists():
-        return {}
-    index: dict[str, dict[str, Any]] = {}
-    for record in read_jsonl(eg_path):
-        for cnpj in record.get("member_cnpjs", []):
-            index.setdefault(cnpj, record)
-    return index
-
-
-def _build_stf_entity_index(
-    curated_dir: Path,
-) -> tuple[list[dict[str, Any]], dict[str, str], dict[str, str]]:
-    """Build combined party+counsel records for entity matching.
-
-    Returns (combined_records, party_id_to_name, counsel_id_to_name).
-    """
-    party_path = curated_dir / "party.jsonl"
-    counsel_path = curated_dir / "counsel.jsonl"
-
-    combined: list[dict[str, Any]] = []
-    party_id_to_name: dict[str, str] = {}
-    counsel_id_to_name: dict[str, str] = {}
-
-    if party_path.exists():
-        for rec in read_jsonl(party_path):
-            pid = rec.get("party_id", "")
-            name = normalize_entity_name(rec.get("party_name_normalized") or rec.get("party_name_raw", ""))
-            if pid and name:
-                party_id_to_name[pid] = name
-                combined.append({
-                    "entity_id": pid,
-                    "entity_type": "party",
-                    "entity_name_normalized": name,
-                    "entity_tax_id": rec.get("entity_tax_id"),
-                })
-
-    if counsel_path.exists():
-        for rec in read_jsonl(counsel_path):
-            cid = rec.get("counsel_id", "")
-            name = normalize_entity_name(rec.get("counsel_name_normalized") or rec.get("counsel_name_raw", ""))
-            if cid and name:
-                counsel_id_to_name[cid] = name
-                combined.append({
-                    "entity_id": cid,
-                    "entity_type": "counsel",
-                    "entity_name_normalized": name,
-                    "entity_tax_id": rec.get("entity_tax_id"),
-                })
-
-    return combined, party_id_to_name, counsel_id_to_name
-
-
-def _compute_modal_class_jb(
-    process_ids: list[str],
-    process_class_map: dict[str, str],
-    process_jb_map: dict[str, str],
-) -> tuple[str | None, str | None]:
-    """Compute the modal (process_class, jb_category) pair."""
-    pairs: list[tuple[str, str]] = []
-    for pid in process_ids:
-        pc = process_class_map.get(pid)
-        if pc:
-            jb = process_jb_map.get(pid, "incerto")
-            pairs.append((pc, jb))
-    if not pairs:
-        return None, None
-    (modal_class, modal_jb), _count = Counter(pairs).most_common(1)[0]
-    return modal_class, modal_jb
 
 
 def build_sanction_corporate_links(
@@ -219,9 +122,7 @@ def build_sanction_corporate_links(
         sanction_id = str(sanction.get("sanction_id", ""))
         raw_doc = str(sanction.get("entity_cnpj_cpf", "") or sanction.get("cpf_cnpj_sancionado", "") or "")
         sanction_entity_name = str(sanction.get("entity_name", "") or sanction.get("razao_social", "") or "")
-        sanction_source = str(
-            sanction.get("sanction_source", "") or sanction.get("sanction_source_origin", "") or ""
-        )
+        sanction_source = str(sanction.get("sanction_source", "") or sanction.get("sanction_source_origin", "") or "")
         sanction_type = str(sanction.get("sanction_type", "") or sanction.get("tipo_sancao", "") or "")
 
         doc_type, tax_id_normalized, tax_id_valid, cnpj_basico = _classify_document(raw_doc)
@@ -254,9 +155,11 @@ def build_sanction_corporate_links(
             # Look up bridge company info
             company = company_index.get(bridge_cnpj, {})
             establishment = establishment_index.get(bridge_cnpj)
-            bridge_company_name = company.get("razao_social") or (
-                establishment.get("nome_fantasia") if establishment else None
-            ) or bridge_cnpj
+            bridge_company_name = (
+                company.get("razao_social")
+                or (establishment.get("nome_fantasia") if establishment else None)
+                or bridge_cnpj
+            )
 
             # Collect all CNPJs to scan (bridge + economic group members)
             cnpjs_to_scan: list[tuple[str, int]] = [(bridge_cnpj, 2)]
@@ -328,9 +231,7 @@ def build_sanction_corporate_links(
                     )
                     baseline_rate: float | None = None
                     if modal_class and modal_jb:
-                        baseline_rate = lookup_baseline_rate(
-                            stratified_rates, fallback_rates, modal_class, modal_jb
-                        )
+                        baseline_rate = lookup_baseline_rate(stratified_rates, fallback_rates, modal_class, modal_jb)
 
                     # Risk score with degree decay
                     delta: float | None = None
@@ -351,24 +252,16 @@ def build_sanction_corporate_links(
                     if link_basis == "exact_cnpj_basico":
                         evidence_chain.append(f"→ Empresa {bridge_company_name} (CNPJ base {bridge_cnpj})")
                     elif link_basis == "exact_partner_cnpj":
-                        evidence_chain.append(
-                            f"→ Sócio PJ em {bridge_company_name} (CNPJ base {bridge_cnpj})"
-                        )
+                        evidence_chain.append(f"→ Sócio PJ em {bridge_company_name} (CNPJ base {bridge_cnpj})")
                     else:
-                        evidence_chain.append(
-                            f"→ Sócio PF em {bridge_company_name} (CNPJ base {bridge_cnpj})"
-                        )
+                        evidence_chain.append(f"→ Sócio PF em {bridge_company_name} (CNPJ base {bridge_cnpj})")
                     if scan_cnpj != bridge_cnpj:
                         scan_company = company_index.get(scan_cnpj, {})
-                        evidence_chain.append(
-                            f"→ Grupo econômico: {scan_company.get('razao_social', scan_cnpj)}"
-                        )
+                        evidence_chain.append(f"→ Grupo econômico: {scan_company.get('razao_social', scan_cnpj)}")
                     match_desc = f"match: {match_result.strategy}"
                     if match_result.score is not None:
                         match_desc += f", score {match_result.score}"
-                    evidence_chain.append(
-                        f"→ Co-sócio {partner_name} = {stf_entity_type} STF ({match_desc})"
-                    )
+                    evidence_chain.append(f"→ Co-sócio {partner_name} = {stf_entity_type} STF ({match_desc})")
 
                     # Enrichment from establishment
                     hq_uf = establishment.get("uf") if establishment else None
@@ -417,8 +310,10 @@ def build_sanction_corporate_links(
                         "stf_match_strategy": match_result.strategy,
                         "stf_match_score": match_result.score,
                         "stf_match_confidence": (
-                            "deterministic" if match_result.strategy == "tax_id"
-                            else "exact_name" if match_result.strategy in {"exact", "canonical_name", "alias"}
+                            "deterministic"
+                            if match_result.strategy == "tax_id"
+                            else "exact_name"
+                            if match_result.strategy in {"exact", "canonical_name", "alias"}
                             else "fuzzy"
                         ),
                         "matched_alias": match_result.matched_alias,

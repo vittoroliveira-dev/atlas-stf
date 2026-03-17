@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Reservoir sampling for approximate percentiles
 # ---------------------------------------------------------------------------
 
+
 class _ReservoirSampler:
     """Reservoir sampling with fixed capacity for approximate percentiles."""
 
@@ -60,6 +61,7 @@ class _ReservoirSampler:
 # ---------------------------------------------------------------------------
 # Section builders (pure functions over file streams)
 # ---------------------------------------------------------------------------
+
 
 def _compute_raw_data_metrics(donations_path: Path) -> dict[str, Any]:
     """Streaming pass over donations_raw.jsonl for data quality metrics."""
@@ -143,14 +145,10 @@ def _compute_raw_data_metrics(donations_path: Path) -> dict[str, Any]:
         "cpf_cnpj_valid_cnpj_count": cpf_cnpj_valid_cnpj,
         "identity_key_cpf_count": identity_key_cpf,
         "identity_key_name_count": identity_key_name,
-        "identity_key_cpf_rate": (
-            round(identity_key_cpf / unique_keys, 4) if unique_keys > 0 else None
-        ),
+        "identity_key_cpf_rate": (round(identity_key_cpf / unique_keys, 4) if unique_keys > 0 else None),
         "unique_identity_keys_count": unique_keys,
         "homonymy_proxy_count": homonymy_count,
-        "homonymy_proxy_rate": (
-            round(homonymy_count / identity_key_name, 4) if identity_key_name > 0 else None
-        ),
+        "homonymy_proxy_rate": (round(homonymy_count / identity_key_name, 4) if identity_key_name > 0 else None),
         "election_year_distribution": dict(sorted(election_year_dist.items())),
         "state_distribution": dict(sorted(state_dist.items(), key=lambda x: -x[1])),
         "amount_percentiles": sampler.percentiles([25, 50, 75, 90, 99]),
@@ -226,19 +224,14 @@ def _compute_match_metrics(match_path: Path) -> dict[str, Any]:
             red_flag_count += 1
             red_flag_by_strategy[strategy] = red_flag_by_strategy.get(strategy, 0) + 1
 
-        if any(
-            m.get(f) is not None
-            for f in ("donor_document_type", "donor_tax_id_normalized", "economic_group_id")
-        ):
+        if any(m.get(f) is not None for f in ("donor_document_type", "donor_tax_id_normalized", "economic_group_id")):
             corporate_enriched += 1
 
     return {
         "total_matches": total,
         "match_by_entity_type": dict(sorted(by_entity_type.items())),
         "match_strategy_distribution": dict(sorted(strategy_dist.items())),
-        "match_strategy_by_entity_type": {
-            k: dict(sorted(v.items())) for k, v in sorted(strategy_by_entity.items())
-        },
+        "match_strategy_by_entity_type": {k: dict(sorted(v.items())) for k, v in sorted(strategy_by_entity.items())},
         "jaccard_score_histogram": jaccard_histogram,
         "levenshtein_score_histogram": levenshtein_histogram,
         "red_flag_count": red_flag_count,
@@ -266,9 +259,7 @@ def _empty_match_metrics() -> dict[str, Any]:
     }
 
 
-def _compute_ambiguous_metrics(
-    ambiguous_path: Path, total_matches: int
-) -> dict[str, Any]:
+def _compute_ambiguous_metrics(ambiguous_path: Path, total_matches: int) -> dict[str, Any]:
     """Streaming pass over donation_match_ambiguous.jsonl."""
     total_ambiguous = 0
     by_entity_type: dict[str, int] = {}
@@ -302,9 +293,7 @@ def _compute_ambiguous_metrics(
             total_donated_brl += amt
 
     denominator = total_matches + total_ambiguous
-    ambiguous_rate: float | None = (
-        round(total_ambiguous / denominator, 4) if denominator > 0 else None
-    )
+    ambiguous_rate: float | None = round(total_ambiguous / denominator, 4) if denominator > 0 else None
 
     return {
         "total_ambiguous": total_ambiguous,
@@ -335,29 +324,17 @@ def _empty_ambiguous_metrics(total_matches: int) -> dict[str, Any]:
 
 _METHODOLOGY_NOTES: dict[str, str] = {
     "homonymy_proxy": (
-        "Contagem de chaves name: associadas a 2+ CPF/CNPJ distintos no raw "
-        "— indica homonimia potencial."
+        "Contagem de chaves name: associadas a 2+ CPF/CNPJ distintos no raw — indica homonimia potencial."
     ),
     "masked_cpf_definition": "Documentos contendo '*' (ex: ***.***.***-**).",
-    "ambiguous_definition": (
-        "Doadores com 2+ candidatos a match com score fuzzy identico."
-    ),
-    "percentile_method": (
-        "Percentis aproximados via reservoir sampling de 10.000 amostras."
-    ),
-    "jaccard_histogram_buckets": (
-        "Intervalos semiabertos [low, high) exceto o ultimo que e fechado [0.95, 1.00]."
-    ),
-    "ambiguous_rate_formula": (
-        "total_ambiguous / (total_matches + total_ambiguous); None se denominador = 0."
-    ),
+    "ambiguous_definition": ("Doadores com 2+ candidatos a match com score fuzzy identico."),
+    "percentile_method": ("Percentis aproximados via reservoir sampling de 10.000 amostras."),
+    "jaccard_histogram_buckets": ("Intervalos semiabertos [low, high) exceto o ultimo que e fechado [0.95, 1.00]."),
+    "ambiguous_rate_formula": ("total_ambiguous / (total_matches + total_ambiguous); None se denominador = 0."),
     "identity_key_computation": (
-        "Usa o mesmo helper donor_identity_key() do pipeline de matching "
-        "(analytics._donor_identity)."
+        "Usa o mesmo helper donor_identity_key() do pipeline de matching (analytics._donor_identity)."
     ),
-    "no_precision_recall": (
-        "Metricas observaveis/proxy. Precisao/recall real requer ground truth rotulado."
-    ),
+    "no_precision_recall": ("Metricas observaveis/proxy. Precisao/recall real requer ground truth rotulado."),
 }
 
 
@@ -378,9 +355,7 @@ def build_empirical_report(
 
     raw_metrics = _compute_raw_data_metrics(donations_path)
     match_metrics = _compute_match_metrics(match_path)
-    ambiguous_metrics = _compute_ambiguous_metrics(
-        ambiguous_path, match_metrics["total_matches"]
-    )
+    ambiguous_metrics = _compute_ambiguous_metrics(ambiguous_path, match_metrics["total_matches"])
 
     report = {
         "raw_data_quality": raw_metrics,
@@ -391,8 +366,6 @@ def build_empirical_report(
     }
 
     output_path = output_dir / "donation_empirical_metrics.json"
-    output_path.write_text(
-        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     logger.info("Wrote empirical metrics report to %s", output_path)
     return output_path

@@ -6,6 +6,42 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-03-17
+
+### Changed
+
+- **agenda/_client.py**: client reescrito de httpx para Playwright — resolve AWS WAF challenge via navegador headless antes de executar queries GraphQL. `page.evaluate(fetch(...))` herda cookies/tokens do WAF automaticamente. Query GraphQL atualizada para schema atual do STF: `ano`/`mes` → `where:{dateQuery:{year,month}}`, `evento` → `eventos`, `horaInicio` → `hora`, campo `descricao` removido (não existe mais na API)
+- **agenda/_runner.py**: barra de progresso Rich (`cli_progress`) integrada ao fetch de agenda, mesmo padrão dos demais comandos (CGU, TSE, CVM, RFB). Validação de cache endurecida: arquivos JSONL vazios e raw com erros GraphQL são automaticamente descartados e re-baixados em vez de bloquear re-fetch
+- **agenda/_parser.py**: campos atualizados para schema GraphQL atual (`eventos` em vez de `evento`, `hora` em vez de `horaInício`)
+- **Decomposição modular — analytics**: builders grandes decompostos em módulos focados — `compound_risk` (→ `_compound_risk_evidence` + `_compound_risk_loaders`), `corporate_network` (→ `_corporate_network_context`), `donation_match` (→ `_donation_aggregator` + `_donation_match_counsel`), `_match_helpers` (→ `_match_io` + `_outcome_helpers`), `sanction_corporate_link` (→ `_scl_bridge`). Backward compat preservado via re-imports
+- **Decomposição modular — serving**: `_builder_loaders_analytics` dividido em `_common` (match confidence map), `_risk` (compound risk, velocity, rapporteur change, corporate conflict) e `_sanctions` (sanction matches, SCL, counsel profiles). Tabelas risk-based movidas de `models.py`/`_models_analytics.py` para `_models_analytics_risk.py`
+- **Decomposição modular — fontes externas**: CGU `_runner.py` → `_runner_csv.py` (schema maps, normalização, download incremental); RFB `_runner.py` → `_runner_http.py` (WebDAV PROPFIND, download streaming, extração ZIP). Helpers de auditoria extraídos de `audit_gates.py` para `_audit_helpers.py`
+- **Testes**: 10 arquivos monolíticos decompostos em 31 módulos focados + 6 helpers compartilhados — compound_risk (2), donation_match (4), donor_corporate_link (2), sanction_corporate_link (3), sanction_match (2), CGU runner (2), TSE expenses (2), curated representation (2), API service (2), smoke (2)
+- **Makefile**: `scrape` agora inclui `transparencia-fetch` antes de jurisprudência; target `scrape-unsafe` removido (scrape já usa `--ignore-tls`). `stf-portal-fetch` passa `--ignore-tls` por padrão. Pipeline com dependências explícitas (não order-only). `serving-build` usa `$(CLI)` em vez de `uv run atlas-stf`
+- **README.md**: seção Quick Start com `make setup` como atalho, seção Qualidade e CI reescrita com `make ci`, seção de limpeza com `make clean`/`clean-all`, seção Contribuindo simplificada
+
+### Added
+
+- **Makefile**: target `fetch-all` — baixa todas as fontes de uma vez (STF transparência + jurisprudência, CGU, TSE doações + despesas + órgãos partidários, CVM, RFB, portal STF, agenda GraphQL). DataJud excluído por exigir `DATAJUD_API_KEY`
+- **agenda/_client.py**: exceção `AgendaWafChallengeError` — erro semântico específico para bloqueio WAF (HTTP 202 + `x-amzn-waf-action: challenge`). Fail fast sem retry (retry piora o score do bot)
+- **stf_portal/_config.py**: campo `ignore_tls: bool` em `StfPortalConfig` — bypass de verificação TLS para portal STF (cadeia ICP-Brasil incompleta)
+- **stf_portal/_extractor.py**: parâmetro `ignore_tls` no `PortalExtractor` — propaga `verify=not ignore_tls` ao httpx.Client
+- **cli/_parsers_external.py**: flag `--ignore-tls` no subcomando `stf-portal fetch`
+- **stf_portal/_runner.py**: barra de progresso Rich (`cli_progress`) integrada ao fetch do portal STF — mesmo padrão dos demais comandos (CGU, TSE, CVM, RFB, Agenda)
+- **transparencia/**: módulo de download de CSVs dos painéis de transparência do STF (Qlik Sense) via Playwright headless — 11 painéis disponíveis (acervo, decisões, distribuídos, recebidos/baixados, repercussão geral, controle concentrado, plenário virtual, decisões COVID, reclamações, taxa de provimento, omissão inconstitucional). Suporte a `--dry-run`, `--ignore-tls`, `--paineis` para seleção customizada
+- **cli/_parsers_external.py**: subcomando `transparencia fetch` com flags `--output-dir`, `--paineis`, `--headless`, `--ignore-tls`, `--dry-run`
+- **stf_portal/_runner.py**: execução concorrente com flag `--workers` — `ThreadPoolExecutor` com um `PortalExtractor` independente por thread. Worker único usa caminho sequencial (sem overhead de pool)
+- **stf_portal/_checkpoint.py**: dataclass `PortalCheckpoint` com métodos `is_completed()`, `mark_completed()`, `mark_failed()`, `is_stale()` — substitui manipulação manual de dicionário
+- **cli/_parsers_external.py**: flag `--workers` no subcomando `stf-portal fetch` (default: 1)
+- **Makefile**: targets `setup` (install + npm ci + playwright), `clean`/`clean-all`, `help` (grep de comentários `##`), `ci` (check + test + web-ci), `web-ci` (npm ci + lint + typecheck + build), `reproduce` (pipeline sequencial a partir de data/raw), `format-check`, `lint-fix`, `transparencia-fetch`
+- **Makefile**: todos os targets documentados com comentários `## descrição` — `make help` lista targets disponíveis com descrição
+
+### Fixed
+
+- **rfb/_runner.py**: filtro de membro ZIP ignorava arquivos `ESTABELE` (mainframe-style) — predicado inline substituído por `_is_rfb_data_member()` que aceita `.csv`, `csv` no nome (`SOCIOCSV`, `EMPRECSV`) e `estabele` no nome (`ESTABELE`). Corrige 10× "No CSV found in ZIP" no pass 4
+- **rfb/_runner_fetch.py**: `enrich_and_write_results()` sobrescrevia JSONL com conteúdo vazio quando passes anteriores eram pulados por checkpoint (listas em memória vazias). Nova `_safe_write_jsonl()` preserva arquivos existentes com conteúdo quando não há dados novos
+- **stf_portal/_runner.py**: `except json.JSONDecodeError, ValueError, KeyError:` → `except (json.JSONDecodeError, ValueError, KeyError):` — sintaxe Python 2 que levantaria `TypeError` no Python 3 ao re-fetch de arquivo corrompido
+
 ## [1.0.6] - 2026-03-16
 
 ### Added

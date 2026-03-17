@@ -244,6 +244,23 @@ def run_pass4_estabelecimentos(
     return all_establishments, step
 
 
+def _safe_write_jsonl(
+    path: Path,
+    records: list[dict[str, Any]],
+    enrich_fn: Callable[[dict[str, Any]], Any],
+    label: str,
+) -> None:
+    """Write enriched records to JSONL, skipping if empty and file already has content."""
+    if not records and path.exists() and path.stat().st_size > 0:
+        logger.info("Skipping %s write — no new data and file already has content", label)
+        return
+    with path.open("w", encoding="utf-8") as fh:
+        for r in records:
+            enrich_fn(r)
+            fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+    logger.info("Wrote %d %s records", len(records), label)
+
+
 def enrich_and_write_results(
     *,
     config_output_dir: Path,
@@ -259,26 +276,23 @@ def enrich_and_write_results(
     municipios = tables.get("municipios", {})
     motivos = tables.get("motivos", {})
 
-    # Enrich and write partners
-    partners_path = config_output_dir / "partners_raw.jsonl"
-    with partners_path.open("w", encoding="utf-8") as fh:
-        for p in unique_partners:
-            enrich_partner_record(p, qualificacoes)
-            fh.write(json.dumps(p, ensure_ascii=False) + "\n")
-    logger.info("Wrote %d unique partner records", len(unique_partners))
+    _safe_write_jsonl(
+        config_output_dir / "partners_raw.jsonl",
+        unique_partners,
+        lambda p: enrich_partner_record(p, qualificacoes),
+        "partner",
+    )
 
-    # Enrich and write companies
-    companies_path = config_output_dir / "companies_raw.jsonl"
-    with companies_path.open("w", encoding="utf-8") as fh:
-        for c in all_companies:
-            enrich_company_record(c, naturezas)
-            fh.write(json.dumps(c, ensure_ascii=False) + "\n")
-    logger.info("Wrote %d company records", len(all_companies))
+    _safe_write_jsonl(
+        config_output_dir / "companies_raw.jsonl",
+        all_companies,
+        lambda c: enrich_company_record(c, naturezas),
+        "company",
+    )
 
-    # Enrich and write establishments
-    establishments_path = config_output_dir / "establishments_raw.jsonl"
-    with establishments_path.open("w", encoding="utf-8") as fh:
-        for e in all_establishments:
-            enrich_establishment_record(e, cnaes, municipios, motivos)
-            fh.write(json.dumps(e, ensure_ascii=False) + "\n")
-    logger.info("Wrote %d establishment records", len(all_establishments))
+    _safe_write_jsonl(
+        config_output_dir / "establishments_raw.jsonl",
+        all_establishments,
+        lambda e: enrich_establishment_record(e, cnaes, municipios, motivos),
+        "establishment",
+    )

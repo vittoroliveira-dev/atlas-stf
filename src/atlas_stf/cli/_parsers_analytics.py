@@ -467,9 +467,7 @@ def _add_analytics_parsers(subparsers: Any) -> None:
         help="Output minister flow JSON path",
     )
 
-    analytics_calibrate = analytics_sub.add_parser(
-        "calibrate-match", help="Run fuzzy matching calibration harness"
-    )
+    analytics_calibrate = analytics_sub.add_parser("calibrate-match", help="Run fuzzy matching calibration harness")
     analytics_calibrate.add_argument("--tse-dir", type=Path, default=Path("data/raw/tse"))
     analytics_calibrate.add_argument(
         "--party-path",

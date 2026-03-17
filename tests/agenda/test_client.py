@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from atlas_stf.agenda._client import AgendaClient
+import pytest
+
+from atlas_stf.agenda._client import AgendaClient, AgendaWafChallengeError
 from atlas_stf.agenda._config import AgendaFetchConfig
 
 
@@ -13,42 +15,91 @@ def _cfg(**kw):
     return AgendaFetchConfig(**d)
 
 
+def _browser_response(status: int, body: str, headers: dict[str, str] | None = None) -> dict:
+    """Simulate the dict returned by page.evaluate(fetch(...))."""
+    return {
+        "status": status,
+        "headers": headers or {"content-type": "application/json"},
+        "body": body,
+    }
+
+
 class TestAgendaClient:
     def test_get_success(self):
         data = {"data": {"agendaMinistrosPorDiaCategoria": [{"data": "02/03/2024"}]}}
-        r = MagicMock(status_code=200, text=json.dumps(data), headers={"Content-Type": "application/json"})
-        r.json.return_value = data
-        r.raise_for_status = MagicMock()
-        with patch("atlas_stf.agenda._client.httpx.Client") as C:
-            C.return_value = (m := MagicMock())
-            m.get.return_value = r
-            with AgendaClient(_cfg()) as c:
-                d, meta = c.fetch_month(2024, 3)
-            assert meta["fetch_method"] == "GET"
-            assert meta["contract_version_detected"] is True
 
-    def test_fallback_post(self):
-        data = {"data": {"agendaMinistrosPorDiaCategoria": []}}
-        r403 = MagicMock(status_code=403)
-        r200 = MagicMock(status_code=200, text=json.dumps(data), headers={})
-        r200.json.return_value = data
-        r200.raise_for_status = MagicMock()
-        with patch("atlas_stf.agenda._client.httpx.Client") as C:
-            C.return_value = (m := MagicMock())
-            m.get.return_value = r403
-            m.post.return_value = r200
-            with AgendaClient(_cfg(max_retries=1)) as c:
-                _, meta = c.fetch_month(2024, 3)
-            assert meta["fetch_method"] == "POST"
+        client = AgendaClient(_cfg())
+        client._page = MagicMock()
+        client._page.evaluate.return_value = _browser_response(200, json.dumps(data))
+
+        d, meta = client.fetch_month(2024, 3)
+        assert meta["fetch_method"] == "GET"
+        assert meta["contract_version_detected"] is True
+        assert d["data"]["agendaMinistrosPorDiaCategoria"][0]["data"] == "02/03/2024"
 
     def test_contract_unknown(self):
         data = {"data": {"other": []}}
-        r = MagicMock(status_code=200, text=json.dumps(data), headers={})
-        r.json.return_value = data
-        r.raise_for_status = MagicMock()
-        with patch("atlas_stf.agenda._client.httpx.Client") as C:
-            C.return_value = (m := MagicMock())
-            m.get.return_value = r
-            with AgendaClient(_cfg()) as c:
-                _, meta = c.fetch_month(2024, 3)
-            assert meta["contract_version_detected"] is False
+
+        client = AgendaClient(_cfg())
+        client._page = MagicMock()
+        client._page.evaluate.return_value = _browser_response(200, json.dumps(data))
+
+        _, meta = client.fetch_month(2024, 3)
+        assert meta["contract_version_detected"] is False
+
+    def test_waf_challenge_raises(self):
+        client = AgendaClient(_cfg(max_retries=1))
+        client._page = MagicMock()
+        client._page.evaluate.return_value = _browser_response(
+            202,
+            "",
+            headers={"x-amzn-waf-action": "challenge", "content-type": "text/html"},
+        )
+
+        with pytest.raises(AgendaWafChallengeError, match="WAF challenge"):
+            client.fetch_month(2024, 3)
+
+    def test_waf_challenge_no_retry(self):
+        """WAF challenge must fail fast — no retries."""
+        client = AgendaClient(_cfg(max_retries=3))
+        client._page = MagicMock()
+        client._page.evaluate.return_value = _browser_response(
+            202,
+            "",
+            headers={"x-amzn-waf-action": "challenge", "content-type": "text/html"},
+        )
+
+        with pytest.raises(AgendaWafChallengeError):
+            client.fetch_month(2024, 3)
+
+        # Should have been called exactly once (no retries)
+        assert client._page.evaluate.call_count == 1
+
+    def test_http_error_retries(self):
+        """Network errors should be retried."""
+        data = {"data": {"agendaMinistrosPorDiaCategoria": []}}
+
+        client = AgendaClient(_cfg(max_retries=3))
+        client._page = MagicMock()
+        client._page.evaluate.side_effect = [
+            _browser_response(500, "Internal Server Error"),
+            _browser_response(200, json.dumps(data)),
+        ]
+
+        _, meta = client.fetch_month(2024, 3)
+        assert meta["contract_version_detected"] is True
+        assert client._page.evaluate.call_count == 2
+
+    def test_empty_body_retries(self):
+        """Empty body (non-WAF) should be retried."""
+        data = {"data": {"agendaMinistrosPorDiaCategoria": []}}
+
+        client = AgendaClient(_cfg(max_retries=3))
+        client._page = MagicMock()
+        client._page.evaluate.side_effect = [
+            _browser_response(200, ""),
+            _browser_response(200, json.dumps(data)),
+        ]
+
+        _, meta = client.fetch_month(2024, 3)
+        assert client._page.evaluate.call_count == 2

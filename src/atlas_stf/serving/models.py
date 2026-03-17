@@ -134,9 +134,45 @@ class ServingSchemaMeta(Base):
     built_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
-# Re-export analytics and timeline models for backward compatibility.
+# Re-export analytics, timeline, representation and agenda models.
 # All existing imports from .models continue to work unchanged.
-from ._models_agenda import *  # noqa: E402, F401, F403
-from ._models_analytics import *  # noqa: E402, F401, F403
-from ._models_representation import *  # noqa: E402, F401, F403
-from ._models_timeline import *  # noqa: E402, F401, F403
+from ._models_agenda import (  # noqa: E402, F401
+    ServingAgendaCoverage,
+    ServingAgendaEvent,
+    ServingAgendaExposure,
+)
+from ._models_analytics import (  # noqa: E402, F401
+    ServingAssignmentAudit,
+    ServingCompoundRisk,
+    ServingCorporateConflict,
+    ServingCounselAffinity,
+    ServingCounselDonationProfile,
+    ServingCounselNetworkCluster,
+    ServingCounselSanctionProfile,
+    ServingDecisionVelocity,
+    ServingDonationEvent,
+    ServingDonationMatch,
+    ServingEconomicGroup,
+    ServingMinisterBio,
+    ServingMinisterFlow,
+    ServingMlOutlierScore,
+    ServingOriginContext,
+    ServingPaymentCounterparty,
+    ServingRapporteurChange,
+    ServingRapporteurProfile,
+    ServingSanctionCorporateLink,
+    ServingSanctionMatch,
+    ServingSequentialAnalysis,
+    ServingTemporalAnalysis,
+)
+from ._models_representation import (  # noqa: E402, F401
+    ServingLawFirmEntity,
+    ServingLawyerEntity,
+    ServingProcessLawyer,
+    ServingRepresentationEdge,
+    ServingRepresentationEvent,
+)
+from ._models_timeline import (  # noqa: E402, F401
+    ServingMovement,
+    ServingSessionEvent,
+)

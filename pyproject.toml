@@ -1,6 +1,6 @@
 [project]
 name = "atlas-stf"
-version = "1.0.6"
+version = "1.0.7"
 description = "Análise empírica e documentação metodológica sobre padrões decisórios do STF"
 readme = "README.md"
 requires-python = ">=3.14.3"

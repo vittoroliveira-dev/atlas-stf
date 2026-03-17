@@ -29,6 +29,9 @@ class StfPortalConfig:
     max_retries: int = 3
     retry_delay_seconds: float = 5.0
 
+    # TLS
+    ignore_tls: bool = False
+
     # Timeouts
     page_timeout_ms: int = 30_000
     navigation_timeout_ms: int = 15_000

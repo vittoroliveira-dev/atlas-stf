@@ -20,7 +20,7 @@ def _parse_json_list(raw: str | None) -> list:
         return []
     try:
         return json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return []
 
 
@@ -29,7 +29,7 @@ def _parse_json_dict(raw: str | None) -> dict[str, Any] | None:
         return None
     try:
         return json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return None
 
 

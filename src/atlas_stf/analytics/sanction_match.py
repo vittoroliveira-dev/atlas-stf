@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from collections import Counter, defaultdict
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -57,11 +58,19 @@ def build_sanction_matches(
     process_counsel_link_path: Path = DEFAULT_PROCESS_COUNSEL_LINK_PATH,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
     alias_path: Path = DEFAULT_ALIAS_PATH,
+    on_progress: Callable[[int, int, str], None] | None = None,
 ) -> Path:
     """Build sanction match analytics from CGU raw data + curated entities."""
+    total_steps = 7
+
+    def _step(n: int, desc: str) -> None:
+        if on_progress:
+            on_progress(n, total_steps, desc)
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load sanctions from all available sources
+    _step(0, "Carregando sanções...")
     sanctions: list[dict[str, Any]] = []
 
     cgu_path = cgu_dir / "sanctions_raw.jsonl"
@@ -90,6 +99,7 @@ def build_sanction_matches(
             sanctions_by_name[name].append(s)
 
     # Build indices
+    _step(1, "Construindo índices...")
     party_records = read_jsonl(party_path)
     party_index = build_party_index(party_path)
     party_match_index = build_entity_match_index(
@@ -120,6 +130,7 @@ def build_sanction_matches(
             process_class_map[pid] = pc
 
     # --- Match sanctions to parties (parallel across CPU cores) ---
+    _step(2, "Matching sanções → partes...")
     match_items: list[tuple[str, str | None]] = [
         (norm_name, sanction_list[0].get("entity_cnpj_cpf")) for norm_name, sanction_list in sanctions_by_name.items()
     ]
@@ -224,6 +235,7 @@ def build_sanction_matches(
             )
 
     # --- Match sanctions to counsel (parallel across CPU cores) ---
+    _step(3, "Matching sanções → advogados...")
     counsel_records = read_jsonl(counsel_path)
     counsel_index: dict[str, dict[str, Any]] = {}
     counsel_id_to_name: dict[str, str] = {}
@@ -341,12 +353,14 @@ def build_sanction_matches(
             )
 
     # Write all sanction matches (party + counsel)
+    _step(4, "Escrevendo matches...")
     match_path = output_dir / "sanction_match.jsonl"
     with AtomicJsonlWriter(match_path) as fh:
         for m in matches:
             fh.write(json.dumps(m, ensure_ascii=False) + "\n")
 
     # Build counsel sanction profiles (indirect, via party clients)
+    _step(5, "Perfis de advogados...")
     counsel_client_map = build_counsel_client_map_from_links(
         process_party_link_path, process_counsel_link_path, party_id_to_name, counsel_id_to_name
     )
@@ -380,6 +394,7 @@ def build_sanction_matches(
             fh.write(json.dumps(cp, ensure_ascii=False) + "\n")
 
     # Write summary
+    _step(6, "Resumo...")
     party_matches = [m for m in matches if m["entity_type"] == "party"]
     counsel_direct_matches = [m for m in matches if m["entity_type"] == "counsel"]
 
@@ -411,6 +426,7 @@ def build_sanction_matches(
     summary_path = output_dir / "sanction_match_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    _step(7, "Concluído")
     logger.info(
         "Built sanction matches: %d party + %d counsel matches, %d counsel profiles",
         len(party_matches),

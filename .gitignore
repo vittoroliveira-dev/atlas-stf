@@ -69,6 +69,7 @@ plans/
 
 # Testes e cobertura
 .pytest_cache/
+pytest-of-*/
 .coverage
 htmlcov/
 .ruff_cache/

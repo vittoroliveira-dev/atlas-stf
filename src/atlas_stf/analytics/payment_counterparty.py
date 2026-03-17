@@ -163,9 +163,7 @@ def build_payment_counterparties(
 
             if identity_key not in accumulators:
                 best_name = (
-                    record.get("counterparty_name_rfb", "")
-                    or record.get("counterparty_name", "")
-                    or name_normalized
+                    record.get("counterparty_name_rfb", "") or record.get("counterparty_name", "") or name_normalized
                 )
                 accumulators[identity_key] = _Accumulator(
                     identity_basis=identity_basis,
