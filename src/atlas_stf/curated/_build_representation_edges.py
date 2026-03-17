@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -263,6 +264,31 @@ def _load_portal_docs(portal_dir: Path) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+# Pattern: "Sustentação Oral - ROLE: PARTY_NAME - recebida em DD/MM/YYYY HH:MM:SS"
+_SUSTENTACAO_ORAL_RE = re.compile(
+    r"Sustenta[cç][aã]o\s+Oral\s*-\s*"
+    r"([^:]+?)\s*:\s*"
+    r"(.+?)\s*-\s*recebida\s+em",
+    re.IGNORECASE,
+)
+
+
+def _parse_sustentacao_oral_detail(detail: str) -> tuple[str, str] | None:
+    """Parse sustentação oral detail into (role, party_name).
+
+    Expected format:
+    ``Sustentação Oral - REQUERENTE(S): PARTY NAME - recebida em DD/MM/YYYY HH:MM:SS``
+    """
+    match = _SUSTENTACAO_ORAL_RE.search(detail)
+    if not match:
+        return None
+    role = match.group(1).strip()
+    party_name = match.group(2).strip()
+    if not role or not party_name:
+        return None
+    return role, party_name
+
+
 def build_representation_event_records(
     *,
     process_path: Path,
@@ -287,7 +313,7 @@ def build_representation_event_records(
             continue
         source_url = doc.get("source_url", "")
 
-        # Oral arguments
+        # Oral arguments from oral_arguments field (legacy, currently empty)
         for oral in doc.get("oral_arguments", []):
             lawyer_name = oral.get("lawyer_name")
             event_date = oral.get("session_date")
@@ -314,6 +340,41 @@ def build_representation_event_records(
                     "source_url": source_url,
                     "source_evidence_id": None,
                     "confidence": 0.8,
+                }
+            )
+
+        # Oral arguments from andamentos detail field
+        for andamento in doc.get("andamentos", []):
+            desc = andamento.get("description") or ""
+            if desc.lower() != "sustentação oral":
+                continue
+            detail = andamento.get("detail") or ""
+            event_date = andamento.get("date")
+            if not detail or not event_date:
+                continue
+            parsed = _parse_sustentacao_oral_detail(detail)
+            if not parsed:
+                continue
+            role, party_name = parsed
+            event_desc = f"Sustentacao oral - {role}: {party_name}"
+            composite = f"{process_id}:oral_argument:{event_date}:{party_name}"
+            event_id = stable_id("evt_", composite)
+            records.append(
+                {
+                    "event_id": event_id,
+                    "process_id": process_id,
+                    "edge_id": None,
+                    "lawyer_id": None,
+                    "firm_id": None,
+                    "event_type": "oral_argument",
+                    "event_date": event_date,
+                    "event_description": event_desc,
+                    "protocol_number": None,
+                    "document_type": None,
+                    "source_system": "portal_stf",
+                    "source_url": source_url,
+                    "source_evidence_id": None,
+                    "confidence": 0.9,
                 }
             )
 

@@ -29,8 +29,12 @@ def cli_progress(label: str) -> Generator[ProgressFn]:
 
     Logs from the ``logging`` module are rendered above the progress bar
     via ``rich.console.Console`` so they stay visible.
+
+    When stderr is not a TTY (e.g. ``nohup``), falls back to plain
+    ``logging.StreamHandler`` so that log output is not suppressed.
     """
     console = Console(stderr=True)
+    is_tty = console.is_terminal
 
     progress = Progress(
         SpinnerColumn(),
@@ -41,15 +45,23 @@ def cli_progress(label: str) -> Generator[ProgressFn]:
         TimeElapsedColumn(),
         TimeRemainingColumn(),
         console=console,
+        disable=not is_tty,
     )
 
     # Handler mutation is global state, so serialize concurrent usage.
     with _ROOT_LOGGING_LOCK:
         root = logging.getLogger()
-        rich_handler = RichHandler(console=console, show_path=False, show_time=False)
-        rich_handler.setLevel(logging.DEBUG)
+        original_level = root.level
         original_handlers = root.handlers[:]
-        root.handlers = [rich_handler]
+
+        if is_tty:
+            handler: logging.Handler = RichHandler(console=console, show_path=False, show_time=False)
+        else:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter("%(levelname)-8s %(message)s"))
+        handler.setLevel(logging.DEBUG)
+        root.handlers = [handler]
+        root.setLevel(logging.INFO)
 
         try:
             with progress:
@@ -61,3 +73,4 @@ def cli_progress(label: str) -> Generator[ProgressFn]:
                 yield _update
         finally:
             root.handlers = original_handlers
+            root.level = original_level

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import threading
 from pathlib import Path
 
@@ -82,7 +83,7 @@ def test_round_trip_preserves_content(tmp_path: Path):
 
 
 def test_backward_compat_loads_old_format(tmp_path: Path):
-    """Load checkpoint saved with old list-based format."""
+    """Load checkpoint saved with old list-based format (no incidente_map)."""
     path = tmp_path / "checkpoint.json"
     old_data = {
         "completed_processes": ["ADI 1234", "HC 999"],
@@ -90,12 +91,14 @@ def test_backward_compat_loads_old_format(tmp_path: Path):
         "total_fetched": 2,
         "last_updated": "2026-03-17T00:00:00+00:00",
     }
-    path.write_text(__import__("json").dumps(old_data), encoding="utf-8")
+    path.write_text(json.dumps(old_data), encoding="utf-8")
 
     loaded = load_checkpoint(path)
     assert loaded.is_completed("ADI 1234") is True
     assert loaded.is_completed("HC 999") is True
     assert loaded.total_fetched == 2
+    # incidente_cache should be empty (backward compat)
+    assert loaded.get_incidente("ADI 1234") is None
 
 
 def test_concurrent_mark_completed():
@@ -126,3 +129,48 @@ def test_duplicate_mark_completed_idempotent():
         cp.mark_completed("ADI 1234")
     assert cp.total_fetched == 1
     assert len(cp.completed_processes) == 1
+
+
+# --- Incidente cache tests (Phase 3) ---
+
+
+def test_incidente_cache_set_and_get():
+    cp = PortalCheckpoint()
+    assert cp.get_incidente("ADI 100") is None
+    cp.set_incidente("ADI 100", "123456")
+    assert cp.get_incidente("ADI 100") == "123456"
+
+
+def test_incidente_cache_persists_through_save_load(tmp_path: Path):
+    path = tmp_path / "checkpoint.json"
+    cp = PortalCheckpoint()
+    cp.set_incidente("ADI 100", "111")
+    cp.set_incidente("HC 200", "222")
+    cp.mark_completed("ADI 100")
+
+    save_checkpoint(cp, path)
+    loaded = load_checkpoint(path)
+
+    assert loaded.get_incidente("ADI 100") == "111"
+    assert loaded.get_incidente("HC 200") == "222"
+
+
+def test_incidente_cache_thread_safety():
+    cp = PortalCheckpoint()
+    n_per_thread = 200
+    n_threads = 4
+
+    def worker(thread_id: int) -> None:
+        for i in range(n_per_thread):
+            cp.set_incidente(f"T{thread_id}-P{i}", str(thread_id * 1000 + i))
+
+    threads = [threading.Thread(target=worker, args=(t,)) for t in range(n_threads)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    # Verify all entries exist
+    for tid in range(n_threads):
+        for i in range(n_per_thread):
+            assert cp.get_incidente(f"T{tid}-P{i}") == str(tid * 1000 + i)

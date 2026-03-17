@@ -1,20 +1,20 @@
 """Parse STF portal process pages into structured data.
 
-The STF portal (portal.stf.jus.br) uses ASP.NET server-rendered HTML.
-This module extracts structured data from the HTML response.
+The STF portal (portal.stf.jus.br) uses ASP.NET server-rendered HTML with
+div-based layouts (not tables). Each tab is fetched individually and returns
+an HTML fragment.
 
-The portal exposes process data across several tabs:
-- Informacoes: process metadata (class, rapporteur, origin)
-- Andamentos: procedural timeline events
-- Deslocamentos: redistributions and transfers
-- Peticoes: filed documents/petitions
-- Sessao Virtual: virtual plenary session results
-- Partes: parties and their representatives
-- Sustentacao Oral: oral argument speakers
-
-The parsing strategy is determined by probing (Phase 2B):
-- If JSON endpoints exist -> parse JSON directly
-- If HTML-only -> parse HTML tables and divs
+Tab structure (validated against live portal 2026-03):
+- abaAndamentos: ``<div class="andamento-data">DD/MM/YYYY</div>`` +
+  ``<h5 class="andamento-nome">description</h5>``
+- abaPartes: ``<div class="detalhe-parte">role</div>`` +
+  ``<div class="nome-parte">NAME (OAB/UF)</div>``
+- abaPeticoes: ``<span class="processo-detalhes-bold">protocol</span>`` +
+  ``Peticionado em DD/MM/YYYY`` + ``Recebido em ...``
+- abaDeslocamentos: ``<span class="processo-detalhes-bold">destination</span>``
+  + ``Enviado por ... em DD/MM/YYYY`` + ``Guia ...`` + ``Recebido em ...``
+- abaInformacoes: label/value div pairs with ``processo-detalhes-bold``
+- abaSessao: JS-rendered voting widget (limited static content)
 """
 
 from __future__ import annotations
@@ -58,331 +58,314 @@ def _parse_date(text: str | None) -> str | None:
     return None
 
 
-def parse_andamentos_html(html: str) -> list[dict[str, Any]]:
-    """Parse andamentos (procedural events) from HTML.
+# ---------------------------------------------------------------------------
+# Andamentos
+# ---------------------------------------------------------------------------
 
-    Expected structure: table or div list with date + description pairs.
-    Returns list of {date, description, detail} dicts.
+_ANDAMENTO_RE = re.compile(
+    r'<div\s+class="andamento-data[^"]*">\s*([\d/]+)\s*</div>'
+    r".*?"
+    r'<h5\s+class="andamento-nome[^"]*">\s*(.*?)\s*</h5>',
+    re.DOTALL,
+)
+
+# Detail text lives in a sibling div: <div class="col-md-9 p-0">text</div>
+_ANDAMENTO_DETAIL_RE = re.compile(
+    r'<div\s+class="col-md-9\s+p-0\s*">\s*(.*?)\s*</div>',
+    re.DOTALL,
+)
+
+
+def parse_andamentos_html(html: str) -> list[dict[str, Any]]:
+    """Parse andamentos (procedural events) from abaAndamentos HTML.
+
+    Real structure:
+    ``<div class="andamento-data ">18/06/2025</div>``
+    ``<h5 class="andamento-nome ">Conclusos ao(à) Relator(a)</h5>``
+    ``<div class="col-md-9 p-0">detail text</div>``
     """
     events: list[dict[str, Any]] = []
-
-    # Pattern: rows with date and description cells
-    # The exact selectors will be refined after Phase 2B probing
-    row_pattern = re.compile(
-        r"<tr[^>]*>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>(?:\s*<td[^>]*>(.*?)</td>)?",
-        re.DOTALL | re.IGNORECASE,
-    )
-
-    for match in row_pattern.finditer(html):
-        date_text = _clean_text(match.group(1))
+    for match in _ANDAMENTO_RE.finditer(html):
+        date_text = match.group(1).strip()
         desc_text = _clean_text(match.group(2))
-        detail_text = _clean_text(match.group(3)) if match.group(3) else None
-
         parsed_date = _parse_date(date_text)
         if not parsed_date or not desc_text:
             continue
-
+        # Extract detail from the next col-md-9 div after this match
+        detail: str | None = None
+        after = html[match.end() : match.end() + 2000]
+        detail_match = _ANDAMENTO_DETAIL_RE.search(after)
+        if detail_match:
+            detail = _clean_text(detail_match.group(1))
         events.append(
             {
                 "date": parsed_date,
                 "description": desc_text,
-                "detail": detail_text,
+                "detail": detail,
                 "tab_name": "Andamentos",
             }
         )
-
     return events
+
+
+# ---------------------------------------------------------------------------
+# Deslocamentos
+# ---------------------------------------------------------------------------
+
+_DESLOCAMENTO_RE = re.compile(
+    r'<div\s+class="col-md-12\s+lista-dados\s+p-r-0\s+p-l-0">'
+    r'.*?<span\s+class="processo-detalhes-bold">\s*(.*?)\s*</span>'
+    r".*?Enviado por\s+(.*?)\s+em\s+([\d/]+)"
+    r".*?Guia\s+([\d/]+)"
+    r".*?Recebido em\s+([\d/]+)",
+    re.DOTALL,
+)
 
 
 def parse_deslocamentos_html(html: str) -> list[dict[str, Any]]:
-    """Parse deslocamentos (transfers/redistributions) from HTML.
+    """Parse deslocamentos (transfers) from abaDeslocamentos HTML.
 
-    Returns list of {date, origin, destination, reason} dicts.
+    Real structure: div blocks with destination, sender, sent date, guia,
+    and received date.
     """
     events: list[dict[str, Any]] = []
-
-    row_pattern = re.compile(
-        r"<tr[^>]*>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>"
-        r"\s*<td[^>]*>(.*?)</td>(?:\s*<td[^>]*>(.*?)</td>)?",
-        re.DOTALL | re.IGNORECASE,
-    )
-
-    for match in row_pattern.finditer(html):
-        date_text = _clean_text(match.group(1))
+    for match in _DESLOCAMENTO_RE.finditer(html):
+        destination = _clean_text(match.group(1))
         origin = _clean_text(match.group(2))
-        destination = _clean_text(match.group(3))
-        reason = _clean_text(match.group(4)) if match.group(4) else None
+        sent_date = _parse_date(match.group(3))
+        guia = match.group(4).strip()
+        received_date = _parse_date(match.group(5))
 
-        parsed_date = _parse_date(date_text)
-        if not parsed_date:
+        if not sent_date:
             continue
-
         events.append(
             {
-                "date": parsed_date,
+                "date": sent_date,
                 "origin": origin,
                 "destination": destination,
-                "reason": reason,
+                "guia": guia,
+                "received_date": received_date,
                 "tab_name": "Deslocamentos",
             }
         )
-
     return events
 
 
-def parse_peticoes_html(html: str) -> list[dict[str, Any]]:
-    """Parse peticoes (filed documents) from HTML.
+# ---------------------------------------------------------------------------
+# Petições
+# ---------------------------------------------------------------------------
 
-    Returns list of {date, type, protocol} dicts.
+_PETICAO_RE = re.compile(
+    r'<span\s+class="processo-detalhes-bold">\s*([\d/]+)\s*</span>\s*'
+    r'<span\s+class="processo-detalhes">\s*Peticionado em ([\d/]+)\s*</span>',
+    re.DOTALL,
+)
+
+_PETICAO_RECEBIDO_RE = re.compile(
+    r"Recebido em ([\d/]+\s*[\d:]*)\s+por\s+(.*?)(?:</span>|$)",
+    re.DOTALL,
+)
+
+
+def parse_peticoes_html(html: str) -> list[dict[str, Any]]:
+    """Parse petições from abaPeticoes HTML.
+
+    Real structure:
+    ``<span class="processo-detalhes-bold">84897/2025</span>``
+    ``<span class="processo-detalhes">Peticionado em 18/06/2025</span>``
     """
     events: list[dict[str, Any]] = []
-
-    row_pattern = re.compile(
-        r"<tr[^>]*>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>"
-        r"(?:\s*<td[^>]*>(.*?)</td>)?",
-        re.DOTALL | re.IGNORECASE,
-    )
-
-    for match in row_pattern.finditer(html):
-        date_text = _clean_text(match.group(1))
-        doc_type = _clean_text(match.group(2))
-        protocol = _clean_text(match.group(3)) if match.group(3) else None
-
+    for match in _PETICAO_RE.finditer(html):
+        protocol = match.group(1).strip()
+        date_text = match.group(2).strip()
         parsed_date = _parse_date(date_text)
         if not parsed_date:
             continue
 
+        # Try to find the "Recebido em" line nearby
+        receiver: str | None = None
+        after_text = html[match.end() : match.end() + 300]
+        rec_match = _PETICAO_RECEBIDO_RE.search(after_text)
+        if rec_match:
+            receiver = _clean_text(rec_match.group(2))
+
         events.append(
             {
                 "date": parsed_date,
-                "type": doc_type,
                 "protocol": protocol,
+                "receiver": receiver,
                 "tab_name": "Peticoes",
             }
         )
-
     return events
+
+
+# ---------------------------------------------------------------------------
+# Sessão Virtual
+# ---------------------------------------------------------------------------
 
 
 def parse_sessao_virtual_html(html: str) -> list[dict[str, Any]]:
-    """Parse sessao virtual (virtual plenary sessions) from HTML.
+    """Parse sessão virtual data from abaSessao HTML.
 
-    Returns list of {start_date, end_date, result} dicts.
+    The abaSessao tab uses JS to load voting data from an external API.
+    Static parsing captures minimal data; returns empty if no static content.
     """
-    events: list[dict[str, Any]] = []
+    # The abaSessao tab is largely JS-rendered; static HTML has script tags
+    # with AJAX calls to sistemas.stf.jus.br/repgeral/votacao. We cannot
+    # extract structured data without executing JS.
+    return []
 
-    row_pattern = re.compile(
-        r"<tr[^>]*>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>"
-        r"\s*<td[^>]*>(.*?)</td>",
-        re.DOTALL | re.IGNORECASE,
-    )
 
-    for match in row_pattern.finditer(html):
-        start_text = _clean_text(match.group(1))
-        end_text = _clean_text(match.group(2))
-        result_text = _clean_text(match.group(3))
+# ---------------------------------------------------------------------------
+# Informações
+# ---------------------------------------------------------------------------
 
-        start_date = _parse_date(start_text)
-        end_date = _parse_date(end_text)
-        if not start_date:
-            continue
+_INFO_LABEL_RE = re.compile(
+    r'<div[^>]*class="[^"]*processo-detalhes-bold[^"]*"[^>]*>\s*'
+    r"(.*?)\s*</div>\s*"
+    r'<div[^>]*class="[^"]*processo-detalhes(?:-bold)?[^"]*"[^>]*>\s*'
+    r"(.*?)\s*</div>",
+    re.DOTALL,
+)
 
-        events.append(
-            {
-                "start_date": start_date,
-                "end_date": end_date,
-                "result": result_text,
-                "tab_name": "Sessao Virtual",
-            }
-        )
-
-    return events
+_INFO_ASSUNTO_RE = re.compile(
+    r'<div[^>]*class="[^"]*informacoes__assunto[^"]*"[^>]*>.*?<ul>(.*?)</ul>',
+    re.DOTALL,
+)
 
 
 def parse_informacoes_html(html: str) -> dict[str, Any]:
-    """Parse informacoes (process metadata) from HTML.
+    """Parse informações (process metadata) from abaInformacoes HTML.
 
-    Returns dict with class, rapporteur, judging body, origin, prevention.
+    Real structure: div pairs with ``processo-detalhes-bold`` labels and
+    ``processo-detalhes`` values. Assunto is a ``<ul>`` of ``<li>`` items.
     """
     info: dict[str, Any] = {"tab_name": "Informacoes"}
 
-    # Common pattern: label/value pairs in definition lists or tables
-    # These selectors will be refined after probing
-    label_value_pattern = re.compile(
-        r"<(?:dt|th|label)[^>]*>(.*?)</(?:dt|th|label)>\s*"
-        r"<(?:dd|td|span)[^>]*>(.*?)</(?:dd|td|span)>",
-        re.DOTALL | re.IGNORECASE,
-    )
-
     field_map: dict[str, str] = {
-        "classe": "classe",
-        "relator": "relator_atual",
-        "orgao julgador": "orgao_julgador",
+        "data de protocolo": "data_protocolo",
+        "órgão de origem": "orgao_origem",
+        "orgao de origem": "orgao_origem",
         "origem": "origem",
-        "procedencia": "origem",
-        "prevencao": "prevencao",
+        "número de origem": "numero_origem",
+        "numero de origem": "numero_origem",
     }
 
-    for match in label_value_pattern.finditer(html):
+    for match in _INFO_LABEL_RE.finditer(html):
         label = _clean_text(match.group(1))
         value = _clean_text(match.group(2))
         if not label or not value:
             continue
-        label_lower = label.lower()
+        label_lower = label.lower().rstrip(":")
         for key, field_name in field_map.items():
             if key in label_lower and field_name not in info:
                 info[field_name] = value
                 break
 
+    # Extract assuntos
+    assunto_match = _INFO_ASSUNTO_RE.search(html)
+    if assunto_match:
+        items = re.findall(r"<li>(.*?)</li>", assunto_match.group(1), re.DOTALL)
+        info["assuntos"] = [_clean_text(item) for item in items if _clean_text(item)]
+
+    # Extract orgao-procedencia and descricao-procedencia spans
+    proc_match = re.search(r'<span\s+id="orgao-procedencia">\s*(.*?)\s*</span>', html, re.DOTALL)
+    if proc_match:
+        val = _clean_text(proc_match.group(1))
+        if val:
+            info["orgao_procedencia"] = val
+
+    desc_match = re.search(r'<span\s+id="descricao-procedencia">\s*(.*?)\s*</span>', html, re.DOTALL)
+    if desc_match:
+        val = _clean_text(desc_match.group(1))
+        if val:
+            info["descricao_procedencia"] = val
+
     return info
 
 
 # ---------------------------------------------------------------------------
-# Phase 2B: Representation-network parsers
+# Partes e Representantes
 # ---------------------------------------------------------------------------
 
-_OAB_INLINE_RE = re.compile(
-    r"OAB\s*[:/]?\s*(\d{1,6})\s*/\s*([A-Z]{2})",
-    re.IGNORECASE,
+_PARTE_RE = re.compile(
+    r'<div\s+class="detalhe-parte">\s*(.*?)\s*</div>\s*'
+    r'<div\s+class="nome-parte">\s*(.*?)\s*</div>',
+    re.DOTALL,
 )
+
+_OAB_INLINE_RE = re.compile(r"\((\d{1,6})/([A-Z]{2})\)")
 
 
 def parse_partes_representantes_html(html: str) -> list[dict[str, Any]]:
-    """Extract representation data from the 'Partes' tab.
+    """Extract parties and representatives from abaPartes HTML.
 
-    Expected HTML structure (ASP.NET rendered):
-    <div class="parte-grupo">
-      <span class="parte-nome">PARTY NAME</span>
-      <span class="parte-qualificacao">REQTE</span>
-      <div class="representantes">
-        <span class="representante-nome">LAWYER NAME (OAB 12345/SP)</span>
-        <span class="escritorio">FIRM NAME</span>
-      </div>
-    </div>
+    Real structure:
+    ``<div class="detalhe-parte">REQTE.(S)</div>``
+    ``<div class="nome-parte">NOME (12345/SP)</div>``
 
-    Returns list of dicts with: party_name, party_role, lawyer_name,
-    oab_number, oab_state, firm_name.
+    OAB numbers are inline in the name for ADV entries: ``NAME (12345/UF)``.
     """
     results: list[dict[str, Any]] = []
-
-    # Table-based layout with party + representatives
-    row_pattern = re.compile(
-        r"<tr[^>]*>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>"
-        r"\s*<td[^>]*>(.*?)</td>(?:\s*<td[^>]*>(.*?)</td>)?(?:\s*<td[^>]*>(.*?)</td>)?",
-        re.DOTALL | re.IGNORECASE,
-    )
-
-    for match in row_pattern.finditer(html):
-        party_name = _clean_text(match.group(1))
-        party_role = _clean_text(match.group(2))
-        lawyer_name_raw = _clean_text(match.group(3))
-        oab_raw = _clean_text(match.group(4)) if match.group(4) else None
-        firm_raw = _clean_text(match.group(5)) if match.group(5) else None
-
-        if not party_name or not lawyer_name_raw:
+    for match in _PARTE_RE.finditer(html):
+        role = _clean_text(match.group(1))
+        name_raw = _clean_text(match.group(2))
+        if not role or not name_raw:
             continue
 
-        # Try to extract OAB from inline text or dedicated column
         oab_number: str | None = None
         oab_state: str | None = None
+        name = name_raw
 
-        oab_source = oab_raw or lawyer_name_raw
-        oab_match = _OAB_INLINE_RE.search(oab_source)
+        oab_match = _OAB_INLINE_RE.search(name_raw)
         if oab_match:
-            oab_number = f"{oab_match.group(1)}/{oab_match.group(2).upper()}"
-            oab_state = oab_match.group(2).upper()
+            oab_number = f"{oab_match.group(1)}/{oab_match.group(2)}"
+            oab_state = oab_match.group(2)
+            name = name_raw[: oab_match.start()].strip()
 
-        entry: dict[str, Any] = {
-            "party_name": party_name,
-            "party_role": party_role,
-            "lawyer_name": lawyer_name_raw,
-            "oab_number": oab_number,
-            "oab_state": oab_state,
-            "firm_name": None,
-        }
-
-        if firm_raw:
-            entry["firm_name"] = firm_raw
-            entry["affiliation_confidence"] = "low"
-
-        results.append(entry)
-
+        results.append(
+            {
+                "party_name": name,
+                "party_role": role,
+                "oab_number": oab_number,
+                "oab_state": oab_state,
+            }
+        )
     return results
+
+
+# ---------------------------------------------------------------------------
+# Petições detalhadas (reusa parse_peticoes_html)
+# ---------------------------------------------------------------------------
 
 
 def parse_peticoes_detailed_html(html: str) -> list[dict[str, Any]]:
-    """Extended petition parser that captures petitioner name.
+    """Extended petition parser — same data as parse_peticoes_html.
 
-    Expected HTML structure: table rows with date, petitioner, type, protocol.
-    Returns list of dicts with: date, petitioner_name, document_type, protocol.
+    The portal does not expose petitioner names in the HTML fragment.
+    Returns the same structure as parse_peticoes_html.
     """
-    results: list[dict[str, Any]] = []
+    return parse_peticoes_html(html)
 
-    row_pattern = re.compile(
-        r"<tr[^>]*>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>"
-        r"\s*<td[^>]*>(.*?)</td>(?:\s*<td[^>]*>(.*?)</td>)?",
-        re.DOTALL | re.IGNORECASE,
-    )
 
-    for match in row_pattern.finditer(html):
-        date_text = _clean_text(match.group(1))
-        petitioner_name = _clean_text(match.group(2))
-        doc_type = _clean_text(match.group(3))
-        protocol = _clean_text(match.group(4)) if match.group(4) else None
-
-        parsed_date = _parse_date(date_text)
-        if not parsed_date or not petitioner_name:
-            continue
-
-        results.append(
-            {
-                "date": parsed_date,
-                "petitioner_name": petitioner_name,
-                "document_type": doc_type,
-                "protocol": protocol,
-                "tab_name": "Peticoes",
-            }
-        )
-
-    return results
+# ---------------------------------------------------------------------------
+# Sustentação Oral
+# ---------------------------------------------------------------------------
 
 
 def parse_oral_argument_html(html: str) -> list[dict[str, Any]]:
-    """Extract oral argument (sustentacao oral) data from HTML.
+    """Extract oral argument data from abaSessao HTML.
 
-    Expected HTML structure: table with lawyer, party, session date, session type.
-    Returns list of dicts with: lawyer_name, party_represented, session_date,
-    session_type.
+    The abaSessao tab is JS-rendered; oral argument data is not available
+    in the static HTML. Returns empty list.
     """
-    results: list[dict[str, Any]] = []
+    return []
 
-    row_pattern = re.compile(
-        r"<tr[^>]*>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>"
-        r"\s*<td[^>]*>(.*?)</td>(?:\s*<td[^>]*>(.*?)</td>)?",
-        re.DOTALL | re.IGNORECASE,
-    )
 
-    for match in row_pattern.finditer(html):
-        lawyer_name = _clean_text(match.group(1))
-        party_represented = _clean_text(match.group(2))
-        session_date_raw = _clean_text(match.group(3))
-        session_type = _clean_text(match.group(4)) if match.group(4) else None
-
-        session_date = _parse_date(session_date_raw)
-        if not lawyer_name or not session_date:
-            continue
-
-        results.append(
-            {
-                "lawyer_name": lawyer_name,
-                "party_represented": party_represented,
-                "session_date": session_date,
-                "session_type": session_type,
-                "tab_name": "Sustentacao Oral",
-            }
-        )
-
-    return results
+# ---------------------------------------------------------------------------
+# Document assembly
+# ---------------------------------------------------------------------------
 
 
 def build_process_document(

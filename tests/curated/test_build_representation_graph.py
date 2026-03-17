@@ -343,6 +343,7 @@ def test_build_representation_jsonl_no_portal(tmp_path: Path):
         process_path=process_path,
         portal_dir=tmp_path / "portal",
         curated_dir=curated_dir,
+        deoab_dir=tmp_path / "deoab",
     )
 
     # Lawyers from process data should still be built

@@ -94,7 +94,8 @@ O repositório combina quatro frentes operacionais:
 | `agenda` | Fetcher de agenda ministerial da API GraphQL do STF, builder de eventos e analytics de exposição | `src/atlas_stf/agenda/`, `tests/agenda/` |
 | `serving` | Banco de serving (41 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
 | `api` | Endpoints FastAPI (73) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
-| `stf_portal` | Extrator de linha do tempo processual do portal STF (httpx) | `src/atlas_stf/stf_portal/`, `tests/stf_portal/` |
+| `stf_portal` | Extrator de linha do tempo processual do portal STF (httpx) com proxy rotation per-IP | `src/atlas_stf/stf_portal/`, `tests/stf_portal/` |
+| `deoab` | Sociedades de advocacia do Diário Eletrônico da OAB (PDF público → JSONL) | `src/atlas_stf/deoab/`, `tests/deoab/` |
 | `cgu` | Dados CGU (CEIS/CNEP/Leniência) para cruzamento de sanções | `src/atlas_stf/cgu/`, `tests/cgu/` |
 | `tse` | Doações eleitorais TSE (12 ciclos, 2002–2024), despesas de campanha de candidatos (7 ciclos, 2002–2024), finanças de órgãos partidários (2018–2024) e vínculos corporativos de doadores (join TSE→RFB) | `src/atlas_stf/tse/`, `tests/tse/` |
 | `cvm` | Processos sancionadores CVM (mercado de capitais) | `src/atlas_stf/cvm/`, `tests/cvm/` |
@@ -117,8 +118,9 @@ O repositório combina quatro frentes operacionais:
 | RFB Dados Abertos CNPJ | ZIP/CSV dados abertos | Sócios, Empresas e Estabelecimentos (~3,3M registros) |
 | DataJud CNJ | API REST (httpx) | Agregações por tribunal de origem |
 | PDPJ/CNJ TPU | API REST (gateway.cloud.pje.jus.br) | Tabelas Processuais Unificadas (847 classes, 957 movimentos, 5598 assuntos) |
-| Portal STF | HTTP scraping (httpx) | Linha do tempo processual (andamentos, sessões, vistas) |
+| Portal STF | HTTP scraping (httpx) | Linha do tempo processual (andamentos, sessões, vistas, sustentação oral) |
 | STF GraphQL | API GraphQL (httpx) | Agenda ministerial (audiências, sessões, compromissos) |
+| DEOAB (Diário Eletrônico da OAB) | PDF público (pdftotext) | Registros de sociedades de advocacia, vínculos OAB→escritório (2019–presente) |
 
 ## Arquitetura
 
@@ -166,13 +168,13 @@ flowchart LR
 
 ```bash
 docker pull ghcr.io/vittoroliveira-dev/atlas-stf:latest
-docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.0.6
+docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.0.8
 ```
 
 ### Via wheel (release asset)
 
 ```bash
-pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.0.6-py3-none-any.whl
+pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.0.8-py3-none-any.whl
 ```
 
 Após a instalação, a CLI fica disponível:
@@ -246,6 +248,7 @@ make cvm             # Sanções CVM
 make rfb             # Rede corporativa RFB
 make agenda          # Agenda ministerial (fetch + build + exposure)
 make stf-portal      # Linha do tempo do portal STF
+make deoab           # Sociedades de advocacia (DEOAB)
 make evidence        # Bundles de evidência
 make serving-build   # Materializa banco SQLite para API
 
@@ -366,6 +369,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | Validação OAB | `uv run atlas-stf oab validate --provider null` |
 | Extração de documentos | `uv run atlas-stf doc-extract run` |
 | STF Portal | `uv run atlas-stf stf-portal fetch` |
+| DEOAB (sociedades OAB) | `uv run atlas-stf deoab fetch` |
 | Analytics (todos) | `uv run atlas-stf analytics ...` |
 | Evidence | `uv run atlas-stf evidence ...` |
 | Serving | `uv run atlas-stf serving build ...` |
@@ -483,6 +487,7 @@ atlas-stf/
 │   ├── rfb/              # RFB dados abertos CNPJ (CSV)
 │   ├── datajud/          # DataJud CNJ (httpx)
 │   ├── oab/              # Validação OAB CNA/CNSA
+│   ├── deoab/            # DEOAB sociedades de advocacia (pdftotext)
 │   └── doc_extractor/    # Extração seletiva de PDFs
 ├── web/                  # Dashboard Next.js 16 + React 19 + TypeScript
 │   ├── src/app/          # 26 páginas (App Router, async Server Components)
@@ -567,7 +572,7 @@ O pipeline de CI roda em cada push/PR para `main`:
 - Banco de serving para consumo de produto.
 - API HTTP com filtros e detalhes de entidades, origem, sanções, doações, vínculos, afinidade, velocidade decisória, redistribuição de relatoria e rede de advogados.
 - Dashboard navegável por recortes, alertas, casos, entidades, análise temporal, risco composto, velocidade decisória, redistribuição, rede de advogados e módulos complementares.
-- Cruzamento com 9 fontes externas (CGU, TSE doações, TSE despesas de campanha, TSE órgãos partidários, CVM, RFB, DataJud, Jurisprudência, DJe).
+- Cruzamento com 10 fontes externas (CGU, TSE doações, TSE despesas de campanha, TSE órgãos partidários, CVM, RFB, DataJud, Jurisprudência, DJe, DEOAB).
 - Proveniência por registro nas doações TSE (record_hash, source_file, source_url, collected_at, ingest_run_id).
 - Rollup analítico de contrapartes de pagamento de órgãos partidários (identidade estável, proveniência resumida).
 - Join formal TSE→RFB para identidade corporativa de doadores (CPF/CNPJ determinístico, trilha auditável completa com `donor_corporate_link.jsonl`).

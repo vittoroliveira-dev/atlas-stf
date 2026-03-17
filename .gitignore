@@ -20,6 +20,8 @@ data/raw/**/*.csv
 data/raw/**/*.jsonl
 data/raw/**/*.json
 data/raw/**/*.log
+data/raw/**/*.pdf
+data/raw/**/*.xlsx
 data/raw/rfb/
 data/staging/
 data/curated/
@@ -38,6 +40,9 @@ scripts/probe_results/
 reports/
 data/pipeline.log
 data/.pipeline_done_*
+nohup.out
+portal-fetch.log
+portal-fetch.old.log
 
 # Secrets e configs locais
 .env
@@ -73,6 +78,9 @@ pytest-of-*/
 .coverage
 htmlcov/
 .ruff_cache/
+coverage/
+.coverage/
+.coverage.*
 
 # Playwright
 playwright-report/

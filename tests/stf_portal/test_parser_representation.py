@@ -1,4 +1,8 @@
-"""Tests for STF portal HTML parser — representation-network functions."""
+"""Tests for STF portal HTML parser — representation-network functions.
+
+Test HTML mirrors the real portal structure (div-based, not tables).
+Patterns validated against live portal 2026-03.
+"""
 
 from __future__ import annotations
 
@@ -14,45 +18,60 @@ from atlas_stf.stf_portal._parser import (
 # ---------------------------------------------------------------------------
 
 
-def test_parse_partes_representantes_html_table():
+def test_parse_partes_representantes_html_basic():
     html = """
-    <table>
-    <tr><th>Parte</th><th>Qualificacao</th><th>Representante</th></tr>
-    <tr><td>Estado de Sao Paulo</td><td>REQTE</td><td>Joao da Silva</td></tr>
-    </table>
+    <div class="processo-partes lista-dados m-l-16 p-t-0">
+        <div class="detalhe-parte">REQTE.(S)</div>
+        <div class="nome-parte">ESTADO DE SAO PAULO</div>
+    </div>
     """
     results = parse_partes_representantes_html(html)
 
     assert len(results) == 1
-    assert results[0]["party_name"] == "Estado de Sao Paulo"
-    assert results[0]["party_role"] == "REQTE"
-    assert results[0]["lawyer_name"] == "Joao da Silva"
+    assert results[0]["party_name"] == "ESTADO DE SAO PAULO"
+    assert results[0]["party_role"] == "REQTE.(S)"
+    assert results[0]["oab_number"] is None
 
 
-def test_parse_partes_representantes_html_with_oab_in_name():
+def test_parse_partes_representantes_html_with_oab():
     html = """
-    <table>
-    <tr><td>Uniao</td><td>REQDO</td><td>Maria Oliveira</td><td>OAB 12345/SP</td></tr>
-    </table>
+    <div class="processo-partes lista-dados m-l-16 p-t-0">
+        <div class="detalhe-parte">ADV.(A/S)</div>
+        <div class="nome-parte">AMANDA SOUTO BALIZA (36578/GO)</div>
+    </div>
     """
     results = parse_partes_representantes_html(html)
 
     assert len(results) == 1
-    assert results[0]["oab_number"] == "12345/SP"
-    assert results[0]["oab_state"] == "SP"
+    assert results[0]["party_name"] == "AMANDA SOUTO BALIZA"
+    assert results[0]["party_role"] == "ADV.(A/S)"
+    assert results[0]["oab_number"] == "36578/GO"
+    assert results[0]["oab_state"] == "GO"
 
 
-def test_parse_partes_representantes_html_with_firm_name():
+def test_parse_partes_representantes_html_multiple():
     html = """
-    <table>
-    <tr><td>Empresa X</td><td>REQTE</td><td>Ana Costa</td><td>OAB 999/RJ</td><td>Costa Advogados</td></tr>
-    </table>
+    <div id="todas-partes">
+        <div class="processo-partes lista-dados m-l-16 p-t-0">
+            <div class="detalhe-parte">REQTE.(S)</div>
+            <div class="nome-parte">ALIANCA NACIONAL LGBTI</div>
+        </div>
+        <div class="processo-partes lista-dados m-l-16 p-t-0">
+            <div class="detalhe-parte">ADV.(A/S)</div>
+            <div class="nome-parte">PAULO IOTTI (242668/SP)</div>
+        </div>
+        <div class="processo-partes lista-dados m-l-16 p-t-0">
+            <div class="detalhe-parte">INTDO.(A/S)</div>
+            <div class="nome-parte">ASSEMBLEIA LEGISLATIVA</div>
+        </div>
+    </div>
     """
     results = parse_partes_representantes_html(html)
 
-    assert len(results) == 1
-    assert results[0]["firm_name"] == "Costa Advogados"
-    assert results[0]["affiliation_confidence"] == "low"
+    assert len(results) == 3
+    assert results[0]["oab_number"] is None
+    assert results[1]["oab_number"] == "242668/SP"
+    assert results[2]["party_role"] == "INTDO.(A/S)"
 
 
 def test_parse_partes_representantes_html_empty():
@@ -60,55 +79,34 @@ def test_parse_partes_representantes_html_empty():
     assert parse_partes_representantes_html("<html><body>No data</body></html>") == []
 
 
-def test_parse_partes_representantes_html_no_oab():
-    html = """
-    <table>
-    <tr><td>Municipio Y</td><td>INTDO</td><td>Pedro Santos</td></tr>
-    </table>
-    """
-    results = parse_partes_representantes_html(html)
-
-    assert len(results) == 1
-    assert results[0]["oab_number"] is None
-    assert results[0]["oab_state"] is None
-    assert results[0]["firm_name"] is None
-
-
 # ---------------------------------------------------------------------------
 # parse_peticoes_detailed_html
 # ---------------------------------------------------------------------------
 
 
-def test_parse_peticoes_detailed_html_table():
+def test_parse_peticoes_detailed_html():
     html = """
-    <table>
-    <tr><td>15/03/2026</td><td>Joao da Silva</td><td>Recurso Extraordinario</td><td>PROT-123</td></tr>
-    </table>
+    <div class="col-md-12 lista-dados">
+        <div class="col-6">
+            <span class="processo-detalhes-bold">78721/2025</span>
+            <span class="processo-detalhes">Peticionado em 09/06/2025</span>
+        </div>
+        <div class="col-6">
+            <span class="processo-detalhes">Recebido em 09/06/2025 11:21:15 por SEÇÃO X</span>
+        </div>
+    </div>
     """
     results = parse_peticoes_detailed_html(html)
 
     assert len(results) == 1
-    assert results[0]["date"] == "2026-03-15"
-    assert results[0]["petitioner_name"] == "Joao da Silva"
-    assert results[0]["document_type"] == "Recurso Extraordinario"
-    assert results[0]["protocol"] == "PROT-123"
+    assert results[0]["date"] == "2025-06-09"
+    assert results[0]["protocol"] == "78721/2025"
     assert results[0]["tab_name"] == "Peticoes"
 
 
 def test_parse_peticoes_detailed_html_empty():
     assert parse_peticoes_detailed_html("") == []
-    assert parse_peticoes_detailed_html("<table></table>") == []
-
-
-def test_parse_peticoes_detailed_html_no_date():
-    html = """
-    <table>
-    <tr><td>invalid</td><td>Someone</td><td>Type</td></tr>
-    </table>
-    """
-    results = parse_peticoes_detailed_html(html)
-
-    assert results == []
+    assert parse_peticoes_detailed_html("<div></div>") == []
 
 
 # ---------------------------------------------------------------------------
@@ -116,20 +114,14 @@ def test_parse_peticoes_detailed_html_no_date():
 # ---------------------------------------------------------------------------
 
 
-def test_parse_oral_argument_html_table():
+def test_parse_oral_argument_html_returns_empty():
+    """abaSessao is JS-rendered; static parsing returns empty."""
     html = """
-    <table>
-    <tr><td>Ana Costa</td><td>Estado X</td><td>20/04/2026</td><td>Plenario</td></tr>
-    </table>
+    <input type="hidden" id="env" value="p">
+    <div class="col-12"><script>$.ajax({...});</script></div>
     """
     results = parse_oral_argument_html(html)
-
-    assert len(results) == 1
-    assert results[0]["lawyer_name"] == "Ana Costa"
-    assert results[0]["party_represented"] == "Estado X"
-    assert results[0]["session_date"] == "2026-04-20"
-    assert results[0]["session_type"] == "Plenario"
-    assert results[0]["tab_name"] == "Sustentacao Oral"
+    assert results == []
 
 
 def test_parse_oral_argument_html_empty():
@@ -137,19 +129,8 @@ def test_parse_oral_argument_html_empty():
     assert parse_oral_argument_html("<html></html>") == []
 
 
-def test_parse_oral_argument_html_no_date():
-    html = """
-    <table>
-    <tr><td>Lawyer A</td><td>Party B</td><td>sem data</td></tr>
-    </table>
-    """
-    results = parse_oral_argument_html(html)
-
-    assert results == []
-
-
 # ---------------------------------------------------------------------------
-# build_process_document — new representation fields
+# build_process_document — representation fields
 # ---------------------------------------------------------------------------
 
 
@@ -163,7 +144,7 @@ def test_build_process_document_includes_representantes():
         peticoes=[],
         sessao_virtual=[],
         informacoes={},
-        representantes=[{"party_name": "X", "lawyer_name": "Y"}],
+        representantes=[{"party_name": "X", "party_role": "REQTE"}],
     )
 
     assert "representantes" in doc
@@ -180,7 +161,7 @@ def test_build_process_document_includes_peticoes_detailed():
         peticoes=[],
         sessao_virtual=[],
         informacoes={},
-        peticoes_detailed=[{"date": "2026-03-15", "petitioner_name": "Z"}],
+        peticoes_detailed=[{"date": "2026-03-15", "protocol": "123/2026"}],
     )
 
     assert "peticoes_detailed" in doc

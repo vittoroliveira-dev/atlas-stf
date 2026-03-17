@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from atlas_stf.stf_portal._checkpoint import load_checkpoint
 from atlas_stf.stf_portal._config import StfPortalConfig
+from atlas_stf.stf_portal._proxy import ProxyManager
 from atlas_stf.stf_portal._runner import (
     _load_process_list,
     _prioritize_processes,
@@ -88,6 +89,124 @@ def test_should_refetch_stale(tmp_path: Path):
     assert _should_refetch(path, 30) is True
 
 
+# --- ProxyManager tests ---
+
+
+def test_proxy_manager_single_direct():
+    """ProxyManager with no proxies uses direct connection only."""
+    pm = ProxyManager([], per_proxy_rate=0.01, jitter_range=(1.0, 1.0))
+    proxy, _ = pm.acquire()
+    assert proxy is None
+
+
+def test_proxy_manager_len():
+    pm = ProxyManager(["socks5://a:1080", "socks5://b:1081"])
+    assert len(pm) == 3  # None + 2 proxies
+
+
+def test_proxy_manager_round_robin_least_wait():
+    """Two consecutive acquires should return different proxies (least-wait selection)."""
+    pm = ProxyManager(["socks5://a:1080"], per_proxy_rate=0.5, jitter_range=(1.0, 1.0))
+    proxy1, _ = pm.acquire()
+    proxy2, _ = pm.acquire()
+    # With 2 proxies (None + a), they should alternate
+    assert proxy1 != proxy2
+
+
+def test_proxy_manager_record_403_opens_circuit():
+    pm = ProxyManager([], circuit_threshold=3, circuit_cooldown=0.1, per_proxy_rate=0.0)
+    for _ in range(3):
+        pm.record_403(None)
+    assert pm.is_circuit_open(None) is True
+    # Wait for cooldown
+    import time
+
+    time.sleep(0.15)
+    assert pm.is_circuit_open(None) is False
+
+
+def test_proxy_manager_record_success_resets():
+    pm = ProxyManager([], circuit_threshold=5, per_proxy_rate=0.0)
+    pm.record_403(None)
+    pm.record_403(None)
+    pm.record_success(None)
+    pm.record_403(None)
+    pm.record_403(None)
+    # Only 2 consecutive 403s after reset, threshold is 5
+    assert pm.is_circuit_open(None) is False
+
+
+def test_proxy_manager_all_broken_blocks():
+    """When all proxies are circuit-broken, acquire() blocks until cooldown."""
+    import time
+
+    pm = ProxyManager([], circuit_threshold=1, circuit_cooldown=0.1, per_proxy_rate=0.0, jitter_range=(1.0, 1.0))
+    pm.record_403(None)
+    assert pm.is_circuit_open(None) is True
+    start = time.monotonic()
+    proxy, _ = pm.acquire()
+    elapsed = time.monotonic() - start
+    assert proxy is None
+    assert elapsed >= 0.08  # Waited for cooldown
+
+
+def test_proxy_manager_acquire_enforces_rate_limit():
+    """Each acquire should respect per-proxy rate limit."""
+    import time
+
+    pm = ProxyManager([], per_proxy_rate=0.05, jitter_range=(1.0, 1.0))
+    start = time.monotonic()
+    pm.acquire()
+    pm.acquire()
+    pm.acquire()
+    elapsed = time.monotonic() - start
+    # 3 acquires on 1 proxy: first is immediate, 2nd and 3rd each wait ~50ms
+    assert elapsed >= 0.08
+
+
+def test_proxy_manager_403_inflight_per_proxy():
+    """403 on one proxy does not affect another proxy's circuit breaker."""
+    pm = ProxyManager(
+        ["socks5://a:1080"],
+        per_proxy_rate=0.0,
+        jitter_range=(1.0, 1.0),
+        circuit_threshold=2,
+    )
+    # Record 403s on direct (None) only
+    pm.record_403(None)
+    pm.record_403(None)
+    assert pm.is_circuit_open(None) is True
+    assert pm.is_circuit_open("socks5://a:1080") is False
+
+
+# --- Deferred client close tests ---
+
+
+def test_rotate_client_deferred_close():
+    """_rotate_client_for_proxy retires old client instead of closing it."""
+    from atlas_stf.stf_portal._extractor import PortalExtractor
+
+    ext = PortalExtractor(rate_limit_seconds=0.0, timeout_seconds=1.0)
+    # Force creation of a direct client
+    with ext._client_lock:
+        client1 = ext._get_client()
+    assert client1 is not None
+
+    # Rotate — should retire, not close
+    ext._rotate_client_for_proxy(None)
+    assert client1 in ext._retired_clients
+    assert ext._client is None
+
+    # New client should be different
+    with ext._client_lock:
+        client2 = ext._get_client()
+    assert client2 is not client1
+
+    # close() should clean up retired
+    ext.close()
+    assert len(ext._retired_clients) == 0
+
+
 # --- Phase 2.5: run_extraction integration tests ---
 
 
@@ -113,6 +232,7 @@ def _fake_extract_process(process_number: str, incidente: str | None = None) -> 
         "peticoes": [],
         "sessao_virtual": [],
         "informacoes": {},
+        "incidente": "999",
     }
 
 
@@ -259,3 +379,99 @@ def test_run_extraction_dry_run(tmp_path: Path):
     result = run_extraction(config, dry_run=True)
     assert result == 0
     assert not (output_dir / ".checkpoint.json").exists()
+
+
+# --- Partial data prevention tests ---
+
+
+class _FailingTabExtractor:
+    """Fake extractor that returns None (simulating tab failure)."""
+
+    def __init__(self, **_kwargs: Any) -> None:
+        pass
+
+    def extract_process(self, process_number: str, incidente: str | None = None) -> dict[str, Any] | None:
+        return None  # Simulates failed extraction
+
+    def close(self) -> None:
+        pass
+
+    def __enter__(self) -> _FailingTabExtractor:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+
+def test_run_extraction_failed_process_not_saved(tmp_path: Path):
+    """Failed extraction does not produce output JSON — marked as failed."""
+    curated_dir = tmp_path / "curated"
+    output_dir = tmp_path / "portal"
+    checkpoint_file = output_dir / ".checkpoint.json"
+
+    processes = [{"process_id": "proc_1", "process_number": "ADI 100"}]
+    _write_process_jsonl(curated_dir, processes)
+
+    config = StfPortalConfig(
+        output_dir=output_dir,
+        curated_dir=curated_dir,
+        checkpoint_file=checkpoint_file,
+        max_concurrent=1,
+        rate_limit_seconds=0.0,
+    )
+
+    with patch("atlas_stf.stf_portal._runner.PortalExtractor", _FailingTabExtractor):
+        fetched = run_extraction(config)
+
+    assert fetched == 0
+    assert not (output_dir / "ADI_100.json").exists()
+
+    cp = load_checkpoint(checkpoint_file)
+    assert cp.is_completed("ADI 100") is False
+    assert cp.is_failed("ADI 100") is True
+
+
+# --- Incidente cache in checkpoint ---
+
+
+def test_run_extraction_caches_incidente(tmp_path: Path):
+    """Successful extraction caches the incidente in the checkpoint."""
+    curated_dir = tmp_path / "curated"
+    output_dir = tmp_path / "portal"
+    checkpoint_file = output_dir / ".checkpoint.json"
+
+    processes = [{"process_id": "proc_1", "process_number": "ADI 100"}]
+    _write_process_jsonl(curated_dir, processes)
+
+    config = StfPortalConfig(
+        output_dir=output_dir,
+        curated_dir=curated_dir,
+        checkpoint_file=checkpoint_file,
+        max_concurrent=1,
+        rate_limit_seconds=0.0,
+    )
+
+    with patch("atlas_stf.stf_portal._runner.PortalExtractor", _FakeExtractor):
+        run_extraction(config)
+
+    cp = load_checkpoint(checkpoint_file)
+    assert cp.get_incidente("ADI 100") == "999"
+
+
+# --- CLI wiring tests ---
+
+
+def test_cli_rate_limit_feeds_global_rate_seconds(tmp_path: Path):
+    """--rate-limit CLI value should feed config.global_rate_seconds."""
+    config = StfPortalConfig(
+        output_dir=tmp_path / "portal",
+        rate_limit_seconds=5.0,
+        global_rate_seconds=5.0,
+    )
+    assert config.global_rate_seconds == 5.0
+
+
+def test_cli_rate_limit_default_matches_global_rate(tmp_path: Path):
+    """Default global_rate_seconds should be 1.0."""
+    config = StfPortalConfig(output_dir=tmp_path / "portal")
+    assert config.global_rate_seconds == 1.0

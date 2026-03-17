@@ -21,7 +21,7 @@
        rfb rfb-fetch rfb-network rfb-groups \
        datajud datajud-fetch datajud-context \
        transparencia-fetch \
-       stf-portal stf-portal-fetch oab-validate \
+       stf-portal stf-portal-fetch oab-validate deoab deoab-fetch \
        external-fetch fetch-all external-matches external-data \
        serving-build pipeline serve-api web-dev web-build web-typecheck \
        docker-build docker-up
@@ -337,8 +337,13 @@ stf-portal: stf-portal-fetch ## Pipeline portal STF
 oab-validate: ## Valida numeros OAB
 	$(CLI) oab validate --provider null
 
+deoab-fetch: ## Baixa e parseia diários OAB (sociedades de advocacia)
+	$(CLI) deoab fetch
+
+deoab: deoab-fetch ## Pipeline DEOAB completo
+
 external-fetch: cgu-fetch tse-fetch cvm-fetch rfb-fetch ## Baixa todas as fontes externas (CGU/TSE/CVM/RFB)
-fetch-all: scrape external-fetch tse-fetch-expenses tse-party-org-fetch stf-portal-fetch agenda-fetch ## Baixa TUDO (STF + externas + agenda)
+fetch-all: scrape external-fetch tse-fetch-expenses tse-party-org-fetch stf-portal-fetch agenda-fetch deoab-fetch ## Baixa TUDO (STF + externas + agenda + DEOAB)
 external-matches: cgu-matches tse-matches cvm-matches rfb-network ## Build todos os matches externos
 external-data: cgu tse cvm rfb ## Pipeline completo de fontes externas
 

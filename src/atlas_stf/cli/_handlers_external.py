@@ -280,13 +280,16 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
         from ..stf_portal._runner import run_extraction
         from ._progress import cli_progress
 
+        proxies = [p.strip() for p in args.proxies.split(",") if p.strip()] if getattr(args, "proxies", None) else []
         config = StfPortalConfig(
             output_dir=args.output_dir,
             curated_dir=args.curated_dir,
             max_processes=args.max_processes,
             rate_limit_seconds=args.rate_limit,
+            global_rate_seconds=args.rate_limit,
             max_concurrent=getattr(args, "workers", 1),
             ignore_tls=args.ignore_tls,
+            proxies=proxies,
         )
         if args.dry_run:
             run_extraction(config, dry_run=True)
@@ -338,6 +341,25 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
         from ..curated.build_agenda import build_agenda_events
 
         build_agenda_events(raw_dir=args.raw_dir, curated_dir=args.curated_dir)
+        return 0
+
+    if args.command == "deoab" and args.deoab_target == "fetch":
+        from ..deoab._config import DeoabFetchConfig
+        from ..deoab._runner import run_deoab_fetch
+        from ._progress import cli_progress
+
+        config = DeoabFetchConfig(
+            output_dir=args.output_dir,
+            start_year=args.start_year,
+            end_year=args.end_year,
+            dry_run=args.dry_run,
+            force_reprocess=getattr(args, "force_reprocess", False),
+        )
+        if config.dry_run:
+            run_deoab_fetch(config)
+        else:
+            with cli_progress("DEOAB") as on_progress:
+                run_deoab_fetch(config, on_progress=on_progress)
         return 0
 
     return None

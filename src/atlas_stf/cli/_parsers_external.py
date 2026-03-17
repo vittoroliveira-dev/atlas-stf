@@ -338,7 +338,7 @@ def _add_external_parsers(subparsers: Any) -> None:
         "--rate-limit",
         type=float,
         default=2.0,
-        help="Seconds between requests (default: 2.0)",
+        help="Seconds between requests per IP (default: 2.0)",
     )
     stf_portal_fetch.add_argument(
         "--workers",
@@ -347,6 +347,11 @@ def _add_external_parsers(subparsers: Any) -> None:
         help="Number of concurrent workers (default: 1, max: 16)",
     )
     stf_portal_fetch.add_argument("--ignore-tls", action="store_true", help="Bypass TLS certificate verification")
+    stf_portal_fetch.add_argument(
+        "--proxies",
+        default=None,
+        help="Comma-separated SOCKS5 proxy URLs for IP rotation (e.g. socks5://localhost:1080,socks5://localhost:1081)",
+    )
     stf_portal_fetch.add_argument("--dry-run", action="store_true", help="List processes without fetching")
 
     oab = subparsers.add_parser("oab", help="Validate OAB numbers against CNA/CNSA")
@@ -418,6 +423,24 @@ def _add_external_parsers(subparsers: Any) -> None:
         help="Raw agenda JSONL directory",
     )
     agenda_build.add_argument("--curated-dir", type=Path, default=DEFAULT_CURATED_DIR, help="Curated output directory")
+
+    deoab = subparsers.add_parser("deoab", help="Fetch and parse OAB Electronic Gazette (DEOAB) for law firm data")
+    deoab_sub = deoab.add_subparsers(dest="deoab_target", required=True)
+    deoab_fetch = deoab_sub.add_parser("fetch", help="Download and parse DEOAB gazette PDFs")
+    deoab_fetch.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data/raw/deoab"),
+        help="Output directory for raw DEOAB data",
+    )
+    deoab_fetch.add_argument("--start-year", type=int, default=2019, help="Start year (default: 2019)")
+    deoab_fetch.add_argument("--end-year", type=int, default=None, help="End year (default: current)")
+    deoab_fetch.add_argument("--dry-run", action="store_true", help="List pending dates without fetching")
+    deoab_fetch.add_argument(
+        "--force-reprocess",
+        action="store_true",
+        help="Re-parse all PDFs regardless of parser version",
+    )
 
     api = subparsers.add_parser("api", help="Serve the HTTP API over the serving database")
     api_sub = api.add_subparsers(dest="api_target", required=True)

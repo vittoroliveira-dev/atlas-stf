@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_PROCESS_PATH = Path("data/curated/process.jsonl")
 DEFAULT_PORTAL_DIR = Path("data/raw/stf_portal")
 DEFAULT_CURATED_DIR = Path("data/curated")
+DEFAULT_DEOAB_DIR = Path("data/raw/deoab")
 
 
 def build_representation_jsonl(
@@ -29,6 +30,7 @@ def build_representation_jsonl(
     process_path: Path = DEFAULT_PROCESS_PATH,
     portal_dir: Path = DEFAULT_PORTAL_DIR,
     curated_dir: Path = DEFAULT_CURATED_DIR,
+    deoab_dir: Path = DEFAULT_DEOAB_DIR,
     on_progress: Callable[[int, int, str], None] | None = None,
 ) -> dict[str, Path]:
     """Build all representation-network artifacts.
@@ -66,7 +68,7 @@ def build_representation_jsonl(
 
     # Step 2: Law firm entities
     _progress(1, "Construindo entidades de escritorio...")
-    firm_records = build_law_firm_entity_records(process_path, portal_dir, curated_dir)
+    firm_records = build_law_firm_entity_records(process_path, portal_dir, curated_dir, deoab_dir=deoab_dir)
     firm_path = curated_dir / "law_firm_entity.jsonl"
     results["law_firm_entity"] = write_jsonl(firm_records, firm_path)
     logger.info("Built %d law firm entities", len(firm_records))

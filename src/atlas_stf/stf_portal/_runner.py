@@ -14,8 +14,12 @@ from typing import Any
 from ._checkpoint import PortalCheckpoint, load_checkpoint, save_checkpoint
 from ._config import StfPortalConfig
 from ._extractor import PortalExtractor
+from ._proxy import ProxyManager
 
 logger = logging.getLogger(__name__)
+
+# Suppress per-request httpx logging (floods the log with 7 lines per process)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def _load_process_list(curated_dir: Path) -> list[dict[str, Any]]:
@@ -85,9 +89,16 @@ def _fetch_single_process(
     """Fetch a single process. Returns True if fetched, False if failed/skipped."""
     output_path = config.output_dir / f"{_sanitize_filename(process_number)}.json"
 
-    doc = extractor.extract_process(process_number)
+    # Phase 3: use cached incidente if available
+    cached_incidente = checkpoint.get_incidente(process_number)
+    doc = extractor.extract_process(process_number, incidente=cached_incidente)
 
     if doc is not None:
+        # Cache the incidente for future retries
+        incidente = doc.get("incidente")
+        if isinstance(incidente, str):
+            checkpoint.set_incidente(process_number, incidente)
+
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open("w", encoding="utf-8") as f:
             json.dump(doc, f, ensure_ascii=False, indent=2)
@@ -108,8 +119,11 @@ def run_extraction(
     """Main extraction loop. Returns count of processes fetched.
 
     When ``config.max_concurrent > 1``, uses ThreadPoolExecutor with one
-    PortalExtractor per worker thread (each with its own httpx.Client and
-    independent rate limiter).
+    PortalExtractor per worker thread. All extractors share:
+    - A global ``threading.Semaphore`` limiting total in-flight HTTP requests
+    - A ``ProxyManager`` with per-proxy rate limiting and circuit breaking
+
+    Previously failed processes are automatically re-queued for retry.
     """
     processes = _load_process_list(config.curated_dir)
     if not processes:
@@ -142,6 +156,12 @@ def run_extraction(
 
     checkpoint = load_checkpoint(config.checkpoint_file)
 
+    # Clear previously failed processes so they get re-tried
+    failed_count = len(checkpoint.failed_processes)
+    if failed_count:
+        logger.info("Clearing %d previously failed processes for retry", failed_count)
+        checkpoint.clear_failed()
+
     # Filter to pending processes only
     pending: list[str] = []
     step = 0
@@ -170,7 +190,26 @@ def run_extraction(
 
     logger.info("Pending: %d processes to fetch", len(pending))
 
-    workers = max(1, min(config.max_concurrent, 16))
+    # --- Shared concurrency controls ---
+    request_semaphore = threading.Semaphore(config.max_in_flight)
+    proxy_manager = ProxyManager(
+        proxy_urls=config.proxies,
+        per_proxy_rate=config.global_rate_seconds,
+        circuit_threshold=config.circuit_breaker_threshold,
+        circuit_cooldown=config.circuit_breaker_cooldown,
+    )
+    logger.info(
+        "ProxyManager: %d IPs (local + %d proxies), rate=%.1fs/IP",
+        len(proxy_manager),
+        len(config.proxies),
+        config.global_rate_seconds,
+    )
+
+    # Cap concurrent workers at 2 (each worker fetches tabs concurrently,
+    # but global semaphore + per-proxy rate limiter protect against overload)
+    workers = max(1, min(config.max_concurrent, 2))
+    if config.max_concurrent > 2:
+        logger.info("Capping workers at 2 (requested %d) to reduce blocking risk", config.max_concurrent)
     fetched = 0
     progress_step = total - len(pending)
     progress_lock = threading.Lock()
@@ -182,6 +221,9 @@ def run_extraction(
             max_retries=config.max_retries,
             retry_delay_seconds=config.retry_delay_seconds,
             ignore_tls=config.ignore_tls,
+            request_semaphore=request_semaphore,
+            proxy_manager=proxy_manager,
+            tab_concurrency=config.tab_concurrency,
         )
 
     if workers == 1:

@@ -242,7 +242,7 @@ def test_build_law_firm_entity_records_with_portal_data(tmp_path: Path):
         },
     )
 
-    records = build_law_firm_entity_records(process_path, portal_dir, tmp_path)
+    records = build_law_firm_entity_records(process_path, portal_dir, tmp_path, deoab_dir=tmp_path / "deoab")
 
     assert len(records) == 1
     assert records[0]["firm_name_raw"] == "Costa e Associados Advogados"
@@ -253,7 +253,7 @@ def test_build_law_firm_entity_records_no_portal_data(tmp_path: Path):
     process_path = tmp_path / "process.jsonl"
     _write_process_jsonl(process_path, [{"process_id": "proc_1"}])
 
-    records = build_law_firm_entity_records(process_path, tmp_path / "portal", tmp_path)
+    records = build_law_firm_entity_records(process_path, tmp_path / "portal", tmp_path, deoab_dir=tmp_path / "deoab")
 
     assert records == []
 
@@ -275,7 +275,7 @@ def test_build_law_firm_entity_dedup(tmp_path: Path):
         },
     )
 
-    records = build_law_firm_entity_records(process_path, portal_dir, tmp_path)
+    records = build_law_firm_entity_records(process_path, portal_dir, tmp_path, deoab_dir=tmp_path / "deoab")
 
     assert len(records) == 1
 

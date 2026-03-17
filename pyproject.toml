@@ -1,6 +1,6 @@
 [project]
 name = "atlas-stf"
-version = "1.0.7"
+version = "1.0.8"
 description = "Análise empírica e documentação metodológica sobre padrões decisórios do STF"
 readme = "README.md"
 requires-python = ">=3.14.3"
@@ -49,6 +49,7 @@ Issues = "https://github.com/vittoroliveira-dev/atlas-stf/issues"
 
 [project.optional-dependencies]
 ml = ["scikit-learn>=1.6"]
+proxy = ["socksio>=1.0"]
 
 [build-system]
 requires = ["hatchling"]

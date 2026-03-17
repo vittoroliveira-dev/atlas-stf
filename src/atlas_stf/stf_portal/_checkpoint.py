@@ -15,10 +15,14 @@ class PortalCheckpoint:
 
     Uses sets internally for O(1) lookup; serializes as sorted lists for
     deterministic JSON output and backward compatibility.
+
+    The ``_incidente_cache`` maps process_number → incidente ID, saving
+    one HTTP request per retry (Phase 3 optimization).
     """
 
     _completed: set[str] = field(default_factory=set)
     _failed: set[str] = field(default_factory=set)
+    _incidente_cache: dict[str, str] = field(default_factory=dict)
     total_fetched: int = 0
     last_updated: str = ""
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
@@ -41,6 +45,22 @@ class PortalCheckpoint:
         with self._lock:
             self._failed.add(process_number)
 
+    def clear_failed(self) -> None:
+        """Clear all failed entries so they can be re-tried."""
+        with self._lock:
+            self._failed.clear()
+
+    # --- Incidente cache (Phase 3) ---
+
+    def get_incidente(self, process_number: str) -> str | None:
+        """Return cached incidente ID or None."""
+        return self._incidente_cache.get(process_number)
+
+    def set_incidente(self, process_number: str, incidente: str) -> None:
+        """Cache incidente in memory (disk write follows batch cycle)."""
+        with self._lock:
+            self._incidente_cache[process_number] = incidente
+
     # --- Backward-compatible properties for serialization ---
 
     @property
@@ -57,7 +77,7 @@ class PortalCheckpoint:
 def load_checkpoint(checkpoint_path: Path) -> PortalCheckpoint:
     """Load checkpoint from JSON file, or return fresh state.
 
-    Accepts both old format (lists) and new format — converts to sets internally.
+    Accepts both old format (lists, no incidente_map) and new format.
     """
     if not checkpoint_path.exists():
         return PortalCheckpoint()
@@ -66,6 +86,7 @@ def load_checkpoint(checkpoint_path: Path) -> PortalCheckpoint:
     return PortalCheckpoint(
         _completed=set(data.get("completed_processes", [])),
         _failed=set(data.get("failed_processes", [])),
+        _incidente_cache=dict(data.get("incidente_map", {})),
         total_fetched=data.get("total_fetched", 0),
         last_updated=data.get("last_updated", ""),
     )
@@ -76,6 +97,7 @@ def save_checkpoint(state: PortalCheckpoint, checkpoint_path: Path) -> Path:
     payload = {
         "completed_processes": state.completed_processes,
         "failed_processes": state.failed_processes,
+        "incidente_map": state._incidente_cache,
         "total_fetched": state.total_fetched,
         "last_updated": datetime.now(timezone.utc).isoformat(),
     }

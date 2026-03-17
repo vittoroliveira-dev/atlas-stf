@@ -6,6 +6,33 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-03-17
+
+### Added
+
+- **stf_portal/_proxy.py**: `ProxyManager` — rate limiting, circuit breaker e seleção de proxy por IP individual. Substitui `ProxyPool` (round-robin cego) e `GlobalRateLimiter` (intervalo global). Cada proxy rastreia `next_allowed_at`, `consecutive_403` e `circuit_open_until` independentemente. Seleção por menor tempo de espera (`acquire()`); circuit breaker abre após threshold configurável de 403s consecutivos; cooldown com reset automático. Thread-safe via single lock
+- **stf_portal/_extractor.py**: `_acquire_and_get()` — operação atômica de aquisição de proxy + HTTP GET com callback `record_success`/`record_403`. `_rotate_client_for_proxy()` com deferred close (`_retired_clients`) — clients antigos não são fechados mid-request, evitando crash em tabs concorrentes. `_client_lock` protege mutação do cache de clients
+- **stf_portal/_config.py**: campos `circuit_breaker_threshold` (default: 5) e `circuit_breaker_cooldown` (default: 120s) em `StfPortalConfig`
+- **stf_portal/_parser.py**: regex `_ANDAMENTO_DETAIL_RE` — captura texto detalhado do `<div class="col-md-9 p-0">` nos andamentos do portal. Campo `detail` populado em cada andamento (antes era sempre `None`). Dados de sustentação oral (`role`, `party_name`, `timestamp`) agora extraíveis do detalhe
+- **curated/_build_representation_edges.py**: extração de sustentação oral a partir de andamentos — regex `_SUSTENTACAO_ORAL_RE` parseia padrão `Sustentação Oral - ROLE: PARTY_NAME - recebida em DD/MM/YYYY HH:MM:SS`. Gera `representation_event` com `event_type="oral_argument"` e `confidence=0.9`
+- **deoab/**: módulo de extração de sociedades de advocacia do Diário Eletrônico da OAB (DEOAB). Download incremental de PDFs públicos, extração via `pdftotext`, checkpoint auditável com estados `missing/downloaded/parsed/failed` + `content_length` + `parser_version`. Canonicalização de OAB em 4 formatos. Limpeza de artefatos PDF (assinatura digital ICP-Brasil, headers de página). PDFs deletados após parse. Artefato: `oab_sociedade_vinculo.jsonl`
+- **curated/_build_representation_firms.py**: segunda fonte DEOAB para `law_firm_entity` — carrega `oab_sociedade_vinculo.jsonl`, cria entidades de firma com `source_systems=["deoab"]` e `cnsa_number` do registro CNSA
+- **cli/_parsers_external.py**: subcomando `deoab fetch` com `--output-dir`, `--start-year`, `--end-year`, `--dry-run`, `--force-reprocess`
+- **Makefile**: targets `deoab-fetch` e `deoab`; `deoab-fetch` incluído no `fetch-all`
+
+### Changed
+
+- **stf_portal/**: decomposição de `_extractor.py` (624→396 linhas) — constantes e dataclasses extraídas para `_http.py`, gerenciamento de httpx.Client para `_client_pool.py` (`ClientPool` thread-safe com deferred close). Fachada de compatibilidade preserva API interna de testes
+- **stf_portal/_extractor.py**: `ProxyPool` e `GlobalRateLimiter` removidos — substituídos por `ProxyManager` de `_proxy.py`. Constantes `_CIRCUIT_BREAKER_THRESHOLD` e `_CIRCUIT_BREAKER_COOLDOWN_SECONDS` removidas (configuráveis via `StfPortalConfig`). Métodos `_check_circuit_breaker`, `_record_403`, `_record_success`, `_do_get`, `_rotate_client` removidos
+- **stf_portal/_runner.py**: criação de `ProxyManager` substitui `GlobalRateLimiter` + `ProxyPool`. Semântica de `global_rate_seconds` muda de "intervalo global" para "intervalo per-proxy"
+- **cli/_handlers_external.py**: `global_rate_seconds=args.rate_limit` adicionado ao construtor de `StfPortalConfig` — `--rate-limit` alimenta o `ProxyManager` corretamente
+
+### Fixed
+
+- **cli/_progress.py**: `cli_progress` falhava silenciosamente quando stderr não era TTY (ex: `nohup`). Fallback para `logging.StreamHandler` com formato simples
+- **pyproject.toml**: `socksio` removido de `dependencies` — mantido apenas em `[project.optional-dependencies] proxy`
+- **.gitignore**: PDFs, XLSXs, `nohup.out` e `portal-fetch.log` adicionados — evita commit acidental de dados brutos
+
 ## [1.0.7] - 2026-03-17
 
 ### Changed
