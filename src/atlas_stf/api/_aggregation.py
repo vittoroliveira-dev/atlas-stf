@@ -17,6 +17,7 @@ from ..serving.models import (
 )
 from ._filters import CaseSelector, EntityKind, QueryFilters, _apply_case_filters
 from ._formatters import _collegiate_label, _format_date
+from ._service_flow import _materialized_minister_flow
 from .schemas import (
     DailyPoint,
     EntitySummaryItem,
@@ -347,7 +348,7 @@ def _minister_profiles(session: Session, filters: QueryFilters, limit: int = 6) 
 
     profiles: list[MinisterProfileItem] = []
     for minister in ministers:
-        flow = build_minister_flow(
+        flow = _materialized_minister_flow(
             session,
             QueryFilters(
                 minister=minister,

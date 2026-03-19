@@ -6,9 +6,9 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
+from ..core.constants import EVENT_WINDOW_DAYS
 from ..core.identity import normalize_entity_name, stable_id
 from ._temporal_utils import (
-    EVENT_WINDOW_DAYS,
     MIN_EVENT_WINDOW_DECISIONS,
     _parse_iso_date,
     _read_external_events,

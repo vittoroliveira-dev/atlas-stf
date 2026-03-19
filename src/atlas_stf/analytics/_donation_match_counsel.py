@@ -10,6 +10,8 @@ from ..core.identity import normalize_entity_name, stable_id
 from ..core.stats import red_flag_confidence_label, red_flag_power
 from ._donation_aggregator import _build_ambiguous_record
 from ._match_helpers import (
+    EntityMatchIndex,
+    EntityMatchResult,
     build_counsel_process_map,
     build_entity_match_index,
     compute_favorable_rate_role_aware,
@@ -19,30 +21,20 @@ from ._match_helpers import (
 )
 from ._parallel import match_entities_parallel
 
-__all__ = ["match_donors_to_counsel"]
+__all__ = [
+    "build_counsel_match_context",
+    "match_donors_to_counsel",
+    "process_counsel_match_results",
+]
 
 
-def match_donors_to_counsel(
-    *,
+def build_counsel_match_context(
     counsel_path: Path,
-    donor_agg: dict[str, dict[str, Any]],
-    process_counsel_link_path: Path,
-    process_outcomes: dict[str, list[str]],
-    process_class_map: dict[str, str],
-    process_jb_map: dict[str, str],
-    stratified_rates: Any,
-    fallback_rates: Any,
     alias_path: Path,
-    red_flag_delta: float,
-    min_cases: int,
-    now_iso: str,
-    ambiguous_records: list[dict[str, Any]],
-) -> tuple[list[dict[str, Any]], set[str], dict[str, str], dict[str, dict[str, Any]], int, dict[str, int]]:
-    """Match aggregated donors to counsel entities.
+) -> tuple[dict[str, dict[str, Any]], dict[str, str], EntityMatchIndex]:
+    """Build counsel lookup indices (once, ~100 MB).
 
-    Returns:
-        (matches, matched_counsel_names, counsel_id_to_name,
-         counsel_index, counsel_ambiguous_count, counsel_match_strategy_counts)
+    Returns (counsel_index, counsel_id_to_name, counsel_match_index).
     """
     counsel_records = read_jsonl(counsel_path)
     counsel_index: dict[str, dict[str, Any]] = {}
@@ -62,15 +54,30 @@ def match_donors_to_counsel(
         entity_kind="counsel",
     )
 
-    counsel_match_items: list[tuple[str, str | None]] = [
-        (donor_info["donor_name_normalized"], donor_info.get("donor_cpf_cnpj")) for donor_info in donor_agg.values()
-    ]
-    counsel_match_results = match_entities_parallel(
-        counsel_match_items,
-        index=counsel_match_index,
-        name_field="counsel_name_normalized",
-    )
+    return counsel_index, counsel_id_to_name, counsel_match_index
 
+
+def process_counsel_match_results(
+    *,
+    counsel_match_results: dict[str, EntityMatchResult | None],
+    donor_agg: dict[str, dict[str, Any]],
+    counsel_index: dict[str, dict[str, Any]],
+    counsel_id_to_name: dict[str, str],
+    process_counsel_link_path: Path,
+    process_outcomes: dict[str, list[str]],
+    process_class_map: dict[str, str],
+    process_jb_map: dict[str, str],
+    stratified_rates: Any,
+    fallback_rates: Any,
+    red_flag_delta: float,
+    min_cases: int,
+    now_iso: str,
+    ambiguous_records: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], set[str], int, dict[str, int]]:
+    """Process pre-computed counsel match results against donor aggregation.
+
+    Returns (matches, matched_counsel_names, counsel_ambiguous_count, counsel_match_strategy_counts).
+    """
     counsel_process_map = build_counsel_process_map(process_counsel_link_path, counsel_id_to_name)
     matched_counsel_names: set[str] = set()
     counsel_ambiguous_count = 0
@@ -179,8 +186,74 @@ def match_donors_to_counsel(
     return (
         matches,
         matched_counsel_names,
+        counsel_ambiguous_count,
+        dict(counsel_match_strategy_counts),
+    )
+
+
+def match_donors_to_counsel(
+    *,
+    counsel_path: Path,
+    donor_agg: dict[str, dict[str, Any]],
+    process_counsel_link_path: Path,
+    process_outcomes: dict[str, list[str]],
+    process_class_map: dict[str, str],
+    process_jb_map: dict[str, str],
+    stratified_rates: Any,
+    fallback_rates: Any,
+    alias_path: Path,
+    red_flag_delta: float,
+    min_cases: int,
+    now_iso: str,
+    ambiguous_records: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], set[str], dict[str, str], dict[str, dict[str, Any]], int, dict[str, int]]:
+    """Match aggregated donors to counsel entities.
+
+    Returns:
+        (matches, matched_counsel_names, counsel_id_to_name,
+         counsel_index, counsel_ambiguous_count, counsel_match_strategy_counts)
+    """
+    counsel_index, counsel_id_to_name, counsel_match_index = build_counsel_match_context(
+        counsel_path,
+        alias_path,
+    )
+
+    counsel_match_items: list[tuple[str, str | None]] = [
+        (donor_info["donor_name_normalized"], donor_info.get("donor_cpf_cnpj")) for donor_info in donor_agg.values()
+    ]
+    counsel_match_results = match_entities_parallel(
+        counsel_match_items,
+        index=counsel_match_index,
+        name_field="counsel_name_normalized",
+    )
+
+    (
+        matches,
+        matched_counsel_names,
+        counsel_ambiguous_count,
+        counsel_match_strategy_counts,
+    ) = process_counsel_match_results(
+        counsel_match_results=counsel_match_results,
+        donor_agg=donor_agg,
+        counsel_index=counsel_index,
+        counsel_id_to_name=counsel_id_to_name,
+        process_counsel_link_path=process_counsel_link_path,
+        process_outcomes=process_outcomes,
+        process_class_map=process_class_map,
+        process_jb_map=process_jb_map,
+        stratified_rates=stratified_rates,
+        fallback_rates=fallback_rates,
+        red_flag_delta=red_flag_delta,
+        min_cases=min_cases,
+        now_iso=now_iso,
+        ambiguous_records=ambiguous_records,
+    )
+
+    return (
+        matches,
+        matched_counsel_names,
         counsel_id_to_name,
         counsel_index,
         counsel_ambiguous_count,
-        dict(counsel_match_strategy_counts),
+        counsel_match_strategy_counts,
     )

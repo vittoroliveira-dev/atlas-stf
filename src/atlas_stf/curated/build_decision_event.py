@@ -128,8 +128,9 @@ def _parse_records_decisoes(
     records: list[dict[str, Any]] = []
     filename = staging_file.name
 
-    for row_number, (_, series) in enumerate(df.iterrows(), start=1):
-        row = series.to_dict()
+    columns = list(df.columns)
+    for row_number, values in enumerate(df.itertuples(index=False, name=None), start=1):
+        row = dict(zip(columns, values))
         process_number = infer_process_number(row)
         if not process_number:
             continue
@@ -182,8 +183,9 @@ def _parse_records_supplementary(
     records: list[dict[str, Any]] = []
     filename = csv_path.name
 
-    for row_number, (_, series) in enumerate(df.iterrows(), start=1):
-        row = series.to_dict()
+    columns = list(df.columns)
+    for row_number, values in enumerate(df.itertuples(index=False, name=None), start=1):
+        row = dict(zip(columns, values))
         process_number = infer_process_number(row)
         if not process_number:
             continue

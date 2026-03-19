@@ -78,7 +78,9 @@ def test_needs_parse_failed_needs_parse():
 
 def test_save_and_load_roundtrip(tmp_path: Path):
     cp = DeoabCheckpoint()
-    cp.set("2026-01-01", DateEntry(status="parsed", content_length=4000000, parser_version=1, source_url="https://x.com"))
+    cp.set(
+        "2026-01-01", DateEntry(status="parsed", content_length=4000000, parser_version=1, source_url="https://x.com")
+    )
     cp.set("2026-01-02", DateEntry(status="missing"))
 
     path = tmp_path / ".checkpoint.json"

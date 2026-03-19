@@ -442,6 +442,23 @@ def _add_external_parsers(subparsers: Any) -> None:
         help="Re-parse all PDFs regardless of parser version",
     )
 
+    oab_sp = subparsers.add_parser("oab-sp", help="Fetch law firm details from OAB/SP")
+    oab_sp_sub = oab_sp.add_subparsers(dest="oab_sp_target", required=True)
+    oab_sp_fetch = oab_sp_sub.add_parser("fetch", help="Fetch society details by registration number")
+    oab_sp_fetch.add_argument("--output-dir", type=Path, default=Path("data/raw/oab_sp"))
+    oab_sp_fetch.add_argument("--deoab-dir", type=Path, default=Path("data/raw/deoab"))
+    oab_sp_fetch.add_argument("--rate-limit", type=float, default=1.5)
+    oab_sp_fetch.add_argument("--max-retries", type=int, default=3)
+    oab_sp_fetch.add_argument("--dry-run", action="store_true")
+
+    oab_sp_lookup = oab_sp_sub.add_parser("lookup", help="Lookup lawyers in OAB/SP inscritos registry")
+    oab_sp_lookup.add_argument("--output-dir", type=Path, default=Path("data/raw/oab_sp"))
+    oab_sp_lookup.add_argument("--deoab-dir", type=Path, default=Path("data/raw/deoab"))
+    oab_sp_lookup.add_argument("--curated-dir", type=Path, default=DEFAULT_CURATED_DIR)
+    oab_sp_lookup.add_argument("--rate-limit", type=float, default=1.5)
+    oab_sp_lookup.add_argument("--max-retries", type=int, default=3)
+    oab_sp_lookup.add_argument("--dry-run", action="store_true")
+
     api = subparsers.add_parser("api", help="Serve the HTTP API over the serving database")
     api_sub = api.add_subparsers(dest="api_target", required=True)
     api_serve = api_sub.add_parser("serve", help="Start the FastAPI application with Uvicorn")

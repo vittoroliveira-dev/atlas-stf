@@ -7,16 +7,9 @@ from math import isfinite
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..core.constants import collegiate_label as _collegiate_label
 from ..serving.models import ServingAlert, ServingCase, ServingMetric, ServingSourceAudit
 from .schemas import AlertSummaryItem, CaseSummaryItem, SourceAuditItem
-
-
-def _collegiate_label(value: bool | None) -> str:
-    if value is True:
-        return "Colegial"
-    if value is False:
-        return "Monocrático"
-    return "INCERTO"
 
 
 def _format_date(value: date | None) -> str:

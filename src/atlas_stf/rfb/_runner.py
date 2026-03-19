@@ -213,10 +213,34 @@ def fetch_rfb_data(
             _save_checkpoint(config.output_dir, checkpoint)
         checkpoint["tse_targets_hash"] = new_hash
 
-    # Cache check: all passes complete and output files exist
+    # Cache check: all passes complete and output files exist with content
     partners_path = config.output_dir / "partners_raw.jsonl"
     companies_path = config.output_dir / "companies_raw.jsonl"
     establishments_path = config.output_dir / "establishments_raw.jsonl"
+
+    # Guard: invalidate checkpoint passes whose output files are missing or empty.
+    # This prevents re-runs from skipping passes that produced no output (e.g. after
+    # a failed download that left 0-byte files).
+    def _has_content(p: Path) -> bool:
+        return p.exists() and p.stat().st_size > 0
+
+    if not _has_content(partners_path):
+        if checkpoint.get("completed_socios_pass1") or checkpoint.get("completed_socios_pass2"):
+            logger.warning("partners_raw.jsonl missing/empty but checkpoint marks socios complete — invalidating")
+            checkpoint["completed_socios_pass1"] = []
+            checkpoint["completed_socios_pass2"] = []
+            _save_checkpoint(config.output_dir, checkpoint)
+    if not _has_content(companies_path):
+        if checkpoint.get("completed_empresas"):
+            logger.warning("companies_raw.jsonl missing/empty but checkpoint marks empresas complete — invalidating")
+            checkpoint["completed_empresas"] = []
+            _save_checkpoint(config.output_dir, checkpoint)
+    if not _has_content(establishments_path):
+        if checkpoint.get("completed_estabelecimentos"):
+            logger.warning("establishments_raw.jsonl missing/empty — invalidating checkpoint")
+            checkpoint["completed_estabelecimentos"] = []
+            _save_checkpoint(config.output_dir, checkpoint)
+
     all_socios_p1 = set(checkpoint.get("completed_socios_pass1", []))
     all_socios_p2 = set(checkpoint.get("completed_socios_pass2", []))
     all_empresas = set(checkpoint.get("completed_empresas", []))
@@ -226,12 +250,9 @@ def fetch_rfb_data(
         and len(all_socios_p2) == RFB_SOCIOS_FILE_COUNT
         and len(all_empresas) == RFB_EMPRESAS_FILE_COUNT
         and len(all_estabelecimentos) == RFB_ESTABELECIMENTOS_FILE_COUNT
-        and partners_path.exists()
-        and partners_path.stat().st_size > 0
-        and companies_path.exists()
-        and companies_path.stat().st_size > 0
-        and establishments_path.exists()
-        and establishments_path.stat().st_size > 0
+        and _has_content(partners_path)
+        and _has_content(companies_path)
+        and _has_content(establishments_path)
     ):
         logger.info("RFB fetch already complete — output files exist with content")
         if on_progress:

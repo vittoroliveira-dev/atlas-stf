@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import logging
+import subprocess
+import sys
 from pathlib import Path
 
 from . import (
@@ -11,6 +14,8 @@ from . import (
     _resolve_process_index,
     _should_use_default_juris_dir,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int | None:
@@ -122,93 +127,169 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         return 0
 
     if args.command == "curate" and args.curate_target == "all":
-        from ..curated.build_counsel import build_counsel_jsonl
-        from ..curated.build_decision_event import build_decision_event_jsonl
-        from ..curated.build_entity_identifier import build_entity_identifier_jsonl
-        from ..curated.build_entity_identifier_reconciliation import build_entity_identifier_reconciliation_jsonl
-        from ..curated.build_links import build_process_links_jsonl
-        from ..curated.build_movement import build_movement_jsonl
-        from ..curated.build_party import build_party_jsonl
-        from ..curated.build_process import build_process_jsonl
-        from ..curated.build_representation import build_representation_jsonl
-        from ..curated.build_session_event import build_session_event_jsonl
-        from ..curated.build_subject import build_subject_jsonl
         from ._progress import cli_progress
 
-        juris_index = None
-        decision_index = None
-        if _should_use_default_juris_dir(
-            requested_juris_dir=args.juris_dir,
-            primary_path=args.staging_dir,
-            default_primary_path=DEFAULT_STAGING_DIR,
-        ):
-            juris_index = _resolve_process_index(args.juris_dir)
-            decision_index = _resolve_decision_index(args.juris_dir)
-
         portal_dir = Path("data/raw/stf_portal")
-        total = 11
-        with cli_progress("Curate") as on_progress:
-            process_path = args.output_dir / "process.jsonl"
-            on_progress(0, total, "Curate: Construindo processos...")
-            build_process_jsonl(
-                staging_dir=args.staging_dir,
-                output_path=process_path,
-                juris_index=juris_index,
-            )
-            on_progress(1, total, "Curate: Construindo decisões...")
-            build_decision_event_jsonl(
-                staging_file=args.staging_dir / "decisoes.csv",
-                output_path=args.output_dir / "decision_event.jsonl",
-                decision_index=decision_index,
-            )
-            on_progress(2, total, "Curate: Construindo assuntos...")
-            build_subject_jsonl(process_path=process_path, output_path=args.output_dir / "subject.jsonl")
-            on_progress(3, total, "Curate: Construindo partes...")
-            build_party_jsonl(process_path=process_path, output_path=args.output_dir / "party.jsonl")
-            on_progress(4, total, "Curate: Construindo advogados...")
-            build_counsel_jsonl(process_path=process_path, output_path=args.output_dir / "counsel.jsonl")
-            on_progress(5, total, "Curate: Construindo vínculos...")
-            build_process_links_jsonl(
-                process_path=process_path,
-                party_output_path=args.output_dir / "process_party_link.jsonl",
-                counsel_output_path=args.output_dir / "process_counsel_link.jsonl",
-            )
-            on_progress(6, total, "Curate: Identificadores de entidade...")
-            build_entity_identifier_jsonl(
-                process_path=process_path,
-                juris_dir=args.juris_dir,
-                output_path=args.output_dir / "entity_identifier.jsonl",
-            )
-            on_progress(7, total, "Curate: Reconciliação de entidades...")
-            build_entity_identifier_reconciliation_jsonl(
-                entity_identifier_path=args.output_dir / "entity_identifier.jsonl",
-                party_path=args.output_dir / "party.jsonl",
-                counsel_path=args.output_dir / "counsel.jsonl",
-                process_party_link_path=args.output_dir / "process_party_link.jsonl",
-                process_counsel_link_path=args.output_dir / "process_counsel_link.jsonl",
-                output_path=args.output_dir / "entity_identifier_reconciliation.jsonl",
-            )
-            on_progress(8, total, "Curate: Construindo rede de representação...")
-            build_representation_jsonl(
-                process_path=process_path,
-                portal_dir=portal_dir,
-                curated_dir=args.output_dir,
-            )
-            movement_path = args.output_dir / "movement.jsonl"
-            if portal_dir.exists():
-                on_progress(9, total, "Curate: Construindo movimentações...")
-                build_movement_jsonl(portal_dir=portal_dir, output_path=movement_path)
-            else:
-                on_progress(9, total, "Curate: Movimentações (sem dados do portal)")
-            if movement_path.exists() and portal_dir.exists():
-                on_progress(10, total, "Curate: Construindo sessões...")
-                build_session_event_jsonl(
-                    movement_path=movement_path,
-                    portal_dir=portal_dir,
-                    output_path=args.output_dir / "session_event.jsonl",
+        output_dir = args.output_dir
+        staging_dir = args.staging_dir
+        juris_dir = args.juris_dir
+        process_path = output_dir / "process.jsonl"
+
+        # Each builder runs as a subprocess for memory isolation.
+        # When the subprocess exits, the OS reclaims all its memory.
+        builders: list[tuple[str, list[str]]] = [
+            (
+                "Construindo processos",
+                [
+                    "curate",
+                    "process",
+                    "--staging-dir",
+                    str(staging_dir),
+                    "--output",
+                    str(process_path),
+                    "--juris-dir",
+                    str(juris_dir),
+                ],
+            ),
+            (
+                "Construindo decisões",
+                [
+                    "curate",
+                    "decision-event",
+                    "--staging-file",
+                    str(staging_dir / "decisoes.csv"),
+                    "--output",
+                    str(output_dir / "decision_event.jsonl"),
+                    "--juris-dir",
+                    str(juris_dir),
+                ],
+            ),
+            (
+                "Construindo assuntos",
+                [
+                    "curate",
+                    "subject",
+                    "--process-path",
+                    str(process_path),
+                    "--output",
+                    str(output_dir / "subject.jsonl"),
+                ],
+            ),
+            (
+                "Construindo partes",
+                ["curate", "party", "--process-path", str(process_path), "--output", str(output_dir / "party.jsonl")],
+            ),
+            (
+                "Construindo advogados",
+                [
+                    "curate",
+                    "counsel",
+                    "--process-path",
+                    str(process_path),
+                    "--output",
+                    str(output_dir / "counsel.jsonl"),
+                ],
+            ),
+            (
+                "Construindo vínculos",
+                [
+                    "curate",
+                    "links",
+                    "--process-path",
+                    str(process_path),
+                    "--party-output",
+                    str(output_dir / "process_party_link.jsonl"),
+                    "--counsel-output",
+                    str(output_dir / "process_counsel_link.jsonl"),
+                ],
+            ),
+            (
+                "Identificadores de entidade",
+                [
+                    "curate",
+                    "entity-identifier",
+                    "--process-path",
+                    str(process_path),
+                    "--juris-dir",
+                    str(juris_dir),
+                    "--output",
+                    str(output_dir / "entity_identifier.jsonl"),
+                ],
+            ),
+            (
+                "Reconciliação de entidades",
+                [
+                    "curate",
+                    "entity-reconciliation",
+                    "--entity-identifier-path",
+                    str(output_dir / "entity_identifier.jsonl"),
+                    "--party-path",
+                    str(output_dir / "party.jsonl"),
+                    "--counsel-path",
+                    str(output_dir / "counsel.jsonl"),
+                    "--process-party-link-path",
+                    str(output_dir / "process_party_link.jsonl"),
+                    "--process-counsel-link-path",
+                    str(output_dir / "process_counsel_link.jsonl"),
+                    "--output",
+                    str(output_dir / "entity_identifier_reconciliation.jsonl"),
+                ],
+            ),
+            (
+                "Construindo rede de representação",
+                [
+                    "curate",
+                    "representation",
+                    "--process-path",
+                    str(process_path),
+                    "--portal-dir",
+                    str(portal_dir),
+                    "--curated-dir",
+                    str(output_dir),
+                ],
+            ),
+        ]
+
+        # Movement and session-event are conditional on portal data
+        if portal_dir.exists():
+            builders.append(
+                (
+                    "Construindo movimentações",
+                    [
+                        "curate",
+                        "movement",
+                        "--portal-dir",
+                        str(portal_dir),
+                        "--output",
+                        str(output_dir / "movement.jsonl"),
+                    ],
                 )
-            else:
-                on_progress(10, total, "Curate: Sessões (sem dados do portal)")
+            )
+            builders.append(
+                (
+                    "Construindo sessões",
+                    [
+                        "curate",
+                        "session-event",
+                        "--movement-path",
+                        str(output_dir / "movement.jsonl"),
+                        "--portal-dir",
+                        str(portal_dir),
+                        "--output",
+                        str(output_dir / "session_event.jsonl"),
+                    ],
+                )
+            )
+
+        total = len(builders)
+        with cli_progress("Curate") as on_progress:
+            for step, (desc, cli_args) in enumerate(builders):
+                on_progress(step, total, f"Curate: {desc}...")
+                cmd = [sys.executable, "-m", "atlas_stf"] + cli_args
+                result = subprocess.run(cmd, check=False)
+                if result.returncode != 0:
+                    logger.error("Builder '%s' falhou com exit code %d", desc, result.returncode)
+                    return result.returncode
             on_progress(total, total, "Curate: Concluído")
         return 0
 
@@ -273,6 +354,22 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
             process_path=args.process_path,
             party_output_path=args.party_output,
             counsel_output_path=args.counsel_output,
+        )
+        return 0
+
+    if args.command == "curate" and args.curate_target == "movement":
+        from ..curated.build_movement import build_movement_jsonl
+
+        build_movement_jsonl(portal_dir=args.portal_dir, output_path=args.output)
+        return 0
+
+    if args.command == "curate" and args.curate_target == "session-event":
+        from ..curated.build_session_event import build_session_event_jsonl
+
+        build_session_event_jsonl(
+            movement_path=args.movement_path,
+            portal_dir=args.portal_dir,
+            output_path=args.output,
         )
         return 0
 

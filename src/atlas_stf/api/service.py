@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ..core.constants import CollegiateFilter  # noqa: F401
 from ._aggregation import (  # noqa: F401
     _entity_listing_page,
     _minister_profiles,
@@ -10,7 +11,6 @@ from ._aggregation import (  # noqa: F401
 
 # Re-exports for app.py compatibility
 from ._filters import (  # noqa: F401
-    CollegiateFilter,
     EntityKind,
     QueryFilters,
     ResolvedFilters,

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -81,10 +82,15 @@ def stable_record_hash(filename: str, row_number: int, process_number: str) -> s
 
 
 def write_jsonl(records: list[dict[str, Any]], output_path: Path) -> Path:
+    """Write records as JSONL with atomic promotion (tmp + flush + fsync + rename)."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as fh:
+    tmp_path = output_path.with_suffix(".jsonl.tmp")
+    with tmp_path.open("w", encoding="utf-8") as fh:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+        fh.flush()
+        os.fsync(fh.fileno())
+    tmp_path.replace(output_path)
     return output_path
 
 

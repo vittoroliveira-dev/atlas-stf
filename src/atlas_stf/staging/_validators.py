@@ -43,8 +43,8 @@ def _nonnull_mask(df: pd.DataFrame, column: str) -> pd.Series:
 
 def _build_process_number_samples(df: pd.DataFrame) -> list[str]:
     invalid_rows: list[str] = []
-    for _, series in df.iterrows():
-        process_number = infer_process_number(series.to_dict())
+    for row in df.to_dict("records"):
+        process_number = infer_process_number(row)
         if process_number is None:
             continue
         normalized = normalize_process_code(process_number)
@@ -117,8 +117,8 @@ def validate_dataframe(df: pd.DataFrame, config: FileConfig) -> list[str]:
 
 def collect_process_reference_keys(df: pd.DataFrame) -> set[str]:
     keys: set[str] = set()
-    for _, series in df.iterrows():
-        process_number = infer_process_number(series.to_dict())
+    for row in df.to_dict("records"):
+        process_number = infer_process_number(row)
         if process_number is None:
             continue
         keys.add(normalize_process_code(process_number))
@@ -127,8 +127,8 @@ def collect_process_reference_keys(df: pd.DataFrame) -> set[str]:
 
 def collect_reconcilable_processes(df: pd.DataFrame) -> list[str]:
     processes: list[str] = []
-    for _, series in df.iterrows():
-        process_number = infer_process_number(series.to_dict())
+    for row in df.to_dict("records"):
+        process_number = infer_process_number(row)
         if process_number is None:
             continue
         processes.append(normalize_process_code(process_number))

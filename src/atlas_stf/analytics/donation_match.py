@@ -17,11 +17,15 @@ from ._atomic_io import AtomicJsonlWriter
 from ._donation_aggregator import (
     _build_ambiguous_record,
     _donor_identity_key,
-    _stream_aggregate_donations,
+    _reaggregate_matched_donors,
+    _scan_donations_metadata,
+    _stream_aggregate_donations,  # noqa: F401 — re-exported for backward compat (tests, match_calibration)
+    _stream_aggregate_year,
 )
-from ._donation_match_counsel import match_donors_to_counsel
+from ._donation_match_counsel import build_counsel_match_context, process_counsel_match_results
 from ._match_helpers import (
     DEFAULT_ALIAS_PATH,
+    EntityMatchResult,
     build_baseline_rates_stratified,
     build_counsel_client_map_from_links,
     build_entity_match_index,
@@ -36,6 +40,7 @@ from ._match_helpers import (
     read_jsonl,
 )
 from ._parallel import build_counsel_profiles_parallel, match_entities_parallel
+from ._run_context import RunContext
 
 logger = logging.getLogger(__name__)
 
@@ -65,27 +70,32 @@ def build_donation_matches(  # noqa: C901
     alias_path: Path = DEFAULT_ALIAS_PATH,
     on_progress: Callable[[int, int, str], None] | None = None,
 ) -> Path:
-    """Build donation match analytics from TSE raw data + curated entities."""
-    total_steps = 10
+    """Build donation match analytics from TSE raw data + curated entities.
 
-    def _step(n: int, desc: str) -> None:
-        if on_progress:
-            on_progress(n, total_steps, desc)
-
+    Memory-safe: partitions matching by election year (~2 GB/year instead of
+    ~16 GB total), then re-aggregates only matched donors (~50 MB).
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
+    ctx = RunContext("donation-match", output_dir, total_steps=11, on_progress=on_progress)
 
     donations_path = tse_dir / "donations_raw.jsonl"
     if not donations_path.exists():
         logger.warning("No donations_raw.jsonl found in %s", tse_dir)
         return output_dir
 
-    # Stream-aggregate donations (never loads full file into RAM)
-    _step(0, "Agregando doações...")
-    donor_agg, raw_count, all_years = _stream_aggregate_donations(donations_path)
-    logger.info("Streamed %d raw donation records, aggregated to %d unique donors", raw_count, len(donor_agg))
+    # --- Step 0: Scan metadata (1 pass, ~540 MB for identity_key set) ---
+    ctx.start_step(0, "Scanning metadados...")
+    sorted_years, raw_count, unique_donor_count = _scan_donations_metadata(donations_path)
+    recent_cycles = sorted_years[-2:] if len(sorted_years) >= 2 else list(sorted_years)
+    logger.info(
+        "Scanned %d raw donation records, %d unique donors, %d election years",
+        raw_count,
+        unique_donor_count,
+        len(sorted_years),
+    )
 
-    # Build indices
-    _step(1, "Construindo índices...")
+    # --- Step 1: Build STF indices (party + counsel + baselines) ---
+    ctx.start_step(1, "Construindo índices...")
     party_records = read_jsonl(party_path)
     party_index = build_party_index(party_path)
     party_match_index = build_entity_match_index(
@@ -113,18 +123,62 @@ def build_donation_matches(  # noqa: C901
         if pid and pc:
             process_class_map[pid] = pc
 
-    # --- Match donors to parties (parallel across CPU cores) ---
-    _step(2, "Matching doadores → partes...")
-    match_items: list[tuple[str, str | None]] = [
-        (donor_info["donor_name_normalized"], donor_info.get("donor_cpf_cnpj")) for donor_info in donor_agg.values()
-    ]
-    match_results = match_entities_parallel(
-        match_items,
-        index=party_match_index,
-        name_field="party_name_normalized",
+    counsel_index, counsel_id_to_name, counsel_match_index = build_counsel_match_context(counsel_path, alias_path)
+
+    # --- Step 2: Match by election year (N passes, ~2 GB peak each) ---
+    ctx.start_step(2, "Matching por ano eleitoral...")
+    already_matched_party: dict[str, EntityMatchResult | None] = {}
+    already_matched_counsel: dict[str, EntityMatchResult | None] = {}
+    all_matched_keys: set[str] = set()
+    all_ambiguous_keys: set[str] = set()
+
+    for year in sorted_years:
+        year_donors = _stream_aggregate_year(donations_path, year)
+        logger.info("Year %d: %d unique donors", year, len(year_donors))
+
+        # Dedup: skip names already processed in earlier years
+        seen_names = set(already_matched_party.keys()) | set(already_matched_counsel.keys())
+        new_items: list[tuple[str, str | None]] = [
+            (name, cpf) for _key, (name, cpf) in year_donors.items() if name not in seen_names
+        ]
+
+        if new_items:
+            party_results = match_entities_parallel(
+                new_items, index=party_match_index, name_field="party_name_normalized"
+            )
+            counsel_results = match_entities_parallel(
+                new_items, index=counsel_match_index, name_field="counsel_name_normalized"
+            )
+            already_matched_party.update(party_results)
+            already_matched_counsel.update(counsel_results)
+
+        # Collect identity_keys using ALL accumulated results (fix finding #1)
+        for key, (name, _cpf) in year_donors.items():
+            r = already_matched_party.get(name) or already_matched_counsel.get(name)
+            if r is None:
+                continue
+            if r.strategy == "ambiguous":
+                all_ambiguous_keys.add(key)
+            else:
+                all_matched_keys.add(key)
+
+        del year_donors
+
+    logger.info(
+        "Year-partitioned matching: %d matched keys, %d ambiguous keys",
+        len(all_matched_keys),
+        len(all_ambiguous_keys),
     )
 
-    _step(3, "Processando resultados de partes...")
+    # --- Step 3: Re-aggregate only matched + ambiguous donors (1 pass, ~50 MB) ---
+    ctx.start_step(3, "Re-agregando doadores matched...")
+    matched_donor_agg = _reaggregate_matched_donors(
+        donations_path, all_matched_keys | all_ambiguous_keys, recent_cycles
+    )
+    logger.info("Re-aggregated %d matched/ambiguous donors", len(matched_donor_agg))
+
+    # --- Step 4: Process party match results ---
+    ctx.start_step(4, "Processando resultados de partes...")
     matches: list[dict[str, Any]] = []
     matched_party_names: set[str] = set()
     party_ambiguous_count = 0
@@ -132,9 +186,9 @@ def build_donation_matches(  # noqa: C901
     now_iso = datetime.now(timezone.utc).isoformat()
     ambiguous_records: list[dict[str, Any]] = []
 
-    for donor_key, donor_info in donor_agg.items():
+    for donor_key, donor_info in matched_donor_agg.items():
         donor_name = donor_info["donor_name_normalized"]
-        match = match_results.get(donor_name)
+        match = already_matched_party.get(donor_name)
         if match is None:
             continue
         if match.strategy == "ambiguous":
@@ -233,25 +287,24 @@ def build_donation_matches(  # noqa: C901
             }
         )
 
-    # --- Match donors to counsel (parallel across CPU cores) ---
-    _step(4, "Matching doadores → advogados...")
+    # --- Step 5: Process counsel match results ---
+    ctx.start_step(5, "Processando resultados de advogados...")
     (
         counsel_matches,
         matched_counsel_names,
-        counsel_id_to_name,
-        counsel_index,
         counsel_ambiguous_count,
         counsel_match_strategy_counts,
-    ) = match_donors_to_counsel(
-        counsel_path=counsel_path,
-        donor_agg=donor_agg,
+    ) = process_counsel_match_results(
+        counsel_match_results=already_matched_counsel,
+        donor_agg=matched_donor_agg,
+        counsel_index=counsel_index,
+        counsel_id_to_name=counsel_id_to_name,
         process_counsel_link_path=process_counsel_link_path,
         process_outcomes=process_outcomes,
         process_class_map=process_class_map,
         process_jb_map=process_jb_map,
         stratified_rates=stratified_rates,
         fallback_rates=fallback_rates,
-        alias_path=alias_path,
         red_flag_delta=RED_FLAG_DELTA_THRESHOLD,
         min_cases=MIN_CASES_FOR_RED_FLAG,
         now_iso=now_iso,
@@ -259,8 +312,8 @@ def build_donation_matches(  # noqa: C901
     )
     matches.extend(counsel_matches)
 
-    # Corporate enrichment (optional post-processing)
-    _step(5, "Enriquecimento corporativo...")
+    # --- Step 6: Corporate enrichment (optional post-processing) ---
+    ctx.start_step(6, "Enriquecimento corporativo...")
     from ._corporate_enrichment import build_corporate_enrichment_index, enrich_match_corporate
 
     corp_index = build_corporate_enrichment_index(output_dir)
@@ -288,14 +341,13 @@ def build_donation_matches(  # noqa: C901
         )
     )
 
-    # Write all donation matches (party + counsel)
-    _step(6, "Escrevendo matches...")
+    # --- Step 7: Write outputs ---
+    ctx.start_step(7, "Escrevendo matches...")
     match_path = output_dir / "donation_match.jsonl"
     with AtomicJsonlWriter(match_path) as fh:
         for m in matches:
             fh.write(json.dumps(m, ensure_ascii=False) + "\n")
 
-    # Write ambiguous match trail
     ambiguous_path = output_dir / "donation_match_ambiguous.jsonl"
     with AtomicJsonlWriter(ambiguous_path) as afh:
         for rec in ambiguous_records:
@@ -309,8 +361,8 @@ def build_donation_matches(  # noqa: C901
         if dk:
             matched_identity_keys[dk] = m["match_id"]
 
-    # Write individual donation events for matched donors (P3: temporal granularity)
-    _step(7, "Extraindo eventos individuais...")
+    # --- Step 8: Individual donation events ---
+    ctx.start_step(8, "Extraindo eventos individuais...")
     event_path = output_dir / "donation_event.jsonl"
     event_count = 0
     resource_category_counts: dict[str, int] = defaultdict(int)
@@ -362,8 +414,8 @@ def build_donation_matches(  # noqa: C901
             event_count += 1
     logger.info("Wrote %d individual donation events to %s", event_count, event_path)
 
-    # Build counsel donation profiles (indirect, via party clients)
-    _step(8, "Perfis de advogados...")
+    # --- Step 9: Counsel donation profiles ---
+    ctx.start_step(9, "Perfis de advogados...")
     counsel_client_map = build_counsel_client_map_from_links(
         process_party_link_path, process_counsel_link_path, party_id_to_name, counsel_id_to_name
     )
@@ -376,7 +428,6 @@ def build_donation_matches(  # noqa: C901
         red_flag_delta=RED_FLAG_DELTA_THRESHOLD,
         min_cases=MIN_CASES_FOR_RED_FLAG,
     )
-    # Rename keys to match donation-specific schema.
     counsel_profiles: list[dict[str, Any]] = [
         {
             "counsel_id": p["counsel_id"],
@@ -396,16 +447,15 @@ def build_donation_matches(  # noqa: C901
         for cp in counsel_profiles:
             fh.write(json.dumps(cp, ensure_ascii=False) + "\n")
 
-    # Compute total donated for matched parties
-    _step(9, "Resumo...")
+    # --- Step 10: Summary ---
+    ctx.start_step(10, "Resumo...")
     party_matches = [m for m in matches if m["entity_type"] == "party"]
     counsel_direct_matches = [m for m in matches if m["entity_type"] == "counsel"]
     total_donated_matched = sum(m["total_donated_brl"] for m in party_matches)
 
-    # Write summary
     summary = {
         "total_donations_raw": raw_count,
-        "unique_donors": len(donor_agg),
+        "unique_donors": unique_donor_count,
         "matched_party_count": len(matched_party_names),
         "matched_counsel_count": len(matched_counsel_names),
         "donation_match_count": len(matches),
@@ -430,7 +480,7 @@ def build_donation_matches(  # noqa: C901
         "corporate_network_present": corp_index.has_corporate_network,
         "corporate_enriched_count": corporate_enriched_count,
         "donation_event_count": event_count,
-        "election_years_covered": sorted(all_years),
+        "election_years_covered": sorted_years,
         "resource_category_counts": dict(resource_category_counts),
         "resource_subtype_counts": dict(resource_subtype_counts),
         "resource_classification_unknown_count": resource_category_counts.get("unknown", 0),
@@ -453,7 +503,7 @@ def build_donation_matches(  # noqa: C901
     summary_path = output_dir / "donation_match_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    _step(10, "Concluído")
+    ctx.finish(outputs=[str(match_path)])
     logger.info(
         "Built donation matches: %d party + %d counsel matches, %d counsel profiles",
         len(party_matches),

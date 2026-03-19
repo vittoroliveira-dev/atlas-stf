@@ -78,6 +78,15 @@ def load_law_firm_entities(curated_dir: Path) -> list[ServingLawFirmEntity]:
                 process_count=_coerce_int(record.get("process_count")),
                 first_seen_date=_parse_date(record.get("first_seen_date")),
                 last_seen_date=_parse_date(record.get("last_seen_date")),
+                oab_sp_firm_name=record.get("oab_sp_firm_name"),
+                address=record.get("address"),
+                neighborhood=record.get("neighborhood"),
+                zip_code=record.get("zip_code"),
+                city=record.get("city"),
+                state=record.get("state"),
+                email=record.get("email"),
+                phone=record.get("phone"),
+                society_type=record.get("society_type"),
             )
         )
     return results

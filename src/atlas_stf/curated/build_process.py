@@ -203,8 +203,9 @@ def build_process_records(
         if not path.exists():
             continue
         df = pd.read_csv(path, dtype=str, low_memory=False)
-        for row_number, (_, series) in enumerate(df.iterrows(), start=1):
-            row = series.to_dict()
+        columns = list(df.columns)
+        for row_number, values in enumerate(df.itertuples(index=False, name=None), start=1):
+            row = dict(zip(columns, values))
             process_number = infer_process_number(row)
             if not process_number:
                 continue

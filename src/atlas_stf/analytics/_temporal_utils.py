@@ -22,8 +22,6 @@ DEFAULT_OUTPUT_DIR = Path("data/analytics")
 SCHEMA_PATH = Path("schemas/temporal_analysis.schema.json")
 SUMMARY_SCHEMA_PATH = Path("schemas/temporal_analysis_summary.schema.json")
 
-ROLLING_WINDOW_MONTHS = 6
-EVENT_WINDOW_DAYS = 180
 MIN_EVENT_WINDOW_DECISIONS = 5
 CUSUM_DRIFT = 0.25
 BREAKPOINT_SCORE_THRESHOLD = 2.0

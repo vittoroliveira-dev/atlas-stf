@@ -32,6 +32,7 @@ from ._compound_risk_loaders import (
     _required_inputs_exist,
 )
 from ._match_helpers import build_process_class_map
+from ._run_context import RunContext
 
 logger = logging.getLogger(__name__)
 
@@ -49,13 +50,14 @@ def build_compound_risk(
 ) -> Path:
     """Build minister-entity compound risk rankings from converging signals."""
     output_dir.mkdir(parents=True, exist_ok=True)
+    ctx = RunContext("compound-risk", output_dir, total_steps=4, on_progress=on_progress)
 
     if not _required_inputs_exist(curated_dir):
         logger.warning("Compound risk skipped: curated inputs missing under %s", curated_dir)
+        ctx.finish(outputs=[])
         return output_dir
 
-    if on_progress:
-        on_progress(0, 4, "Compound Risk: Carregando dados...")
+    ctx.start_step(0, "Compound Risk: Carregando dados...")
     party_names = _party_name_map(curated_dir)
     counsel_names = _counsel_name_map(curated_dir)
     process_parties, process_counsels = _process_entity_maps(curated_dir, party_names, counsel_names)
@@ -83,8 +85,7 @@ def build_compound_risk(
     counsels_with_direct_sanction: set[str] = set()
     counsels_with_direct_donation: set[str] = set()
 
-    if on_progress:
-        on_progress(1, 4, "Compound Risk: Cruzando sinais...")
+    ctx.start_step(1, "Compound Risk: Cruzando sinais...")
     for row in sanction_rows:
         row_entity_type = str(row.get("entity_type") or "party")
         if row_entity_type == "counsel":
@@ -259,6 +260,7 @@ def build_compound_risk(
             for minister_name, process_ids in party_pair_processes.get(stf_entity_id, []):
                 evidence = _evidence_for(pairs, minister_name, "party", stf_entity_id, stf_entity_name)
                 evidence.sanction_corporate_link_count += 1
+                evidence.add_process_ids(process_ids)
                 if link_id:
                     evidence.sanction_corporate_link_ids.add(link_id)
                 cur_min = evidence.sanction_corporate_min_degree
@@ -268,6 +270,7 @@ def build_compound_risk(
             for minister_name, process_ids in counsel_pair_processes.get(stf_entity_id, []):
                 evidence = _evidence_for(pairs, minister_name, "counsel", stf_entity_id, stf_entity_name)
                 evidence.sanction_corporate_link_count += 1
+                evidence.add_process_ids(process_ids)
                 if link_id:
                     evidence.sanction_corporate_link_ids.add(link_id)
                 cur_min = evidence.sanction_corporate_min_degree
@@ -279,8 +282,7 @@ def build_compound_risk(
         if evidence.sanction_corporate_link_count > 0 and "sanction" not in evidence.signals:
             evidence.signals.add("sanction")
 
-    if on_progress:
-        on_progress(2, 4, "Compound Risk: Vinculando alertas...")
+    ctx.start_step(2, "Compound Risk: Vinculando alertas...")
     for row in alert_rows:
         alert_id = str(row.get("alert_id") or "")
         decision_event_id = str(row.get("decision_event_id") or "")
@@ -365,8 +367,7 @@ def build_compound_risk(
         )
 
     rows = _sort_rows(rows)
-    if on_progress:
-        on_progress(3, 4, "Compound Risk: Gravando resultados...")
+    ctx.start_step(3, "Compound Risk: Gravando resultados...")
     output_path = output_dir / "compound_risk.jsonl"
     with AtomicJsonlWriter(output_path) as handle:
         for row in rows:
@@ -406,6 +407,5 @@ def build_compound_risk(
         len(rows),
         summary["red_flag_count"],
     )
-    if on_progress:
-        on_progress(4, 4, "Compound Risk: Concluído")
+    ctx.finish(outputs=[str(output_path)])
     return output_path

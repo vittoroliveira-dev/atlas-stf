@@ -6,6 +6,7 @@
        staging curate \
        curate-process curate-decision-event curate-subject curate-party \
        curate-counsel curate-representation curate-entity-identifier curate-entity-reconciliation curate-links \
+       curate-movement curate-session-event \
        analytics evidence scrape format \
        _ag-groups _ag-rapporteur _ag-assignment _ag-sequential _ag-temporal _ag-counsel \
        _ag-baseline _ag-alerts _ag-ml-outlier _ag-compound-risk \
@@ -14,6 +15,9 @@
        _ag-representation-recurrence _ag-representation-windows \
        _ag-amicus-network _ag-firm-cluster \
        _ag-agenda-exposure agenda-fetch agenda-build agenda \
+       _ag-heavy _ag-light \
+       _check-env _ensure-no-heavy-fetch _stop-portal-fetch \
+       pipeline-safe pipeline-contained \
        cgu cgu-fetch cgu-matches cgu-corporate-links \
        tse tse-fetch tse-matches tse-fetch-expenses tse-expenses \
        tse-party-org-fetch tse-party-org tse-counterparties tse-donor-links tse-empirical-report \
@@ -21,10 +25,11 @@
        rfb rfb-fetch rfb-network rfb-groups \
        datajud datajud-fetch datajud-context \
        transparencia-fetch \
-       stf-portal stf-portal-fetch oab-validate deoab deoab-fetch \
+       stf-portal stf-portal-fetch oab-validate deoab deoab-fetch oab-sp oab-sp-fetch oab-sp-lookup \
        external-fetch fetch-all external-matches external-data \
        serving-build pipeline serve-api web-dev web-build web-typecheck \
-       docker-build docker-up
+       docker-build docker-up \
+       status runs tail-run explain-run resume resume-last
 
 .DEFAULT_GOAL := install
 
@@ -163,6 +168,12 @@ curate-representation: ## Curadoria: rede de representacao
 curate-links: ## Curadoria: vinculos processuais
 	$(CLI) curate links
 
+curate-movement: ## Curadoria: movimentacoes
+	$(CLI) curate movement
+
+curate-session-event: ## Curadoria: sessoes
+	$(CLI) curate session-event
+
 # ===========================
 # Analytics — dependencias declaradas, rode com: make analytics -j6
 #
@@ -236,7 +247,7 @@ _ag-agenda-exposure:
 agenda-fetch: ## Baixa agenda ministerial (GraphQL STF)
 	$(CLI) agenda fetch
 
-agenda-build: agenda-fetch ## Build eventos de agenda
+agenda-build: ## Build eventos de agenda (requer agenda-fetch já executado)
 	$(CLI) agenda build-events
 
 agenda: agenda-fetch agenda-build _ag-agenda-exposure ## Pipeline agenda completo
@@ -244,12 +255,18 @@ agenda: agenda-fetch agenda-build _ag-agenda-exposure ## Pipeline agenda complet
 _ag-compound-risk: _ag-alerts _ag-counsel _ag-velocity _ag-rapporteur-change
 	$(CLI) analytics compound-risk
 
-analytics: ## Todos os builders analiticos (use -j6)
-analytics: _ag-groups _ag-rapporteur _ag-assignment _ag-sequential _ag-temporal _ag-counsel \
+_ag-light: ## Analytics leves (paralelizaveis com -j4)
+_ag-light: _ag-groups _ag-rapporteur _ag-assignment _ag-sequential _ag-temporal _ag-counsel \
            _ag-baseline _ag-alerts _ag-ml-outlier _ag-velocity _ag-rapporteur-change \
            _ag-counsel-network _ag-procedural-timeline _ag-pauta-anomaly \
            _ag-representation-graph _ag-representation-recurrence _ag-representation-windows \
-           _ag-amicus-network _ag-firm-cluster _ag-agenda-exposure _ag-compound-risk
+           _ag-amicus-network _ag-firm-cluster _ag-agenda-exposure
+
+_ag-heavy: _ag-alerts _ag-counsel _ag-velocity _ag-rapporteur-change ## Analytics pesados (sequencial)
+_ag-heavy: _ag-compound-risk
+
+analytics: ## Todos os builders analiticos (use -j6)
+analytics: _ag-light _ag-heavy
 
 evidence: ## Bundles de evidencia para alertas
 	$(CLI) evidence build-all
@@ -267,10 +284,10 @@ scrape: transparencia-fetch ## Scraping completo (transparencia + jurisprudencia
 cgu-fetch: ## Baixa dados CGU (CEIS/CNEP/Leniencia)
 	$(CLI) cgu fetch
 
-cgu-matches: cgu-fetch ## Build sanction matches CGU
+cgu-matches: ## Build sanction matches CGU (requer cgu-fetch já executado)
 	$(CLI) cgu build-matches
 
-cgu-corporate-links: cgu-matches rfb-fetch ## Build vinculos corporativos de sancionados
+cgu-corporate-links: ## Build vinculos corporativos de sancionados (requer cgu-matches + rfb-fetch já executados)
 	$(CLI) cgu build-corporate-links
 
 cgu: cgu-fetch cgu-matches cgu-corporate-links ## Pipeline CGU completo
@@ -278,7 +295,7 @@ cgu: cgu-fetch cgu-matches cgu-corporate-links ## Pipeline CGU completo
 tse-fetch: ## Baixa doacoes eleitorais TSE
 	$(CLI) tse fetch
 
-tse-matches: tse-fetch ## Build donation matches TSE
+tse-matches: ## Build donation matches TSE (requer tse-fetch já executado)
 	$(CLI) tse build-matches
 
 tse: tse-fetch tse-matches ## Pipeline TSE completo (doacoes)
@@ -289,23 +306,23 @@ tse-party-org-fetch: ## Baixa financas de orgaos partidarios TSE
 tse-fetch-expenses: ## Baixa despesas de campanha TSE
 	$(CLI) tse fetch-expenses
 
-tse-expenses: tse-fetch-expenses ## Pipeline TSE despesas
+tse-expenses: ## Pipeline TSE despesas (requer tse-fetch-expenses já executado)
 
 tse-party-org: tse-party-org-fetch ## Pipeline TSE orgaos partidarios
 
-tse-counterparties: tse-party-org-fetch ## Build contrapartes de pagamento
+tse-counterparties: ## Build contrapartes de pagamento (requer tse-party-org-fetch já executado)
 	$(CLI) tse build-counterparties
 
-tse-donor-links: tse-fetch rfb-fetch ## Build vinculos corporativos de doadores
+tse-donor-links: ## Build vinculos corporativos de doadores (requer tse-fetch + rfb-fetch já executados)
 	$(CLI) tse build-donor-links
 
-tse-empirical-report: tse-matches ## Relatorio empirico de qualidade TSE
+tse-empirical-report: ## Relatorio empirico de qualidade TSE (requer tse-matches já executado)
 	$(CLI) tse empirical-report
 
 cvm-fetch: ## Baixa dados CVM
 	$(CLI) cvm fetch
 
-cvm-matches: cvm-fetch ## Build sanction matches CVM
+cvm-matches: ## Build sanction matches CVM (requer cvm-fetch já executado)
 	$(CLI) cvm build-matches
 
 cvm: cvm-fetch cvm-matches ## Pipeline CVM completo
@@ -313,10 +330,10 @@ cvm: cvm-fetch cvm-matches ## Pipeline CVM completo
 rfb-fetch: ## Baixa dados RFB (CNPJ)
 	$(CLI) rfb fetch
 
-rfb-groups: rfb-fetch ## Build grupos economicos
+rfb-groups: ## Build grupos economicos (requer rfb-fetch já executado)
 	$(CLI) rfb build-groups
 
-rfb-network: rfb-fetch rfb-groups ## Build rede corporativa
+rfb-network: ## Build rede corporativa (requer rfb-fetch + rfb-groups já executados)
 	$(CLI) rfb build-network
 
 rfb: rfb-fetch rfb-groups rfb-network ## Pipeline RFB completo
@@ -324,7 +341,7 @@ rfb: rfb-fetch rfb-groups rfb-network ## Pipeline RFB completo
 datajud-fetch: ## Baixa dados DataJud
 	$(CLI) datajud fetch
 
-datajud-context: datajud-fetch ## Build contexto de origem DataJud
+datajud-context: ## Build contexto de origem DataJud (requer datajud-fetch já executado)
 	$(CLI) datajud build-context
 
 datajud: datajud-fetch datajud-context ## Pipeline DataJud completo
@@ -342,16 +359,117 @@ deoab-fetch: ## Baixa e parseia diários OAB (sociedades de advocacia)
 
 deoab: deoab-fetch ## Pipeline DEOAB completo
 
+oab-sp-fetch: ## Busca detalhes de sociedades na OAB/SP
+	$(CLI) oab-sp fetch
+
+oab-sp-lookup: ## Busca advogados no cadastro OAB/SP
+	$(CLI) oab-sp lookup
+
+oab-sp: oab-sp-fetch oab-sp-lookup ## Pipeline OAB/SP completo (sociedades + advogados)
+
 external-fetch: cgu-fetch tse-fetch cvm-fetch rfb-fetch ## Baixa todas as fontes externas (CGU/TSE/CVM/RFB)
 fetch-all: scrape external-fetch tse-fetch-expenses tse-party-org-fetch stf-portal-fetch agenda-fetch deoab-fetch ## Baixa TUDO (STF + externas + agenda + DEOAB)
 external-matches: cgu-matches tse-matches cvm-matches rfb-network ## Build todos os matches externos
 external-data: cgu tse cvm rfb ## Pipeline completo de fontes externas
 
 # ===========================
+# Verificacao de ambiente
+# ===========================
+
+define _PY_CHECK_ENV
+import sys, subprocess
+lines = open('/proc/meminfo').readlines()
+info = {l.split(':')[0]: int(l.split()[1]) for l in lines if len(l.split()) >= 2}
+avail_gb = info.get('MemAvailable', 0) / 1048576
+swap_free_gb = info.get('SwapFree', 0) / 1048576
+swap_total_gb = info.get('SwapTotal', 0) / 1048576
+print(f'RAM disponivel: {avail_gb:.1f} GB')
+print(f'Swap: {swap_free_gb:.1f} / {swap_total_gb:.1f} GB livre')
+result = subprocess.run(['pgrep', '-af', 'stf-portal.*fetch|curate.*all'], capture_output=True, text=True)
+for p in result.stdout.strip().splitlines():
+    if p:
+        print(f'Processo pesado: {p}')
+if avail_gb < 10:
+    print('RAM disponivel < 10 GB. Pare processos pesados antes de continuar.')
+    sys.exit(1)
+print(f'RAM suficiente para pipeline ({avail_gb:.1f} GB disponivel).')
+endef
+export _PY_CHECK_ENV
+
+define _PY_ENSURE_NO_HEAVY_FETCH
+import subprocess, sys
+result = subprocess.run(['pgrep', '-af', 'stf-portal.*fetch'], capture_output=True, text=True)
+out = result.stdout.strip()
+if out:
+    print('Portal fetch ativo — pare antes de rodar pipeline-safe:')
+    print(out)
+    print('Use: make _stop-portal-fetch')
+    sys.exit(1)
+print('Nenhum portal fetch ativo.')
+endef
+export _PY_ENSURE_NO_HEAVY_FETCH
+
+define _PY_STOP_PORTAL_FETCH
+import os, sys
+pid_path = 'data/raw/stf_portal/.fetch.pid'
+if not os.path.exists(pid_path):
+    print('Portal fetch nao esta rodando.')
+    sys.exit(0)
+pid = int(open(pid_path).read().strip())
+cmdline = ''
+try:
+    cmdline = open(f'/proc/{pid}/cmdline').read()
+except FileNotFoundError:
+    pass
+if not cmdline or ('stf-portal' not in cmdline and 'stf_portal' not in cmdline):
+    print(f'PID {pid}: stale, removendo.')
+    os.unlink(pid_path)
+    sys.exit(0)
+os.kill(pid, 15)
+print(f'SIGTERM enviado para PID {pid}.')
+endef
+export _PY_STOP_PORTAL_FETCH
+
+_check-env: ## Verifica RAM e processos pesados antes de rodar pipeline
+	@python3 -c "$$_PY_CHECK_ENV"
+
+_ensure-no-heavy-fetch: ## Falha se portal fetch estiver ativo
+	@python3 -c "$$_PY_ENSURE_NO_HEAVY_FETCH"
+
+_stop-portal-fetch: ## Para o portal fetch de forma segura (valida PID + cmdline)
+	@python3 -c "$$_PY_STOP_PORTAL_FETCH"
+
+# ===========================
 # Serving e Pipeline — rode com: make pipeline -j6
 # ===========================
 serving-build: ## Materializa banco SQLite para API
 	$(CLI) serving build --database-url "$(ATLAS_STF_DB_URL)"
+
+pipeline-safe: _check-env _ensure-no-heavy-fetch ## Pipeline seguro (staging -> serving, com isolamento de memoria)
+	@echo "=== Fase 1: Staging ==="
+	$(MAKE) staging
+	@echo "=== Fase 2: Curate ==="
+	$(MAKE) curate
+	@echo "=== Fase 3: Analytics leves (-j4) ==="
+	$(MAKE) -j4 _ag-light
+	@echo "=== Fase 4: Analytics pesados (sequencial) ==="
+	$(MAKE) _ag-heavy
+	@echo "=== Fase 5: Matches externos ==="
+	$(MAKE) external-matches
+	$(MAKE) tse-counterparties tse-donor-links tse-empirical-report
+	@echo "=== Fase 6: Evidence + Serving ==="
+	$(MAKE) evidence
+	$(MAKE) serving-build
+	@echo "Pipeline completo concluido."
+
+pipeline-contained: _check-env _ensure-no-heavy-fetch ## Pipeline com contencao cgroup (experimental)
+	$(MAKE) staging
+	systemd-run --user --scope -p MemoryMax=12G --same-dir $(MAKE) curate
+	$(MAKE) -j4 _ag-light
+	systemd-run --user --scope -p MemoryMax=10G --same-dir $(MAKE) _ag-heavy
+	$(MAKE) external-matches
+	$(MAKE) tse-counterparties tse-donor-links tse-empirical-report
+	$(MAKE) evidence serving-build
 
 pipeline: scrape staging curate analytics external-data evidence serving-build ## Pipeline completo (scrape -> serving)
 	@echo "Pipeline completo. Rode 'make serve-api' e 'make web-dev' para subir."
@@ -379,3 +497,24 @@ docker-build: ## Build das imagens Docker
 
 docker-up: ## Sobe containers Docker
 	docker compose up --build
+
+# ===========================
+# Operacional — monitoramento de runs
+# ===========================
+status: ## Mostra runs ativos
+	$(CLI) status $(if $(BUILDER),--builder $(BUILDER),)
+
+runs: ## Lista execucoes recentes
+	$(CLI) runs $(if $(BUILDER),--builder $(BUILDER),)
+
+tail-run: ## Acompanha eventos de um run (requer RUN=...)
+	$(CLI) tail-run $(RUN)
+
+explain-run: ## Mostra manifesto de um run (requer RUN=...)
+	$(CLI) explain-run $(RUN)
+
+resume: ## Retoma run do checkpoint (requer RUN=...)
+	$(CLI) resume --run-id $(RUN)
+
+resume-last: ## Retoma ultimo run falhado de um builder (requer BUILDER=...)
+	$(CLI) resume --builder $(BUILDER)

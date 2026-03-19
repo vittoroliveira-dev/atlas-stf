@@ -95,13 +95,16 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
 
     if args.command == "cgu" and args.cgu_target == "build-corporate-links":
         from ..analytics.sanction_corporate_link import build_sanction_corporate_links
+        from ._progress import cli_progress
 
-        build_sanction_corporate_links(
-            cgu_dir=args.cgu_dir,
-            cvm_dir=args.cvm_dir,
-            rfb_dir=args.rfb_dir,
-            output_dir=args.output_dir,
-        )
+        with cli_progress("CGU Corporate Links") as on_progress:
+            build_sanction_corporate_links(
+                cgu_dir=args.cgu_dir,
+                cvm_dir=args.cvm_dir,
+                rfb_dir=args.rfb_dir,
+                output_dir=args.output_dir,
+                on_progress=on_progress,
+            )
         return 0
 
     if args.command == "tse" and args.tse_target == "fetch":
@@ -341,6 +344,47 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
         from ..curated.build_agenda import build_agenda_events
 
         build_agenda_events(raw_dir=args.raw_dir, curated_dir=args.curated_dir)
+        return 0
+
+    if args.command == "oab-sp" and args.oab_sp_target == "fetch":
+        from ..oab_sp._config import OabSpFetchConfig
+        from ..oab_sp._runner import run_society_fetch
+        from ._progress import cli_progress
+
+        config = OabSpFetchConfig(
+            output_dir=args.output_dir,
+            checkpoint_file=args.output_dir / ".checkpoint.json",
+            deoab_dir=args.deoab_dir,
+            rate_limit_seconds=args.rate_limit,
+            max_retries=args.max_retries,
+            dry_run=args.dry_run,
+        )
+        if config.dry_run:
+            run_society_fetch(config)
+        else:
+            with cli_progress("OAB/SP") as on_progress:
+                run_society_fetch(config, on_progress=on_progress)
+        return 0
+
+    if args.command == "oab-sp" and args.oab_sp_target == "lookup":
+        from ..oab_sp._config import OabSpLawyerLookupConfig
+        from ..oab_sp._runner_lawyer import run_lawyer_lookup
+        from ._progress import cli_progress
+
+        config = OabSpLawyerLookupConfig(
+            output_dir=args.output_dir,
+            checkpoint_file=args.output_dir / ".checkpoint_lawyer.json",
+            deoab_dir=args.deoab_dir,
+            curated_dir=args.curated_dir,
+            rate_limit_seconds=args.rate_limit,
+            max_retries=args.max_retries,
+            dry_run=args.dry_run,
+        )
+        if config.dry_run:
+            run_lawyer_lookup(config)
+        else:
+            with cli_progress("OAB/SP Lawyer") as on_progress:
+                run_lawyer_lookup(config, on_progress=on_progress)
         return 0
 
     if args.command == "deoab" and args.deoab_target == "fetch":

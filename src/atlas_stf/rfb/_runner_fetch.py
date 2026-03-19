@@ -250,9 +250,17 @@ def _safe_write_jsonl(
     enrich_fn: Callable[[dict[str, Any]], Any],
     label: str,
 ) -> None:
-    """Write enriched records to JSONL, skipping if empty and file already has content."""
-    if not records and path.exists() and path.stat().st_size > 0:
-        logger.info("Skipping %s write — no new data and file already has content", label)
+    """Write enriched records to JSONL, with guard against empty overwrites.
+
+    Never overwrites an existing file that has content with an empty result.
+    This prevents data loss when checkpoint-skipped passes return empty lists.
+    """
+    if not records:
+        if path.exists() and path.stat().st_size > 0:
+            logger.info("Skipping %s write — no new data and file already has content", label)
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"")
         return
     with path.open("w", encoding="utf-8") as fh:
         for r in records:

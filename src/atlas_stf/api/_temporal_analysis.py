@@ -5,7 +5,7 @@ from collections import Counter
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..analytics.temporal_analysis import EVENT_WINDOW_DAYS, ROLLING_WINDOW_MONTHS
+from ..core.constants import EVENT_WINDOW_DAYS, ROLLING_WINDOW_MONTHS
 from ..serving.models import ServingTemporalAnalysis
 from ._filters import _normalized_like
 from .temporal_schemas import (

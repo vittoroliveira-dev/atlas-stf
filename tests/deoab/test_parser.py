@@ -82,7 +82,7 @@ def test_clean_pdf_artifacts_preserves_normal():
 
 def test_parse_sociedade_records_denominada():
     text = (
-        'Sociedade Individual de Advocacia denominada \u201cTESTE SOCIEDADE INDIVIDUAL DE ADVOCACIA\u201d, '
+        "Sociedade Individual de Advocacia denominada \u201cTESTE SOCIEDADE INDIVIDUAL DE ADVOCACIA\u201d, "
         "de titularidade do(a) advogado (a), FULANO DE TAL, OABAM \u201320075, "
         "regularmente inscrito nesta Seccional."
     )

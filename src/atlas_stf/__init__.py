@@ -1,7 +1,9 @@
 """Atlas STF."""
 
+from importlib.metadata import version
+
 from .cli import main
 
-__version__ = "1.0.8"
+__version__ = version("atlas-stf")
 
 __all__ = ["__version__", "main"]

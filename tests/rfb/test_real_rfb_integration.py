@@ -154,9 +154,9 @@ class TestRealRfbIntegration:
             assert c["link_degree"] >= 1
 
     def test_civil_names_in_minister_bio(self) -> None:
-        """minister_bio.json has civil_name for all 15 ministers."""
+        """minister_bio.json has civil_name for all 21 ministers."""
         data = json.loads(BIO_PATH.read_text(encoding="utf-8"))
-        assert len(data) == 15
+        assert len(data) == 21
         different_count = 0
         for _key, entry in data.items():
             assert "civil_name" in entry
@@ -164,5 +164,5 @@ class TestRealRfbIntegration:
             assert len(entry["civil_name"]) > 0
             if entry["civil_name"] != entry["minister_name"]:
                 different_count += 1
-        # At least 10 ministers have civil_name different from minister_name
-        assert different_count >= 10
+        # At least 15 ministers have civil_name different from minister_name
+        assert different_count >= 15

@@ -273,8 +273,12 @@ class TestServingSmoke:
             )
             session.commit()
 
-        # Now call _ensure_compatible_schema — should drop+recreate
-        _ensure_compatible_schema(engine)
+        # Now call _ensure_compatible_schema — should drop+recreate with warning
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            _ensure_compatible_schema(engine)
 
         # Verify tables exist after rebuild
         from sqlalchemy import inspect as sa_inspect

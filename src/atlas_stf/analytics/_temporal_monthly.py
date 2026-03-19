@@ -7,11 +7,11 @@ from datetime import date
 from statistics import mean, pstdev
 from typing import Any
 
+from ..core.constants import ROLLING_WINDOW_MONTHS
 from ..core.identity import stable_id
 from ._temporal_utils import (
     BREAKPOINT_SCORE_THRESHOLD,
     CUSUM_DRIFT,
-    ROLLING_WINDOW_MONTHS,
     _month_key,
     _month_range,
     _round,

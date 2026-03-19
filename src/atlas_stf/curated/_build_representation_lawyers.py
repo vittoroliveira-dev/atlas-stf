@@ -82,10 +82,14 @@ def _load_portal_records(portal_dir: Path) -> list[dict[str, Any]]:
     return records
 
 
+DEFAULT_OABSP_DIR = Path("data/raw/oab_sp")
+
+
 def build_lawyer_entity_records(
     process_path: Path,
     portal_dir: Path,
     curated_dir: Path,
+    oab_sp_dir: Path = DEFAULT_OABSP_DIR,
 ) -> list[dict[str, Any]]:
     """Build deduplicated lawyer entity records from all available sources."""
     from .common import read_jsonl_records, utc_now_iso
@@ -135,9 +139,101 @@ def build_lawyer_entity_records(
             timestamp=timestamp,
         )
 
+    # ---- Source 4: OAB/SP lawyer lookup (firm_id enrichment) ----
+    _enrich_firm_id_from_oab_sp(lawyer_map, oab_sp_dir, timestamp)
+
     records = sorted(lawyer_map.values(), key=lambda item: item["lawyer_id"])
     validate_records(records, SCHEMA_PATH)
     return records
+
+
+def _enrich_firm_id_from_oab_sp(
+    lawyer_map: dict[str, dict[str, Any]],
+    oab_sp_dir: Path,
+    timestamp: str,
+) -> None:
+    """Enrich lawyers with firm_id from advogado_consulta.jsonl.
+
+    The OAB/SP lookup returns current affiliation only.
+    firm_id is set on the lawyer_entity (current snapshot),
+    NOT propagated to representation_edges (historical).
+    """
+    consulta_path = oab_sp_dir / "advogado_consulta.jsonl"
+    if not consulta_path.exists():
+        return
+
+    # Load sociedade_detalhe to map firm_param → registration_number
+    detalhe_path = oab_sp_dir / "sociedade_detalhe.jsonl"
+    if not detalhe_path.exists():
+        return
+
+    param_to_reg: dict[str, str] = {}
+    with detalhe_path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            rec = json.loads(line)
+            param = rec.get("oab_sp_param")
+            reg = rec.get("registration_number")
+            if param and reg:
+                param_to_reg[str(param)] = str(reg)
+
+    # Build oab_number → identity_key index from lawyer_map
+    oab_to_key: dict[str, str] = {}
+    for key, lawyer in lawyer_map.items():
+        oab = lawyer.get("oab_number")
+        if oab and lawyer.get("oab_state") == "SP":
+            oab_to_key[oab] = key
+
+    enriched = 0
+    with consulta_path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            firm_param = record.get("firm_param")
+            oab_number = record.get("oab_number")
+            if not firm_param or not oab_number:
+                continue
+
+            # Find the lawyer in our map
+            lawyer_key = oab_to_key.get(oab_number)
+            if not lawyer_key:
+                continue
+            lawyer = lawyer_map.get(lawyer_key)
+            if not lawyer:
+                continue
+
+            # Map firm_param → registration_number → firm_id
+            reg = param_to_reg.get(firm_param)
+            if not reg:
+                continue
+
+            from ..core.identity import build_firm_identity_key, normalize_entity_name, stable_id
+
+            # We need to find the firm's identity_key to compute firm_id
+            # The firm name from the consulta record is the canonical source
+            firm_name = record.get("firm_name")
+            if not firm_name:
+                continue
+            normalized = normalize_entity_name(firm_name)
+            if not normalized:
+                continue
+            firm_identity_key = build_firm_identity_key(name=normalized)
+            if not firm_identity_key:
+                continue
+            firm_id = stable_id("firm_", firm_identity_key)
+
+            lawyer["firm_id"] = firm_id
+            if "oab_sp" not in lawyer.get("source_systems", []):
+                lawyer["source_systems"].append("oab_sp")
+            lawyer["updated_at"] = timestamp
+            enriched += 1
+
+    if enriched:
+        logger.info("Enriched %d lawyers with firm_id from OAB/SP lookup", enriched)
 
 
 def _merge_lawyer_into(target: dict[str, Any], source: dict[str, Any]) -> None:

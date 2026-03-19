@@ -6,6 +6,53 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-03-19
+
+### Added
+
+- **oab_sp/**: módulo de consulta à OAB/SP — fetch de detalhes de sociedades de advocacia e consulta de advogados inscritos. Checkpoint auditável, rate limiting, fallback HTML graceful. Artefatos: `sociedade_detalhe.jsonl`, `advogado_consulta.jsonl`
+- **analytics/_run_context.py**: framework de observabilidade para builders — tracking de progresso por step, pico de RSS, throughput, ETA, detecção de stall, checkpoints para resumabilidade. Eventos salvos em `.runs/{run_id}/events.jsonl`. Adotado em donation_match, sanction_match, sanction_corporate_link
+- **cli/_handlers_ops.py**: comandos operacionais `runs`, `status`, `explain-run`, `tail-run`, `resume` para monitorar e retomar execuções de builders via RunContext
+- **core/constants.py**: constantes de domínio compartilhadas entre camadas (`QueryFilters`, `CollegiateFilter`, `ROLLING_WINDOW_MONTHS`, `EVENT_WINDOW_DAYS`, `collegiate_label`) — elimina imports cruzando boundaries proibidas
+- **data/curated/minister_bio.json**: seed biográfico com 21 ministros do STF (1989-2024) — nome civil, data de nomeação, presidente, conexões, referências, histórico partidário. Dados públicos verificados contra portal STF e documento de pesquisa
+- **curated/_build_representation_firms.py**: enriquecimento de escritórios com dados cadastrais OAB/SP (nome, endereço, tipo de sociedade, telefone, e-mail) e vínculo advogado→firma via registro de inscritos
+- **schemas/law_firm_entity.schema.json**: 9 campos OAB/SP adicionados (`oab_sp_firm_name`, `address`, `neighborhood`, `zip_code`, `city`, `state`, `phone`, `email`, `society_type`)
+- **serving/_models_representation.py**: 9 colunas OAB/SP em `ServingLawFirmEntity`; loader atualizado em `_builder_loaders_representation.py`
+- **cli/_parsers_curate.py**: subcomandos `curate movement` e `curate session-event` com argumentos dedicados
+- **cli/_parsers_external.py**: subcomandos `oab-sp fetch` e `oab-sp lookup` com argumentos dedicados
+- **Makefile**: targets `pipeline-safe` (execução sequencial com verificação de RAM), `pipeline-contained` (cgroup memory limits), `oab-sp-fetch`, `oab-sp-lookup`, `runs`, `status`, `explain-run`, `tail-run`, `resume`; separação `_ag-light` vs `_ag-heavy`
+- **docs/ARCHITECTURE.md**: visão geral da arquitetura do projeto
+- **docs/adr/**: 4 ADRs — SQLite materializado, builders independentes com JSONL, frontend SSR-only, API GET-only read-only
+- ~257 novos testes (total: ~1964)
+
+### Changed
+
+- **analytics/donation_match.py**: matching particionado por ano eleitoral (~2 GB/year em vez de ~16 GB total); re-agregação apenas de doadores matched (~50 MB); integração com RunContext. Submodulos refatorados: `_donation_aggregator` ganha `_stream_aggregate_year` e `_reaggregate_matched_donors`; `_donation_match_counsel` separa `process_counsel_match_results`
+- **analytics/_parallel.py**: workers limitados a 2; fork só com ≥8 GB de RAM disponível (evita OOM em máquinas compartilhadas)
+- **analytics/sanction_corporate_link.py**: carregamento stream-based de dados RFB (2-pass partner scan, expansão CNPJ via grupos econômicos, memory checkpoints via RunContext). `_scl_bridge` ganha helpers de streaming para parceiros, empresas e grupos econômicos
+- **analytics/sanction_match.py**: adota RunContext para progresso e logging estruturado
+- **curated/build_decision_event.py**, **build_process.py**: `iterrows()` substituído por `itertuples` streaming (evita `Series.to_dict()` por linha em DataFrames grandes)
+- **staging/_validators.py**: `iterrows()` substituído por `to_dict("records")` em validadores (DFs modestos)
+- **api/_aggregation.py**: `_minister_profiles()` usa tabela materializada (`_materialized_minister_flow`) em vez de 6 queries on-the-fly por ministro
+- **api/_filters.py**: `QueryFilters` e `CollegiateFilter` importados de `core.constants`; cache de filter options por engine. Imports migrados em `_formatters`, `_temporal_analysis`, `service.py`, `serving/_builder_flow.py`, `analytics/_temporal_*` e `temporal_analysis.py`
+- **curated/_build_representation_lawyers.py**: enriquecimento `firm_id` via consulta OAB/SP; `build_representation.py` propaga `oab_sp_dir`
+- **curated/common.py**: `write_jsonl` agora usa escrita atômica (tmp + flush + fsync + rename) para prevenir corrupção em shutdown
+- **cli/_handlers_data.py**: `curate all` executa cada builder em subprocess isolado (memória fresh por builder)
+- **cli/_handlers.py**, **_parsers.py**: registram novos módulos `_handlers_ops` e `_parsers_ops`
+- **tests/rfb/test_real_rfb_integration.py**: assertion atualizada para 21 ministros (expansão do seed biográfico)
+
+### Fixed
+
+- **analytics/compound_risk.py**: loop de SCL não chamava `evidence.add_process_ids(process_ids)` — `shared_process_count` não refletia processos vinculados por sanção corporativa indireta
+- **stf_portal/_runner.py**: handler SIGTERM + PID file para shutdown graceful; checkpoint salvo no sinal; previne re-runs com outputs vazios (invalida checkpoint)
+- **rfb/_runner.py**, **_runner_fetch.py**: guard contra checkpoints fantasma — invalida pass quando arquivo de output está ausente ou vazio após conclusão reportada
+- **cli/_handlers_ops.py**: mensagem de erro de `_handle_resume` corrigida para stderr (consistência com `_handle_explain_run`)
+
+### Security
+
+- **api/app.py**: exception handler global retorna `{"detail": "internal_server_error"}` sem stack trace; security headers `X-Content-Type-Options: nosniff` e `X-Frame-Options: DENY`; CORS opt-in via `ATLAS_STF_CORS_ORIGINS` (sem wildcard por default)
+- **cli/_handlers_ops.py**: validação de `run_id` com `Path.parts == 1` + `resolve()` + `is_relative_to()` em `explain-run` e `tail-run` (path traversal prevention)
+
 ## [1.0.8] - 2026-03-17
 
 ### Added

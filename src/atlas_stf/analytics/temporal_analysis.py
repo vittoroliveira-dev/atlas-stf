@@ -8,6 +8,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ..core.constants import EVENT_WINDOW_DAYS, ROLLING_WINDOW_MONTHS
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._temporal_corporate import _build_corporate_link_records
@@ -24,8 +25,6 @@ from ._temporal_utils import (
     DEFAULT_PROCESS_PARTY_LINK_PATH,
     DEFAULT_PROCESS_PATH,
     DEFAULT_RFB_DIR,
-    EVENT_WINDOW_DAYS,
-    ROLLING_WINDOW_MONTHS,
     SCHEMA_PATH,
     SUMMARY_SCHEMA_PATH,
     _classifiable_events,

@@ -1,26 +1,48 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from threading import Lock
 from typing import Callable, Literal
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
+from ..core.constants import QueryFilters
 from ..serving.models import ServingCase
 from .schemas import AppliedFilters, FilterOptionsResponse
 
-CollegiateFilter = Literal["all", "colegiado", "monocratico"]
+
+class _FilterOptionsCache:
+    """Cache DISTINCT filter options per engine (values only change on DB rebuild)."""
+
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._store: dict[int, tuple[list[str], list[str], list[str], list[str]]] = {}
+
+    def get(self, session: Session) -> tuple[list[str], list[str], list[str], list[str]]:
+        engine_id = id(session.bind)
+        with self._lock:
+            cached = self._store.get(engine_id)
+        if cached is not None:
+            return cached
+        periods = _all_periods(session)
+        judging_bodies = _all_distinct_strings(session, ServingCase.judging_body)
+        process_classes = _all_distinct_strings(session, ServingCase.process_class)
+        ministers = _all_distinct_strings(session, ServingCase.current_rapporteur)
+        result = (periods, judging_bodies, process_classes, ministers)
+        with self._lock:
+            self._store[engine_id] = result
+        return result
+
+    def invalidate(self) -> None:
+        with self._lock:
+            self._store.clear()
+
+
+_filter_options_cache = _FilterOptionsCache()
+
 EntityKind = Literal["counsel", "party"]
 CaseSelector = Callable[[ServingCase], str | None]
-
-
-@dataclass(frozen=True)
-class QueryFilters:
-    minister: str | None = None
-    period: str | None = None
-    collegiate: CollegiateFilter = "all"
-    judging_body: str | None = None
-    process_class: str | None = None
 
 
 @dataclass(frozen=True)
@@ -63,9 +85,7 @@ def _all_periods(session: Session) -> list[str]:
 
 
 def resolve_filters(session: Session, raw_filters: QueryFilters, *, auto_select_period: bool = True) -> ResolvedFilters:
-    periods = _all_periods(session)
-    judging_bodies = _all_distinct_strings(session, ServingCase.judging_body)
-    process_classes = _all_distinct_strings(session, ServingCase.process_class)
+    periods, judging_bodies, process_classes, all_ministers = _filter_options_cache.get(session)
 
     if raw_filters.period == "__all__":
         selected_period = None
@@ -82,7 +102,6 @@ def resolve_filters(session: Session, raw_filters: QueryFilters, *, auto_select_
     else:
         selected_collegiate = "all"
 
-    all_ministers = _all_distinct_strings(session, ServingCase.current_rapporteur)
     selected_minister = raw_filters.minister if raw_filters.minister else None
 
     applied_period = "__all__" if raw_filters.period == "__all__" else selected_period

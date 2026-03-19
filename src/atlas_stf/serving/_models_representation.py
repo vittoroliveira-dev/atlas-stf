@@ -51,6 +51,15 @@ class ServingLawFirmEntity(Base):
     process_count: Mapped[int] = mapped_column(Integer, default=0)
     first_seen_date: Mapped[date | None] = mapped_column(Date)
     last_seen_date: Mapped[date | None] = mapped_column(Date)
+    oab_sp_firm_name: Mapped[str | None] = mapped_column(Text())
+    address: Mapped[str | None] = mapped_column(Text())
+    neighborhood: Mapped[str | None] = mapped_column(String(256))
+    zip_code: Mapped[str | None] = mapped_column(String(16))
+    city: Mapped[str | None] = mapped_column(String(256))
+    state: Mapped[str | None] = mapped_column(String(2))
+    email: Mapped[str | None] = mapped_column(String(256))
+    phone: Mapped[str | None] = mapped_column(String(64))
+    society_type: Mapped[str | None] = mapped_column(String(32))
 
 
 class ServingProcessLawyer(Base):

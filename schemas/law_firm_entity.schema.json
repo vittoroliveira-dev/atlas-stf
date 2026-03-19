@@ -63,6 +63,42 @@
     "updated_at": {
       "type": ["string", "null"],
       "format": "date-time"
+    },
+    "oab_sp_firm_name": {
+      "type": ["string", "null"],
+      "description": "Nome canonico da firma segundo OAB/SP."
+    },
+    "address": {
+      "type": ["string", "null"],
+      "description": "Endereco completo da sociedade (OAB/SP)."
+    },
+    "neighborhood": {
+      "type": ["string", "null"],
+      "description": "Bairro (OAB/SP)."
+    },
+    "zip_code": {
+      "type": ["string", "null"],
+      "description": "CEP somente digitos (OAB/SP)."
+    },
+    "city": {
+      "type": ["string", "null"],
+      "description": "Cidade da sociedade (OAB/SP)."
+    },
+    "state": {
+      "type": ["string", "null"],
+      "description": "UF da sociedade (OAB/SP)."
+    },
+    "email": {
+      "type": ["string", "null"],
+      "description": "Email de contato (OAB/SP)."
+    },
+    "phone": {
+      "type": ["string", "null"],
+      "description": "Telefone de contato (OAB/SP)."
+    },
+    "society_type": {
+      "type": ["string", "null"],
+      "description": "Tipo: sociedade_advogados ou individual."
     }
   }
 }

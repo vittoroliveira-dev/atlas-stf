@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import atexit
 import json
 import logging
+import os
+import signal
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -17,6 +20,9 @@ from ._extractor import PortalExtractor
 from ._proxy import ProxyManager
 
 logger = logging.getLogger(__name__)
+
+# Graceful shutdown flag — set by SIGTERM handler, observed by the main loop.
+_shutdown_requested = threading.Event()
 
 # Suppress per-request httpx logging (floods the log with 7 lines per process)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -69,7 +75,7 @@ def _should_refetch(output_path: Path, refetch_after_days: int) -> bool:
         return True
     try:
         with output_path.open(encoding="utf-8") as f:
-            data = json.loads(f.read())
+            data = json.load(f)
         fetched_at = data.get("fetched_at")
         if not fetched_at:
             return True
@@ -154,6 +160,21 @@ def run_extraction(
             logger.info("  ... and %d more", total - 20)
         return 0
 
+    # --- PID file for external stop/monitoring ---
+    pid_path = config.output_dir / ".fetch.pid"
+    config.output_dir.mkdir(parents=True, exist_ok=True)
+    pid_path.write_text(str(os.getpid()), encoding="utf-8")
+    atexit.register(lambda: pid_path.unlink(missing_ok=True))
+
+    # --- SIGTERM handler: set flag, loop observes at next safe point ---
+    _shutdown_requested.clear()
+
+    def _handle_sigterm(_signum: int, _frame: object) -> None:
+        _shutdown_requested.set()
+
+    previous_handler = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+
     checkpoint = load_checkpoint(config.checkpoint_file)
 
     # Clear previously failed processes so they get re-tried
@@ -230,6 +251,11 @@ def run_extraction(
         # Sequential path — simpler, no thread overhead
         with _make_extractor() as extractor:
             for process_number in pending:
+                if _shutdown_requested.is_set():
+                    logger.info("SIGTERM recebido — salvando checkpoint e saindo.")
+                    save_checkpoint(checkpoint, config.checkpoint_file)
+                    break
+
                 if on_progress:
                     on_progress(progress_step, total, f"STF Portal: {process_number}")
 
@@ -273,11 +299,19 @@ def run_extraction(
 
                     if fetched > 0 and fetched % 100 == 0:
                         save_checkpoint(checkpoint, config.checkpoint_file)
+
+                    if _shutdown_requested.is_set():
+                        logger.info("SIGTERM recebido — cancelando futures pendentes.")
+                        for f in futures:
+                            f.cancel()
+                        break
         finally:
             for ext in _thread_extractors.values():
                 ext.close()
 
     save_checkpoint(checkpoint, config.checkpoint_file)
+    signal.signal(signal.SIGTERM, previous_handler)
+    pid_path.unlink(missing_ok=True)
     if on_progress:
         on_progress(total, total, "STF Portal: Concluído")
     logger.info("Extraction complete: %d processes fetched", fetched)

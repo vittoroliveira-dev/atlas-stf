@@ -96,6 +96,7 @@ O repositório combina quatro frentes operacionais:
 | `api` | Endpoints FastAPI (73) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
 | `stf_portal` | Extrator de linha do tempo processual do portal STF (httpx) com proxy rotation per-IP | `src/atlas_stf/stf_portal/`, `tests/stf_portal/` |
 | `deoab` | Sociedades de advocacia do Diário Eletrônico da OAB (PDF público → JSONL) | `src/atlas_stf/deoab/`, `tests/deoab/` |
+| `oab_sp` | Consulta à OAB/SP — detalhes de sociedades e advogados inscritos (httpx + checkpoint) | `src/atlas_stf/oab_sp/`, `tests/oab_sp/` |
 | `cgu` | Dados CGU (CEIS/CNEP/Leniência) para cruzamento de sanções | `src/atlas_stf/cgu/`, `tests/cgu/` |
 | `tse` | Doações eleitorais TSE (12 ciclos, 2002–2024), despesas de campanha de candidatos (7 ciclos, 2002–2024), finanças de órgãos partidários (2018–2024) e vínculos corporativos de doadores (join TSE→RFB) | `src/atlas_stf/tse/`, `tests/tse/` |
 | `cvm` | Processos sancionadores CVM (mercado de capitais) | `src/atlas_stf/cvm/`, `tests/cvm/` |
@@ -121,6 +122,7 @@ O repositório combina quatro frentes operacionais:
 | Portal STF | HTTP scraping (httpx) | Linha do tempo processual (andamentos, sessões, vistas, sustentação oral) |
 | STF GraphQL | API GraphQL (httpx) | Agenda ministerial (audiências, sessões, compromissos) |
 | DEOAB (Diário Eletrônico da OAB) | PDF público (pdftotext) | Registros de sociedades de advocacia, vínculos OAB→escritório (2019–presente) |
+| OAB/SP | HTTP scraping (httpx) | Detalhes cadastrais de sociedades de advocacia e advogados inscritos na OAB de São Paulo |
 
 ## Arquitetura
 
@@ -152,7 +154,7 @@ flowchart LR
 | API | FastAPI + SQLAlchemy 2.x |
 | Serving database | SQLite (41 tabelas) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 + Recharts |
-| Qualidade | pytest (~1707 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
+| Qualidade | pytest (~2030 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
 | Infra | Docker, GitHub Actions, uv |
 
 ### Configuração operacional canônica
@@ -168,13 +170,13 @@ flowchart LR
 
 ```bash
 docker pull ghcr.io/vittoroliveira-dev/atlas-stf:latest
-docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.0.8
+docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.0.9
 ```
 
 ### Via wheel (release asset)
 
 ```bash
-pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.0.8-py3-none-any.whl
+pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.0.9-py3-none-any.whl
 ```
 
 Após a instalação, a CLI fica disponível:
@@ -487,14 +489,15 @@ atlas-stf/
 │   ├── rfb/              # RFB dados abertos CNPJ (CSV)
 │   ├── datajud/          # DataJud CNJ (httpx)
 │   ├── oab/              # Validação OAB CNA/CNSA
+│   ├── oab_sp/           # Consulta OAB/SP (sociedades e advogados inscritos)
 │   ├── deoab/            # DEOAB sociedades de advocacia (pdftotext)
 │   └── doc_extractor/    # Extração seletiva de PDFs
 ├── web/                  # Dashboard Next.js 16 + React 19 + TypeScript
 │   ├── src/app/          # 26 páginas (App Router, async Server Components)
 │   ├── src/components/   # 19 componentes
-│   └── src/lib/          # 18+ módulos (API client, types, mappers)
-├── tests/                # 100+ arquivos, ~1707 testes (mirror da src/)
-├── docs/                 # Documentação metodológica (11 documentos)
+│   └── src/lib/          # 20 módulos (API client, types, mappers)
+├── tests/                # 164 arquivos, ~2030 testes (mirror da src/)
+├── docs/                 # Documentação metodológica (14 documentos)
 ├── governance/           # Regras, decisões, auditoria e risco
 ├── schemas/              # Contratos JSON das entidades
 ├── scripts/              # Scripts utilitários

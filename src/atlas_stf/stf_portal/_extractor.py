@@ -175,7 +175,11 @@ class PortalExtractor:
                     wait = self._retry_delay * (2**attempt)
                     logger.warning(
                         "HTTP %d (attempt %d/%d): %s — retrying in %.1fs",
-                        status, attempt + 1, self._max_retries, exc, wait,
+                        status,
+                        attempt + 1,
+                        self._max_retries,
+                        exc,
+                        wait,
                     )
                     time.sleep(wait)
                 else:
@@ -191,7 +195,10 @@ class PortalExtractor:
                     wait = self._retry_delay * (2**attempt)
                     logger.warning(
                         "Request failed (attempt %d/%d): %s — retrying in %.1fs",
-                        attempt + 1, self._max_retries, exc, wait,
+                        attempt + 1,
+                        self._max_retries,
+                        exc,
+                        wait,
                     )
                     time.sleep(wait)
                 else:
@@ -251,7 +258,10 @@ class PortalExtractor:
                     wait = self._retry_delay * (2**attempt)
                     logger.warning(
                         "Resolve %s failed (attempt %d/%d): %s",
-                        process_number, attempt + 1, self._max_retries, exc,
+                        process_number,
+                        attempt + 1,
+                        self._max_retries,
+                        exc,
                     )
                     time.sleep(wait)
                 else:

@@ -24,7 +24,9 @@ data/raw/**/*.pdf
 data/raw/**/*.xlsx
 data/raw/rfb/
 data/staging/
-data/curated/
+data/curated/*.jsonl
+data/curated/*.csv
+!data/curated/minister_bio.json
 data/analytics/
 data/evidence/
 data/serving/

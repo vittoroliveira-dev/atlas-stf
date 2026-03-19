@@ -80,8 +80,18 @@ def _result_from_dict(data: dict[str, Any]) -> EntityMatchResult:
     )
 
 
+_MAX_WORKERS_CAP = 2
+_MIN_RAM_FOR_FORK_GB = 8.0
+
+
 def optimal_workers(ram_per_worker_gb: float = 1.5) -> int:
-    """Return optimal worker count based on CPU cores and available RAM."""
+    """Return optimal worker count based on CPU cores and available RAM.
+
+    Capped at ``_MAX_WORKERS_CAP`` and requires at least
+    ``_MIN_RAM_FOR_FORK_GB`` free before spawning any workers, to avoid
+    OOM on shared machines where fork-based workers inherit the parent's
+    RSS via copy-on-write.
+    """
     cores = os.cpu_count() or 1
     cpu_limit = max(1, cores - 2)
 
@@ -90,19 +100,27 @@ def optimal_workers(ram_per_worker_gb: float = 1.5) -> int:
             for line in f:
                 if line.startswith("MemAvailable:"):
                     available_gb = int(line.split()[1]) / (1024 * 1024)
+                    if available_gb < _MIN_RAM_FOR_FORK_GB:
+                        logger.info(
+                            "Auto-detected: %.1f GB available RAM < %.1f GB minimum → 1 worker (sequential)",
+                            available_gb,
+                            _MIN_RAM_FOR_FORK_GB,
+                        )
+                        return 1
                     ram_limit = max(1, int(available_gb / ram_per_worker_gb))
-                    result = min(cpu_limit, ram_limit)
+                    result = min(cpu_limit, ram_limit, _MAX_WORKERS_CAP)
                     logger.info(
-                        "Auto-detected: %d cores, %.1f GB available RAM → %d workers",
+                        "Auto-detected: %d cores, %.1f GB available RAM → %d workers (cap=%d)",
                         cores,
                         available_gb,
                         result,
+                        _MAX_WORKERS_CAP,
                     )
                     return result
     except OSError:
         pass
 
-    return cpu_limit
+    return min(cpu_limit, _MAX_WORKERS_CAP)
 
 
 def _clear_match_state() -> None:

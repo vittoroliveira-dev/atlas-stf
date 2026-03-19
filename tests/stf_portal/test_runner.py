@@ -475,3 +475,86 @@ def test_cli_rate_limit_default_matches_global_rate(tmp_path: Path):
     """Default global_rate_seconds should be 1.0."""
     config = StfPortalConfig(output_dir=tmp_path / "portal")
     assert config.global_rate_seconds == 1.0
+
+
+# --- PID file and SIGTERM handler tests ---
+
+
+def test_run_extraction_creates_and_removes_pid_file(tmp_path: Path):
+    """run_extraction writes PID file on start and removes it on completion."""
+    curated_dir = tmp_path / "curated"
+    output_dir = tmp_path / "portal"
+    checkpoint_file = output_dir / ".checkpoint.json"
+    pid_path = output_dir / ".fetch.pid"
+
+    processes = [{"process_id": "proc_1", "process_number": "ADI 1"}]
+    _write_process_jsonl(curated_dir, processes)
+
+    config = StfPortalConfig(
+        output_dir=output_dir,
+        curated_dir=curated_dir,
+        checkpoint_file=checkpoint_file,
+        max_concurrent=1,
+        rate_limit_seconds=0.0,
+    )
+
+    with patch("atlas_stf.stf_portal._runner.PortalExtractor", _FakeExtractor):
+        run_extraction(config)
+
+    # PID file should be cleaned up after normal exit
+    assert not pid_path.exists()
+
+
+def test_run_extraction_sigterm_saves_checkpoint(tmp_path: Path):
+    """SIGTERM mid-extraction should save checkpoint and exit gracefully."""
+    import os
+    import signal
+
+    curated_dir = tmp_path / "curated"
+    output_dir = tmp_path / "portal"
+    checkpoint_file = output_dir / ".checkpoint.json"
+
+    processes = [{"process_id": f"proc_{i}", "process_number": f"ADI {i}"} for i in range(50)]
+    _write_process_jsonl(curated_dir, processes)
+
+    config = StfPortalConfig(
+        output_dir=output_dir,
+        curated_dir=curated_dir,
+        checkpoint_file=checkpoint_file,
+        max_concurrent=1,
+        rate_limit_seconds=0.0,
+    )
+
+    call_count = 0
+
+    class _SigtermAfterNExtractor:
+        """Sends SIGTERM to self after 3 successful extractions."""
+
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def extract_process(self, process_number: str, incidente: str | None = None) -> dict[str, Any] | None:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 3:
+                os.kill(os.getpid(), signal.SIGTERM)
+            return _fake_extract_process(process_number, incidente)
+
+        def close(self) -> None:
+            pass
+
+        def __enter__(self) -> _SigtermAfterNExtractor:
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            self.close()
+
+    with patch("atlas_stf.stf_portal._runner.PortalExtractor", _SigtermAfterNExtractor):
+        fetched = run_extraction(config)
+
+    # Should have fetched 3 (SIGTERM after 3rd, loop breaks before 4th)
+    assert fetched == 3
+
+    # Checkpoint should be saved
+    cp = load_checkpoint(checkpoint_file)
+    assert cp.total_fetched == 3

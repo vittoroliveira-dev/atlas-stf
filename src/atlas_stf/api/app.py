@@ -143,6 +143,11 @@ def create_app(*, database_url: str | None = None) -> FastAPI:
     app.state.engine = engine
     app.state.session_factory = factory
 
+    @app.exception_handler(Exception)
+    async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+        return JSONResponse(status_code=500, content={"detail": "internal_server_error"})
+
     @app.middleware("http")
     async def security_headers_middleware(request: Request, call_next):
         response = await call_next(request)

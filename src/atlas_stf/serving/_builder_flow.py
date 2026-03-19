@@ -17,8 +17,7 @@ from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..api._filters import QueryFilters
-from ..api._formatters import _collegiate_label
+from ..core.constants import QueryFilters, collegiate_label
 from ._builder_utils import _json_text
 from .models import ServingAlert, ServingCase, ServingMinisterFlow
 
@@ -228,7 +227,7 @@ def _compute_flow(
         "decision_type_distribution": _group_counter(monthly_cases, lambda c: c.decision_type),
         "decision_progress_distribution": _group_counter(monthly_cases, lambda c: c.decision_progress),
         "judging_body_distribution": _group_counter(monthly_cases, lambda c: c.judging_body),
-        "collegiate_distribution": _group_counter(monthly_cases, lambda c: _collegiate_label(c.is_collegiate)),
+        "collegiate_distribution": _group_counter(monthly_cases, lambda c: collegiate_label(c.is_collegiate)),
         "process_class_distribution": _group_counter(monthly_cases, lambda c: c.process_class),
         "thematic_distribution": _group_counter(monthly_cases, lambda c: c.thematic_key),
         "daily_counts": _daily_points(monthly_cases, historical_average),

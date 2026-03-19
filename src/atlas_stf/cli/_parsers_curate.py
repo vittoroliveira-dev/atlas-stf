@@ -199,6 +199,40 @@ def _add_curate_parsers(subparsers: Any) -> None:
         help="Output JSONL path for process-counsel links",
     )
 
+    curate_movement = curate_sub.add_parser("movement", help="Build movement records from STF portal data")
+    curate_movement.add_argument(
+        "--portal-dir",
+        type=Path,
+        default=Path("data/raw/stf_portal"),
+        help="STF portal JSONL directory",
+    )
+    curate_movement.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/curated/movement.jsonl"),
+        help="Output JSONL path",
+    )
+
+    curate_session_event = curate_sub.add_parser("session-event", help="Build session event records")
+    curate_session_event.add_argument(
+        "--movement-path",
+        type=Path,
+        default=Path("data/curated/movement.jsonl"),
+        help="Curated movement JSONL path",
+    )
+    curate_session_event.add_argument(
+        "--portal-dir",
+        type=Path,
+        default=Path("data/raw/stf_portal"),
+        help="STF portal JSONL directory",
+    )
+    curate_session_event.add_argument(
+        "--output",
+        type=Path,
+        default=Path("data/curated/session_event.jsonl"),
+        help="Output JSONL path",
+    )
+
     curate_all = curate_sub.add_parser("all", help="Build all currently supported curated entities")
     curate_all.add_argument("--staging-dir", type=Path, default=DEFAULT_STAGING_DIR, help="Staging CSV directory")
     curate_all.add_argument(
