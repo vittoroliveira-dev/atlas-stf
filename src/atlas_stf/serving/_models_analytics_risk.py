@@ -317,6 +317,8 @@ class ServingEconomicGroup(Base):
     active_establishment_count: Mapped[int] = mapped_column(Integer, default=0)
     total_establishment_count: Mapped[int] = mapped_column(Integer, default=0)
     is_law_firm_group: Mapped[bool] = mapped_column(Boolean, default=False)
+    law_firm_member_count: Mapped[int] = mapped_column(Integer, default=0)
+    law_firm_member_ratio: Mapped[float] = mapped_column(Float, default=0.0)
     has_minister_partner: Mapped[bool] = mapped_column(Boolean, default=False)
     has_party_partner: Mapped[bool] = mapped_column(Boolean, default=False)
     has_counsel_partner: Mapped[bool] = mapped_column(Boolean, default=False)

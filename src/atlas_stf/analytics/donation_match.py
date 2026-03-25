@@ -367,6 +367,7 @@ def build_donation_matches(  # noqa: C901
     event_count = 0
     resource_category_counts: dict[str, int] = defaultdict(int)
     resource_subtype_counts: dict[str, int] = defaultdict(int)
+    seen_events: set[str] = set()
     with AtomicJsonlWriter(event_path) as efh:
         for d in iter_jsonl(donations_path):
             name = d.get("donor_name_normalized", "")
@@ -377,14 +378,18 @@ def build_donation_matches(  # noqa: C901
             match_id = matched_identity_keys.get(dk)
             if match_id is None:
                 continue
-            rc = classify_resource_type(d.get("donation_description"))
-            resource_category_counts[rc.category] += 1
-            resource_subtype_counts[rc.subtype] += 1
             event_id = stable_id(
                 "de-",
                 f"{dk}:{d.get('election_year', '')}:{d.get('donation_date', '')}:"
-                f"{d.get('donation_amount', '')}:{d.get('candidate_name', '')}",
+                f"{d.get('donation_amount', '')}:{d.get('candidate_name', '')}:"
+                f"{d.get('donation_description', '')}",
             )
+            if event_id in seen_events:
+                continue
+            seen_events.add(event_id)
+            rc = classify_resource_type(d.get("donation_description"))
+            resource_category_counts[rc.category] += 1
+            resource_subtype_counts[rc.subtype] += 1
             event = {
                 "event_id": event_id,
                 "match_id": match_id,

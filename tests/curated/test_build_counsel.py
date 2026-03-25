@@ -80,7 +80,7 @@ def test_build_counsel_records_populates_identity_fields(tmp_path: Path):
 
     assert len(records) == 1
     record = records[0]
-    assert record["canonical_name_normalized"] == "JOÃO DA SILVA"
+    assert record["canonical_name_normalized"] == "JOAO DA SILVA"
     assert record["entity_tax_id"] is None
     assert record["identity_strategy"] == "name"
     assert record["identity_key"] == build_identity_key("JOÃO DA SILVA")

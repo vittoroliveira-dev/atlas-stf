@@ -30,7 +30,7 @@ export default function Error({
                 O painel depende da API e dos artefatos materializados. Se a API estiver indisponível
                 ou a consulta falhar, tente novamente em instantes.
               </p>
-              {error.message ? (
+              {process.env.NODE_ENV === "development" && error.message ? (
                 <p className="rounded-2xl bg-slate-100 px-4 py-3 font-mono text-xs text-slate-600">
                   {error.message}
                 </p>

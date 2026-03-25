@@ -11,15 +11,38 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from atlas_stf.fetch._manifest_model import FetchUnit, RemoteState, SourceManifest, build_unit_id
+from atlas_stf.fetch._manifest_store import load_manifest, save_manifest_locked
 from atlas_stf.tse._config import TseExpenseFetchConfig
-from atlas_stf.tse._runner import _YearMeta
 from atlas_stf.tse._runner_expenses import (
     _SUPPORTED_EXPENSE_YEARS,
-    _Checkpoint,
     _find_despesas_files,
     _validate_years,
     fetch_expense_data,
 )
+
+_FAKE_META = {"url": "http://test/file.zip", "content_length": 1234, "etag": '"abc"'}
+
+
+def _write_committed_manifest(output_dir: Path, years: list[int]) -> None:
+    """Write a manifest with committed units for the given expense years."""
+    manifest = SourceManifest(source="tse_expenses")
+    for year in years:
+        uid = build_unit_id("tse_expenses", str(year))
+        manifest.units[uid] = FetchUnit(
+            unit_id=uid,
+            source="tse_expenses",
+            label=f"TSE expenses {year}",
+            remote_url=_FAKE_META["url"],
+            remote_state=RemoteState(
+                url=_FAKE_META["url"],
+                etag=_FAKE_META["etag"],
+                content_length=_FAKE_META["content_length"],
+            ),
+            status="committed",
+            fetch_date="2025-01-01T00:00:00+00:00",
+        )
+    save_manifest_locked(manifest, output_dir)
 
 
 def _make_gen6_csv_content() -> str:
@@ -113,30 +136,6 @@ def _make_zip_with_csv(csv_name: str, csv_content: str) -> bytes:
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr(csv_name, csv_content.encode("utf-8"))
     return buf.getvalue()
-
-
-_FAKE_META = _YearMeta(url="http://test/file.zip", content_length=1234, etag='"abc"')
-
-
-class TestExpenseCheckpoint:
-    def test_load_empty(self, tmp_path: Path) -> None:
-        cp = _Checkpoint.load(tmp_path)
-        assert cp.completed_years == set()
-        assert cp.year_meta == {}
-
-    def test_save_and_load(self, tmp_path: Path) -> None:
-        cp = _Checkpoint(completed_years={2022, 2024}, year_meta={2022: _FAKE_META})
-        cp.save(tmp_path)
-        loaded = _Checkpoint.load(tmp_path)
-        assert loaded.completed_years == {2022, 2024}
-        assert loaded.year_meta[2022].etag == '"abc"'
-
-    def test_separate_from_donation_checkpoint(self, tmp_path: Path) -> None:
-        """Expense checkpoint uses different filename from donation checkpoint."""
-        cp = _Checkpoint(completed_years={2022})
-        cp.save(tmp_path)
-        assert (tmp_path / "_checkpoint_expenses.json").exists()
-        assert not (tmp_path / "_checkpoint.json").exists()
 
 
 class TestValidateYears:
@@ -249,12 +248,11 @@ class TestFetchExpenseData:
         assert not (output_dir / "extracted_expenses_2022").exists()
 
     @patch("atlas_stf.tse._runner_expenses._download_year_zip_base")
-    def test_checkpoint_resumability(self, mock_download: MagicMock, tmp_path: Path) -> None:
+    def test_manifest_resumability(self, mock_download: MagicMock, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
         output_dir.mkdir(parents=True)
 
-        cp = _Checkpoint(completed_years={2022})
-        cp.save(output_dir)
+        _write_committed_manifest(output_dir, [2022])
         raw_path = output_dir / "campaign_expenses_raw.jsonl"
         raw_path.write_text(json.dumps({"supplier_name": "EXISTING", "election_year": 2022}) + "\n")
 
@@ -290,7 +288,7 @@ class TestFetchExpenseData:
         assert raw_path.read_text().strip() == ""
 
     @patch("atlas_stf.tse._runner_expenses._download_year_zip_base")
-    def test_empty_year_not_checkpointed(self, mock_download: MagicMock, tmp_path: Path) -> None:
+    def test_empty_year_not_committed(self, mock_download: MagicMock, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -303,8 +301,11 @@ class TestFetchExpenseData:
         config = TseExpenseFetchConfig(output_dir=output_dir, years=(2022,))
         fetch_expense_data(config)
 
-        cp = _Checkpoint.load(output_dir)
-        assert 2022 not in cp.completed_years
+        manifest = load_manifest("tse_expenses", output_dir)
+        if manifest is not None:
+            uid = build_unit_id("tse_expenses", "2022")
+            unit = manifest.units.get(uid)
+            assert unit is None or unit.status != "committed"
 
     @patch("atlas_stf.tse._runner_expenses._download_year_zip_base")
     def test_force_refresh_no_duplicate(self, mock_download: MagicMock, tmp_path: Path) -> None:
@@ -314,8 +315,7 @@ class TestFetchExpenseData:
         zip_path = output_dir / "tse_2022.zip"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        cp = _Checkpoint(completed_years={2022}, year_meta={2022: _FAKE_META})
-        cp.save(output_dir)
+        _write_committed_manifest(output_dir, [2022])
         raw_path = output_dir / "campaign_expenses_raw.jsonl"
         old_records = [
             json.dumps({"supplier_name": "OLD_A", "election_year": 2022}),
@@ -339,8 +339,7 @@ class TestFetchExpenseData:
         output_dir = tmp_path / "output"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        cp = _Checkpoint(completed_years={2002, 2022}, year_meta={2002: _FAKE_META, 2022: _FAKE_META})
-        cp.save(output_dir)
+        _write_committed_manifest(output_dir, [2002, 2022])
         raw_path = output_dir / "campaign_expenses_raw.jsonl"
         existing = [
             json.dumps({"supplier_name": "KEEP_2002", "election_year": 2002}),
@@ -370,8 +369,7 @@ class TestFetchExpenseData:
 
         raw_path = output_dir / "campaign_expenses_raw.jsonl"
         raw_path.write_text(json.dumps({"supplier_name": "OLD", "election_year": 2022}) + "\n")
-        cp = _Checkpoint(completed_years={2022}, year_meta={2022: _FAKE_META})
-        cp.save(output_dir)
+        _write_committed_manifest(output_dir, [2022])
 
         mock_download.return_value = (None, None)
 
@@ -458,7 +456,7 @@ class TestProvenanceFields:
         assert r["source_file"] == "despesas_contratadas_candidatos_2022_BRASIL.csv"
 
         # source_url: present and not empty
-        assert r["source_url"] == _FAKE_META.url
+        assert r["source_url"] == _FAKE_META["url"]
 
         # collected_at: ISO timestamp
         assert "T" in r["collected_at"]

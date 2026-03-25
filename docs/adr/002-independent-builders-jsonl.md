@@ -5,7 +5,7 @@
 
 ## Contexto
 
-O pipeline tem ~50 builders analíticos que precisam de boundaries claros,
+O pipeline tem ~30 builders analíticos que precisam de boundaries claros,
 paralelismo e execução opcional. Builders dependentes entre si criariam
 acoplamento, dificultariam testes e impediriam execução parcial.
 

@@ -8,6 +8,13 @@ from typing import Any
 
 ALERT_SCORE_THRESHOLD = 0.75
 CONCLUSIVE_BASELINE_EVENT_COUNT = 10
+# Components whose observed value has expected_probability >= this threshold
+# are excluded from the scoring average to avoid diluting rare-event signals
+# with near-uniform dimensions (e.g., judging_body when both Turmas are ~50%).
+# All components are still returned for transparency; only scoring is filtered.
+# Calibration (2026-03): tested at 0.30 / 0.40 / 0.50 — 0.40 preserves top-N
+# ranking stability while filtering genuinely uninformative dimensions.
+# Fallback: if ALL components are filtered, all are restored (line 274-275).
 _NOISE_PROBABILITY_THRESHOLD = 0.40
 
 # Classes processuais de competência originária do Plenário

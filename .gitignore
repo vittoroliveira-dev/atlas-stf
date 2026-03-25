@@ -22,7 +22,8 @@ data/raw/**/*.json
 data/raw/**/*.log
 data/raw/**/*.pdf
 data/raw/**/*.xlsx
-data/raw/rfb/
+data/raw/*/
+data/contracts/
 data/staging/
 data/curated/*.jsonl
 data/curated/*.csv
@@ -40,7 +41,8 @@ scripts/probe_results/
 
 # Reports e logs de pipeline
 reports/
-data/pipeline.log
+data/*.log
+**/.fetch_*.lock
 data/.pipeline_done_*
 nohup.out
 portal-fetch.log
@@ -57,6 +59,7 @@ credentials*.json
 # AI tooling — configs locais, estado e metadados de agentes
 .claude/
 .claude-flow/
+.neuron/
 .swarm/
 .mcp.json
 CLAUDE.md

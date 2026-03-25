@@ -138,9 +138,10 @@ def build_rapporteur_changes(
 
                 red_flag = delta_vs_baseline is not None and delta_vs_baseline > 0.15 and len(post_change_outcomes) >= 2
 
+                decision_event_id = str(event.get("decision_event_id") or "")
                 change_id = stable_id(
                     "rchg-",
-                    f"{pid}:{prev_rapporteur}:{curr_rapporteur}:{event.get('decision_date', '')}",
+                    f"{pid}:{prev_rapporteur}:{curr_rapporteur}:{event.get('decision_date', '')}:{decision_event_id}",
                 )
                 records.append(
                     {
@@ -150,7 +151,7 @@ def build_rapporteur_changes(
                         "previous_rapporteur": str(prev_rapporteur),
                         "new_rapporteur": str(curr_rapporteur),
                         "change_date": event.get("decision_date"),
-                        "decision_event_id": str(event.get("decision_event_id") or ""),
+                        "decision_event_id": decision_event_id,
                         "post_change_decision_count": len(post_change_outcomes),
                         "post_change_favorable_rate": post_change_rate,
                         "new_rapporteur_baseline_rate": new_rapporteur_baseline,

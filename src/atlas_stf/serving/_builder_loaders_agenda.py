@@ -17,7 +17,7 @@ def load_agenda_events(curated_dir: Path) -> list[ServingAgendaEvent]:
     results: list[ServingAgendaEvent] = []
     seen: set[str] = set()
     for r in _read_jsonl(path):
-        eid = str(r.get("event_id", ""))
+        eid = str(r.get("agenda_event_id") or r.get("event_id") or "")
         if eid in seen:
             continue
         seen.add(eid)

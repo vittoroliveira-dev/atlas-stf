@@ -155,11 +155,29 @@ def _write_minimal_curated(curated_dir: Path) -> None:
 
 
 def _write_minimal_analytics(analytics_dir: Path) -> None:
-    """Write the minimal analytics fixtures (empty) for serving builder."""
-    _write_jsonl(analytics_dir / "outlier_alert.jsonl", [])
-    _write_json(analytics_dir / "outlier_alert_summary.json", {})
-    _write_json(analytics_dir / "comparison_group_summary.json", {})
-    _write_json(analytics_dir / "baseline_summary.json", {})
+    """Write the minimal analytics fixtures for serving builder."""
+    _write_jsonl(
+        analytics_dir / "outlier_alert.jsonl",
+        [
+            {
+                "alert_id": "alert_smoke_1",
+                "process_id": "proc_1",
+                "decision_event_id": "evt_1",
+                "comparison_group_id": "grp_1",
+                "alert_type": "atipicidade",
+                "alert_score": 0.5,
+                "expected_pattern": "Esperado.",
+                "observed_pattern": "Observado.",
+                "evidence_summary": "Smoke.",
+                "status": "novo",
+                "created_at": "2026-01-31T12:00:00",
+                "updated_at": "2026-01-31T12:05:00",
+            }
+        ],
+    )
+    _write_json(analytics_dir / "outlier_alert_summary.json", {"alert_count": 1, "avg_score": 0.5})
+    _write_json(analytics_dir / "comparison_group_summary.json", {"valid_group_count": 1})
+    _write_json(analytics_dir / "baseline_summary.json", {"baseline_count": 1})
 
 
 def _make_ceis_row(

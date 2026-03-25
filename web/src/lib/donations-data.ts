@@ -1,4 +1,4 @@
-import { fetchApiJson, isApiFetchError } from "@/lib/api-client";
+import { fetchApiJson, isApiFetchError, isNotFoundError } from "@/lib/api-client";
 
 export type DonationMatch = {
   match_id: string;
@@ -136,9 +136,7 @@ export async function getCounselDonationProfile(counselId: string): Promise<Coun
       `/counsels/${encodeURIComponent(counselId)}/donation-profile`,
     );
   } catch (error) {
-    if (isApiFetchError(error)) {
-      return null;
-    }
-    throw error;
+    if (isNotFoundError(error)) return null;
+    throw error; // unreachable — isNotFoundError throws non-404
   }
 }

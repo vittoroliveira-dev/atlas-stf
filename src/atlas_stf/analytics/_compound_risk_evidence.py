@@ -138,8 +138,9 @@ def _compute_adjusted_rate_delta(evidence: PairEvidence) -> float | None:
     if base is None:
         return None
     multiplier = 1.0
-    if evidence.has_law_firm_group:
-        multiplier *= 1.5
+    # has_law_firm_group: informational only, no longer amplifies risk score.
+    # Previous 1.5x multiplier removed — flag was contaminated by ANY heuristic
+    # on mega-components (75/69157 members ≠ "law firm group").
     if evidence.donor_group_has_minister_partner:
         multiplier *= 2.0
     if evidence.min_link_degree_to_minister is not None and evidence.min_link_degree_to_minister > 2:

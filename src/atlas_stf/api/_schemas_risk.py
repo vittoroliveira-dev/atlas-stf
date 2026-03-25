@@ -379,6 +379,8 @@ class EconomicGroupItem(BaseModel):
     active_establishment_count: int = 0
     total_establishment_count: int = 0
     is_law_firm_group: bool = False
+    law_firm_member_count: int = 0
+    law_firm_member_ratio: float = 0.0
     has_minister_partner: bool = False
     has_party_partner: bool = False
     has_counsel_partner: bool = False

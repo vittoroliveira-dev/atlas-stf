@@ -1,4 +1,13 @@
-"""Pure functions for parsing TSE receitas CSV files."""
+"""Pure functions for parsing TSE receitas CSV files.
+
+Compatibility note (v2.0): ``_safe_get()`` now returns ``None`` for fields
+absent from a generation's header (previously returned ``""``) and ``""``
+for fields present but empty.  ``normalize_donation_record()`` coerces
+``None`` → ``""`` via ``or ""``, so the JSONL output contract is preserved
+and downstream consumers (analytics/donation_match, analytics/sanction_match)
+are not affected.  The raw parser output (``_iter_receitas_csv``) exposes
+the semantic distinction for contract tests and future consumers.
+"""
 
 from __future__ import annotations
 
@@ -99,11 +108,15 @@ def _resolve_column(header: list[str], field_key: str) -> str | None:
     return None
 
 
-def _safe_get(row: dict[str, str], header: list[str], field_key: str) -> str:
-    """Get a value from a CSV row dict using column aliases."""
+def _safe_get(row: dict[str, str], header: list[str], field_key: str) -> str | None:
+    """Get a value from a CSV row dict using column aliases.
+
+    Returns None when the field does not exist in this generation's header
+    (distinguishing 'absent field' from 'present but empty value').
+    """
     col = _resolve_column(header, field_key)
     if col is None:
-        return ""
+        return None
     val = row.get(col, "").strip()
     return "" if val in ("", "nan", "NaN") else val
 
@@ -203,29 +216,29 @@ def parse_receitas_csv(csv_path: Path) -> list[dict[str, Any]]:
 
 def normalize_donation_record(raw: dict[str, Any], year: int) -> dict[str, Any]:
     """Normalize a raw donation record into the canonical schema."""
-    donor_name = raw.get("donor_name", "")
-    donor_name_rfb = raw.get("donor_name_rfb", "")
-    donor_name_originator = raw.get("donor_name_originator", "")
+    donor_name = raw.get("donor_name") or ""
+    donor_name_rfb = raw.get("donor_name_rfb") or ""
+    donor_name_originator = raw.get("donor_name_originator") or ""
 
     return {
         "election_year": year,
-        "state": raw.get("state", ""),
-        "position": raw.get("position", ""),
-        "candidate_name": raw.get("candidate_name", ""),
-        "candidate_cpf": raw.get("candidate_cpf", ""),
-        "candidate_number": raw.get("candidate_number", ""),
-        "party_abbrev": raw.get("party_abbrev", ""),
-        "party_name": raw.get("party_name", ""),
+        "state": raw.get("state") or "",
+        "position": raw.get("position") or "",
+        "candidate_name": raw.get("candidate_name") or "",
+        "candidate_cpf": raw.get("candidate_cpf") or "",
+        "candidate_number": raw.get("candidate_number") or "",
+        "party_abbrev": raw.get("party_abbrev") or "",
+        "party_name": raw.get("party_name") or "",
         "donor_name": donor_name,
         "donor_name_rfb": donor_name_rfb,
         "donor_name_originator": donor_name_originator,
-        "donor_cpf_cnpj": raw.get("donor_cpf_cnpj", ""),
+        "donor_cpf_cnpj": raw.get("donor_cpf_cnpj") or "",
         "donor_name_normalized": normalize_entity_name(donor_name_rfb or donor_name),
         "donor_name_originator_normalized": normalize_entity_name(donor_name_originator) or "",
-        "donation_amount": _parse_amount(raw.get("donation_amount_raw", "")),
-        "donation_date": _parse_donation_date(raw.get("donation_date_raw", "")),
-        "donation_description": raw.get("donation_description", ""),
-        "donor_cnae_code": raw.get("donor_cnae_code", ""),
-        "donor_cnae_description": raw.get("donor_cnae_description", ""),
-        "donor_state": raw.get("donor_state", ""),
+        "donation_amount": _parse_amount(raw.get("donation_amount_raw") or ""),
+        "donation_date": _parse_donation_date(raw.get("donation_date_raw") or ""),
+        "donation_description": raw.get("donation_description") or "",
+        "donor_cnae_code": raw.get("donor_cnae_code") or "",
+        "donor_cnae_description": raw.get("donor_cnae_description") or "",
+        "donor_state": raw.get("donor_state") or "",
     }

@@ -9,15 +9,17 @@ import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from atlas_stf.fetch._manifest_model import SourceManifest, build_unit_id
+from atlas_stf.fetch._manifest_store import load_manifest
 from atlas_stf.tse._config import TseFetchConfig
 from atlas_stf.tse._runner import (
-    _Checkpoint,
     _download_year_zip,
     _extract_zip,
     _record_content_hash,
-    _YearMeta,
     fetch_donation_data,
 )
+
+_FAKE_META = {"url": "http://test/file.zip", "content_length": 1234, "etag": '"abc"'}
 
 
 def _make_receitas_csv_content() -> str:
@@ -73,9 +75,6 @@ def _make_zip_with_csv(csv_name: str, csv_content: str) -> bytes:
     return buf.getvalue()
 
 
-_FAKE_META = _YearMeta(url="http://test/file.zip", content_length=1234, etag='"abc"')
-
-
 class _FakeStreamResponse:
     def __init__(self, chunks: list[bytes]) -> None:
         self._chunks = chunks
@@ -94,59 +93,29 @@ class _FakeStreamResponse:
         yield from self._chunks
 
 
-class TestCheckpoint:
-    def test_load_empty(self, tmp_path: Path) -> None:
-        cp = _Checkpoint.load(tmp_path)
-        assert cp.completed_years == set()
-        assert cp.year_meta == {}
+def _write_committed_manifest(output_dir: Path, years: list[int]) -> None:
+    """Write a manifest with committed units for the given years."""
+    manifest = SourceManifest(source="tse_donations")
+    for year in years:
+        from atlas_stf.fetch._manifest_model import FetchUnit, RemoteState
 
-    def test_save_and_load(self, tmp_path: Path) -> None:
-        cp = _Checkpoint(
-            completed_years={2022, 2024},
-            year_meta={2022: _FAKE_META},
+        uid = build_unit_id("tse_donations", str(year))
+        manifest.units[uid] = FetchUnit(
+            unit_id=uid,
+            source="tse_donations",
+            label=f"TSE donations {year}",
+            remote_url=_FAKE_META["url"],
+            remote_state=RemoteState(
+                url=_FAKE_META["url"],
+                etag=_FAKE_META["etag"],
+                content_length=_FAKE_META["content_length"],
+            ),
+            status="committed",
+            fetch_date="2025-01-01T00:00:00+00:00",
         )
-        cp.save(tmp_path)
-        loaded = _Checkpoint.load(tmp_path)
-        assert loaded.completed_years == {2022, 2024}
-        assert loaded.year_meta[2022].etag == '"abc"'
+    from atlas_stf.fetch._manifest_store import save_manifest_locked
 
-    def test_backward_compat_old_checkpoint(self, tmp_path: Path) -> None:
-        """Old checkpoint format (no year_meta) should still load."""
-        old = {"completed_years": [2022]}
-        (tmp_path / "_checkpoint.json").write_text(json.dumps(old))
-        loaded = _Checkpoint.load(tmp_path)
-        assert loaded.completed_years == {2022}
-        assert loaded.year_meta == {}
-
-
-class TestYearMeta:
-    def test_matches_etag(self) -> None:
-        import httpx
-
-        meta = _YearMeta(url="http://x", content_length=100, etag='"abc"')
-        headers = httpx.Headers({"etag": '"abc"', "content-length": "999"})
-        assert meta.matches(headers) is True
-
-    def test_no_match_etag(self) -> None:
-        import httpx
-
-        meta = _YearMeta(url="http://x", content_length=100, etag='"abc"')
-        headers = httpx.Headers({"etag": '"def"', "content-length": "100"})
-        assert meta.matches(headers) is False
-
-    def test_matches_content_length_no_etag(self) -> None:
-        import httpx
-
-        meta = _YearMeta(url="http://x", content_length=500, etag="")
-        headers = httpx.Headers({"content-length": "500"})
-        assert meta.matches(headers) is True
-
-    def test_no_match_content_length(self) -> None:
-        import httpx
-
-        meta = _YearMeta(url="http://x", content_length=500, etag="")
-        headers = httpx.Headers({"content-length": "600"})
-        assert meta.matches(headers) is False
+    save_manifest_locked(manifest, output_dir)
 
 
 class TestFetchDonationData:
@@ -167,6 +136,20 @@ class TestFetchDonationData:
         assert zip_path is None
         assert meta is None
         assert not (tmp_path / "output" / "tse_2022.zip").exists()
+
+    @patch("atlas_stf.tse._runner.httpx.stream")
+    def test_download_year_zip_uses_custom_prefix(self, mock_stream, tmp_path: Path) -> None:
+        """zip_prefix param must produce a different file name to isolate donations from expenses."""
+        csv_content = _make_receitas_csv_content()
+        zip_bytes = _make_zip_with_csv("receitas_candidatos_2022_BRASIL.csv", csv_content)
+        mock_stream.return_value = _FakeStreamResponse([zip_bytes])
+
+        output_dir = tmp_path / "output"
+        zip_path, meta = _download_year_zip(2022, output_dir, timeout=5, zip_prefix="tse_expenses")
+
+        assert zip_path is not None
+        assert zip_path.name == "tse_expenses_2022.zip"
+        assert not (output_dir / "tse_2022.zip").exists()
 
     def test_dry_run(self, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
@@ -201,7 +184,7 @@ class TestFetchDonationData:
         assert len(r["record_hash"]) == 64
         assert re.fullmatch(r"[0-9a-f]{64}", r["record_hash"])
         assert r["source_file"] == "receitas_candidatos_2022_BRASIL.csv"
-        assert r["source_url"] == _FAKE_META.url
+        assert r["source_url"] == _FAKE_META["url"]
         assert "T" in r["collected_at"]  # ISO timestamp
         assert re.fullmatch(
             r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
@@ -209,13 +192,12 @@ class TestFetchDonationData:
         )
 
     @patch("atlas_stf.tse._runner._download_year_zip")
-    def test_checkpoint_resumability(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
+    def test_manifest_resumability(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
         output_dir.mkdir(parents=True)
 
-        # Pre-populate checkpoint and existing data
-        cp = _Checkpoint(completed_years={2022})
-        cp.save(output_dir)
+        # Pre-populate manifest and existing data
+        _write_committed_manifest(output_dir, [2022])
         raw_path = output_dir / "donations_raw.jsonl"
         raw_path.write_text(json.dumps({"donor_name": "EXISTING", "election_year": 2022}) + "\n")
 
@@ -256,8 +238,8 @@ class TestFetchDonationData:
         assert raw_path.read_text().strip() == ""
 
     @patch("atlas_stf.tse._runner._download_year_zip")
-    def test_empty_year_not_checkpointed(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
-        """Bug 3 fix: year with 0 records should NOT be marked as completed."""
+    def test_empty_year_not_committed(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
+        """Year with 0 records should NOT be marked as committed in manifest."""
         output_dir = tmp_path / "output"
 
         # ZIP with no CSV files → 0 records
@@ -272,42 +254,48 @@ class TestFetchDonationData:
         config = TseFetchConfig(output_dir=output_dir, years=(2022,))
         fetch_donation_data(config)
 
-        # Year should NOT be in checkpoint
-        cp = _Checkpoint.load(output_dir)
-        assert 2022 not in cp.completed_years
+        # Year 2022 should NOT be committed in manifest
+        manifest = load_manifest("tse_donations", output_dir)
+        if manifest is not None:
+            uid = build_unit_id("tse_donations", "2022")
+            unit = manifest.units.get(uid)
+            assert unit is None or unit.status != "committed"
 
     @patch("atlas_stf.tse._runner._download_year_zip")
     def test_meta_saved_on_success(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
-        """After successful download+parse, year_meta should persist."""
+        """After successful download+parse, year should be committed in manifest."""
         output_dir = tmp_path / "output"
         csv_content = _make_receitas_csv_content()
         zip_bytes = _make_zip_with_csv("receitas_candidatos_2022_BRASIL.csv", csv_content)
         zip_path = output_dir / "tse_2022.zip"
         output_dir.mkdir(parents=True, exist_ok=True)
         zip_path.write_bytes(zip_bytes)
-        meta = _YearMeta(url="http://test/2022.zip", content_length=len(zip_bytes), etag='"xyz"')
+        meta = {"url": "http://test/2022.zip", "content_length": len(zip_bytes), "etag": '"xyz"'}
         mock_download_year_zip.return_value = (zip_path, meta)
 
         config = TseFetchConfig(output_dir=output_dir, years=(2022,))
         fetch_donation_data(config)
 
-        cp = _Checkpoint.load(output_dir)
-        assert 2022 in cp.completed_years
-        assert cp.year_meta[2022].etag == '"xyz"'
-        assert cp.year_meta[2022].content_length == len(zip_bytes)
+        manifest = load_manifest("tse_donations", output_dir)
+        assert manifest is not None
+        uid = build_unit_id("tse_donations", "2022")
+        unit = manifest.units.get(uid)
+        assert unit is not None
+        assert unit.status == "committed"
+        assert unit.remote_state.etag == '"xyz"'
+        assert unit.remote_state.content_length == len(zip_bytes)
 
     @patch("atlas_stf.tse._runner._download_year_zip")
     def test_force_refresh_does_not_duplicate_records(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
-        """P6: force_refresh must replace (not duplicate) records from refreshed years."""
+        """force_refresh must replace (not duplicate) records from refreshed years."""
         output_dir = tmp_path / "output"
         csv_content = _make_receitas_csv_content()
         zip_bytes = _make_zip_with_csv("receitas_candidatos_2022_BRASIL.csv", csv_content)
         zip_path = output_dir / "tse_2022.zip"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Pre-populate: 2022 already done with 3 old records (no provenance)
-        cp = _Checkpoint(completed_years={2022}, year_meta={2022: _FAKE_META})
-        cp.save(output_dir)
+        # Pre-populate: 2022 already committed with 3 old records
+        _write_committed_manifest(output_dir, [2022])
         raw_path = output_dir / "donations_raw.jsonl"
         old_records = [
             json.dumps({"donor_name": "OLD_A", "election_year": 2022}),
@@ -335,13 +323,12 @@ class TestFetchDonationData:
 
     @patch("atlas_stf.tse._runner._download_year_zip")
     def test_force_refresh_preserves_other_years(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:
-        """P6: force_refresh of one year must not discard records from other completed years."""
+        """force_refresh of one year must not discard records from other committed years."""
         output_dir = tmp_path / "output"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Pre-populate: 2020 completed + 2022 completed
-        cp = _Checkpoint(completed_years={2020, 2022}, year_meta={2020: _FAKE_META, 2022: _FAKE_META})
-        cp.save(output_dir)
+        # Pre-populate: 2020 committed + 2022 committed
+        _write_committed_manifest(output_dir, [2020, 2022])
         raw_path = output_dir / "donations_raw.jsonl"
         existing = [
             json.dumps({"donor_name": "KEEP_2020", "election_year": 2020}),
@@ -434,11 +421,7 @@ class TestFetchDonationData:
         # Pre-populate with existing data
         raw_path = output_dir / "donations_raw.jsonl"
         raw_path.write_text(json.dumps({"donor_name": "OLD", "election_year": 2022}) + "\n")
-        cp = _Checkpoint(
-            completed_years={2022},
-            year_meta={2022: _FAKE_META},
-        )
-        cp.save(output_dir)
+        _write_committed_manifest(output_dir, [2022])
 
         # Simulate unchanged file → download returns (None, None)
         mock_download_year_zip.return_value = (None, None)

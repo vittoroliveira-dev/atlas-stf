@@ -5,13 +5,20 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import tempfile
 from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import httpx
 
+from ..core.fetch_lock import FetchLock
+from ..core.fetch_result import FetchTimer
 from ..core.identity import is_valid_cnpj, is_valid_cpf, normalize_entity_name, normalize_tax_id
+from ..fetch._manifest_model import FetchUnit, RemoteState, SourceManifest, build_unit_id
+from ..fetch._manifest_store import load_manifest
 from ._config import (
     RFB_EMPRESAS_FILE_COUNT,
     RFB_ESTABELECIMENTOS_FILE_COUNT,
@@ -27,6 +34,9 @@ from ._runner_fetch import (
     run_pass2_socios,
     run_pass3_empresas,
     run_pass4_estabelecimentos,
+    write_companies_jsonl,
+    write_establishments_jsonl,
+    write_partners_jsonl,
 )
 from ._runner_http import (  # noqa: F401 — re-exports for test compatibility
     _discover_latest_month,
@@ -37,6 +47,12 @@ from ._runner_http import (  # noqa: F401 — re-exports for test compatibility
 )
 
 logger = logging.getLogger(__name__)
+
+# Artifact names used as keys in artifact_commits
+_ARTIFACT_PARTNERS = "partners_raw.jsonl"
+_ARTIFACT_COMPANIES = "companies_raw.jsonl"
+_ARTIFACT_ESTABLISHMENTS = "establishments_raw.jsonl"
+_ALL_ARTIFACTS = (_ARTIFACT_PARTNERS, _ARTIFACT_COMPANIES, _ARTIFACT_ESTABLISHMENTS)
 
 
 def _build_target_names(config: RfbFetchConfig) -> set[str]:
@@ -81,25 +97,151 @@ def _build_target_names(config: RfbFetchConfig) -> set[str]:
     return names
 
 
-def _load_checkpoint(output_dir: Path) -> dict[str, Any]:
-    """Load checkpoint state."""
-    checkpoint_path = output_dir / "_rfb_checkpoint.json"
-    if checkpoint_path.exists():
-        return json.loads(checkpoint_path.read_text(encoding="utf-8"))
-    return {
-        "completed_socios_pass1": [],
-        "completed_socios_pass2": [],
-        "completed_empresas": [],
-        "completed_estabelecimentos": [],
-        "completed_reference": False,
-        "cnpjs": [],
+def _manifest_to_checkpoint(manifest: SourceManifest) -> dict[str, Any]:
+    """Convert manifest units to the dict format expected by pass functions."""
+    completed_p1: list[int] = []
+    completed_p2: list[int] = []
+    completed_emp: list[int] = []
+    completed_est: list[int] = []
+    cnpjs: list[str] = []
+    completed_ref = False
+    tse_hash = ""
+    artifact_commits: dict[str, Any] = {}
+
+    for uid, unit in manifest.units.items():
+        if unit.status != "committed":
+            continue
+        meta = unit.metadata
+        pass_name = meta.get("pass_name", "")
+        idx = meta.get("file_index")
+        if pass_name == "socios_pass1" and idx is not None:
+            completed_p1.append(idx)
+        elif pass_name == "socios_pass2" and idx is not None:
+            completed_p2.append(idx)
+        elif pass_name == "empresas" and idx is not None:
+            completed_emp.append(idx)
+        elif pass_name == "estabelecimentos" and idx is not None:
+            completed_est.append(idx)
+        elif uid == "rfb:reference":
+            completed_ref = True
+        elif uid.startswith("rfb:artifact:"):
+            # Recover per-artifact commit; uid format: rfb:artifact:{sanitised_name}
+            artifact_name = meta.get("artifact_name", "")
+            if artifact_name:
+                artifact_commits[artifact_name] = {
+                    "run_id": meta.get("run_id", ""),
+                    "record_count": meta.get("record_count", 0),
+                    "committed_at": meta.get("committed_at", ""),
+                }
+        if "cnpjs" in meta:
+            cnpjs = meta["cnpjs"]
+        if "tse_targets_hash" in meta:
+            tse_hash = meta["tse_targets_hash"]
+
+    result: dict[str, Any] = {
+        "completed_socios_pass1": sorted(completed_p1),
+        "completed_socios_pass2": sorted(completed_p2),
+        "completed_empresas": sorted(completed_emp),
+        "completed_estabelecimentos": sorted(completed_est),
+        "completed_reference": completed_ref,
+        "cnpjs": cnpjs,
+        "tse_targets_hash": tse_hash,
+        "artifact_commits": artifact_commits,
     }
 
+    return result
 
-def _save_checkpoint(output_dir: Path, state: dict[str, Any]) -> None:
-    """Save checkpoint state."""
-    checkpoint_path = output_dir / "_rfb_checkpoint.json"
-    checkpoint_path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+
+def _checkpoint_to_manifest(state: dict[str, Any], source: str = "rfb") -> SourceManifest:
+    """Convert dict checkpoint back to manifest after pass functions mutate it."""
+    manifest = SourceManifest(source=source)
+    now = datetime.now(timezone.utc).isoformat()
+
+    for pass_name, key in [
+        ("socios_pass1", "completed_socios_pass1"),
+        ("socios_pass2", "completed_socios_pass2"),
+        ("empresas", "completed_empresas"),
+        ("estabelecimentos", "completed_estabelecimentos"),
+    ]:
+        for idx in state.get(key, []):
+            uid = build_unit_id("rfb", f"{pass_name}_{idx}")
+            manifest.units[uid] = FetchUnit(
+                unit_id=uid,
+                source="rfb",
+                label=f"RFB {pass_name} #{idx}",
+                remote_url="",
+                remote_state=RemoteState(url=""),
+                status="committed",
+                fetch_date=now,
+                metadata={
+                    "pass_name": pass_name,
+                    "file_index": idx,
+                    "cnpjs": state.get("cnpjs", []),
+                    "tse_targets_hash": state.get("tse_targets_hash", ""),
+                },
+            )
+
+    if state.get("completed_reference", False):
+        uid = build_unit_id("rfb", "reference")
+        manifest.units[uid] = FetchUnit(
+            unit_id=uid,
+            source="rfb",
+            label="RFB reference tables",
+            remote_url="",
+            remote_state=RemoteState(url=""),
+            status="committed",
+            fetch_date=now,
+        )
+
+    # Persist per-artifact commits
+    for artifact_name, commit in state.get("artifact_commits", {}).items():
+        # Sanitise artifact_name for use in unit_id: strip extension, replace dots
+        safe_name = artifact_name.replace(".", "_").replace("-", "_")
+        uid = f"rfb:artifact:{safe_name}"
+        manifest.units[uid] = FetchUnit(
+            unit_id=uid,
+            source="rfb",
+            label=f"RFB artifact {artifact_name}",
+            remote_url="",
+            remote_state=RemoteState(url=""),
+            status="committed",
+            fetch_date=now,
+            metadata={
+                "artifact_name": artifact_name,
+                "run_id": commit.get("run_id", ""),
+                "record_count": commit.get("record_count", 0),
+                "committed_at": commit.get("committed_at", ""),
+            },
+        )
+
+    manifest.last_updated = now
+    return manifest
+
+
+def _save_checkpoint_via_manifest(output_dir: Path, state: dict[str, Any]) -> None:
+    """Adapter: convert checkpoint dict to manifest and write atomically.
+
+    Writes directly without re-acquiring FetchLock (caller already holds it).
+    Uses a temp-file + os.replace for atomicity, mirroring save_manifest_locked.
+    """
+    from ..fetch._manifest_model import serialize_manifest
+
+    manifest = _checkpoint_to_manifest(state)
+    dest = output_dir / "_manifest_rfb.json"
+    content = serialize_manifest(manifest)
+    fd, tmp_path_str = tempfile.mkstemp(
+        dir=str(output_dir),
+        prefix=".manifest_rfb_",
+        suffix=".tmp",
+    )
+    tmp_path = Path(tmp_path_str)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+        tmp_path.replace(dest)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def _extract_tse_donor_targets(
@@ -196,196 +338,382 @@ def fetch_rfb_data(
         )
         return config.output_dir
 
-    checkpoint = _load_checkpoint(config.output_dir)
+    with FetchLock(config.output_dir, "rfb"):
+        return _fetch_rfb_data_locked(
+            config,
+            target_names=target_names,
+            base_url=base_url,
+            pj_cnpjs_basico=pj_cnpjs_basico,
+            pf_cpfs=pf_cpfs,
+            pj_cnpjs_full=pj_cnpjs_full,
+            on_progress=on_progress,
+        )
 
-    # TSE targets checkpoint invalidation
-    has_tse_targets = bool(pj_cnpjs_basico or pf_cpfs or pj_cnpjs_full)
-    if has_tse_targets:
-        new_hash = _compute_tse_targets_hash(pj_cnpjs_basico, pf_cpfs, pj_cnpjs_full)
-        old_hash = checkpoint.get("tse_targets_hash", "")
-        if old_hash and old_hash != new_hash:
-            logger.info("TSE targets changed — invalidating RFB passes for rescan")
-            checkpoint["completed_socios_pass1"] = []
-            checkpoint["completed_socios_pass2"] = []
-            checkpoint["completed_empresas"] = []
-            checkpoint["completed_estabelecimentos"] = []
-            checkpoint["cnpjs"] = []
-            _save_checkpoint(config.output_dir, checkpoint)
-        checkpoint["tse_targets_hash"] = new_hash
 
-    # Cache check: all passes complete and output files exist with content
-    partners_path = config.output_dir / "partners_raw.jsonl"
-    companies_path = config.output_dir / "companies_raw.jsonl"
-    establishments_path = config.output_dir / "establishments_raw.jsonl"
+def _artifact_commit_is_valid(
+    artifact_name: str,
+    path: Path,
+    pass_keys: list[str],
+    checkpoint: dict[str, Any],
+) -> bool:
+    """Return True if the artifact output file is backed by a recorded commit.
 
-    # Guard: invalidate checkpoint passes whose output files are missing or empty.
-    # This prevents re-runs from skipping passes that produced no output (e.g. after
-    # a failed download that left 0-byte files).
-    def _has_content(p: Path) -> bool:
-        return p.exists() and p.stat().st_size > 0
+    Logic:
+    - File missing or empty → not valid (re-materialize needed).
+    - Artifact commit present with record_count > 0 → valid; do not re-run passes.
+    - No artifact commit but passes are complete → passes survived but write didn't;
+      the passes are still valid (DO NOT invalidate them), just re-write the artifact.
+    - No artifact commit and no completed passes → fresh start; nothing to invalidate.
+    """
+    if not path.exists() or path.stat().st_size == 0:
+        return False
 
-    if not _has_content(partners_path):
-        if checkpoint.get("completed_socios_pass1") or checkpoint.get("completed_socios_pass2"):
-            logger.warning("partners_raw.jsonl missing/empty but checkpoint marks socios complete — invalidating")
-            checkpoint["completed_socios_pass1"] = []
-            checkpoint["completed_socios_pass2"] = []
-            _save_checkpoint(config.output_dir, checkpoint)
-    if not _has_content(companies_path):
-        if checkpoint.get("completed_empresas"):
-            logger.warning("companies_raw.jsonl missing/empty but checkpoint marks empresas complete — invalidating")
-            checkpoint["completed_empresas"] = []
-            _save_checkpoint(config.output_dir, checkpoint)
-    if not _has_content(establishments_path):
-        if checkpoint.get("completed_estabelecimentos"):
-            logger.warning("establishments_raw.jsonl missing/empty — invalidating checkpoint")
-            checkpoint["completed_estabelecimentos"] = []
-            _save_checkpoint(config.output_dir, checkpoint)
+    artifact_commits: dict[str, Any] = checkpoint.get("artifact_commits", {})
+    commit = artifact_commits.get(artifact_name)
+    if commit and commit.get("record_count", 0) > 0:
+        return True
 
-    all_socios_p1 = set(checkpoint.get("completed_socios_pass1", []))
-    all_socios_p2 = set(checkpoint.get("completed_socios_pass2", []))
-    all_empresas = set(checkpoint.get("completed_empresas", []))
-    all_estabelecimentos = set(checkpoint.get("completed_estabelecimentos", []))
-    if (
-        len(all_socios_p1) == RFB_SOCIOS_FILE_COUNT
-        and len(all_socios_p2) == RFB_SOCIOS_FILE_COUNT
-        and len(all_empresas) == RFB_EMPRESAS_FILE_COUNT
-        and len(all_estabelecimentos) == RFB_ESTABELECIMENTOS_FILE_COUNT
-        and _has_content(partners_path)
-        and _has_content(companies_path)
-        and _has_content(establishments_path)
-    ):
-        logger.info("RFB fetch already complete — output files exist with content")
+    # File exists but no artifact commit recorded.
+    # Check whether any of the upstream passes are marked complete.
+    any_complete = any(checkpoint.get(k) for k in pass_keys)
+    if any_complete:
+        # Passes completed but the artifact write was never stamped in the manifest.
+        # This indicates a crash after pass completion but before the artifact commit.
+        # The passes are still valid — only the artifact needs to be re-written.
+        logger.warning(
+            "%s: passes complete but no artifact_commit recorded — artifact will be re-materialized",
+            artifact_name,
+        )
+        return False
+
+    # File exists, no passes completed, no commit — treat as externally placed file.
+    return True
+
+
+def _fetch_rfb_data_locked(
+    config: RfbFetchConfig,
+    *,
+    target_names: set[str],
+    base_url: str,
+    pj_cnpjs_basico: set[str],
+    pf_cpfs: set[str],
+    pj_cnpjs_full: set[str],
+    on_progress: Callable[[int, int, str], None] | None = None,
+) -> Path:
+    """Inner implementation guarded by FetchLock."""
+    import uuid as _uuid
+
+    timer = FetchTimer("rfb")
+    timer.start()
+    try:
+        manifest = load_manifest("rfb", config.output_dir) or SourceManifest(source="rfb")
+        checkpoint = _manifest_to_checkpoint(manifest)
+
+        run_id = str(_uuid.uuid4())[:8]
+
+        if config.force_refresh:
+            logger.info("RFB: force-refresh — clearing checkpoint")
+            checkpoint = {
+                "completed_socios_pass1": [],
+                "completed_socios_pass2": [],
+                "completed_empresas": [],
+                "completed_estabelecimentos": [],
+                "completed_reference": False,
+                "cnpjs": [],
+                "artifact_commits": {},
+            }
+            _save_checkpoint_via_manifest(config.output_dir, checkpoint)
+
+        # TSE targets checkpoint invalidation
+        has_tse_targets = bool(pj_cnpjs_basico or pf_cpfs or pj_cnpjs_full)
+        if has_tse_targets:
+            new_hash = _compute_tse_targets_hash(pj_cnpjs_basico, pf_cpfs, pj_cnpjs_full)
+            old_hash = checkpoint.get("tse_targets_hash", "")
+            if old_hash and old_hash != new_hash:
+                logger.info("TSE targets changed — invalidating RFB passes for rescan")
+                checkpoint["completed_socios_pass1"] = []
+                checkpoint["completed_socios_pass2"] = []
+                checkpoint["completed_empresas"] = []
+                checkpoint["completed_estabelecimentos"] = []
+                checkpoint["cnpjs"] = []
+                checkpoint["artifact_commits"] = {}
+                _save_checkpoint_via_manifest(config.output_dir, checkpoint)
+            checkpoint["tse_targets_hash"] = new_hash
+
+        partners_path = config.output_dir / _ARTIFACT_PARTNERS
+        companies_path = config.output_dir / _ARTIFACT_COMPANIES
+        establishments_path = config.output_dir / _ARTIFACT_ESTABLISHMENTS
+
+        # Guard: check each artifact independently.
+        #
+        # If passes are complete but artifact commit is absent, the process crashed
+        # between pass completion and the write.  In that case the passes remain valid
+        # and only the artifact write needs to be repeated — we must NOT clear the pass
+        # lists (which was the flaw in the old global output_commit model).
+        #
+        # _artifact_commit_is_valid() emits a warning and returns False when it detects
+        # this condition; the main flow below will re-materialize only the missing files.
+        partners_valid = _artifact_commit_is_valid(
+            _ARTIFACT_PARTNERS,
+            partners_path,
+            ["completed_socios_pass1", "completed_socios_pass2"],
+            checkpoint,
+        )
+        companies_valid = _artifact_commit_is_valid(
+            _ARTIFACT_COMPANIES,
+            companies_path,
+            ["completed_empresas"],
+            checkpoint,
+        )
+        establishments_valid = _artifact_commit_is_valid(
+            _ARTIFACT_ESTABLISHMENTS,
+            establishments_path,
+            ["completed_estabelecimentos"],
+            checkpoint,
+        )
+
+        # Full cache hit: all passes done + all artifacts committed with content
+        all_socios_p1 = set(checkpoint.get("completed_socios_pass1", []))
+        all_socios_p2 = set(checkpoint.get("completed_socios_pass2", []))
+        all_empresas = set(checkpoint.get("completed_empresas", []))
+        all_estabelecimentos = set(checkpoint.get("completed_estabelecimentos", []))
+
+        if (
+            len(all_socios_p1) == RFB_SOCIOS_FILE_COUNT
+            and len(all_socios_p2) == RFB_SOCIOS_FILE_COUNT
+            and len(all_empresas) == RFB_EMPRESAS_FILE_COUNT
+            and len(all_estabelecimentos) == RFB_ESTABELECIMENTOS_FILE_COUNT
+            and partners_valid
+            and companies_valid
+            and establishments_valid
+        ):
+            logger.info("RFB fetch already complete — output files exist with content")
+            if on_progress:
+                on_progress(1, 1, "RFB: Ja completo (cache)")
+            timer.log_success(records_written=0, detail="already complete (cache)")
+            return config.output_dir
+
+        # Total steps: reference(1) + socios*2 + empresas + estabelecimentos
+        total_steps = 1 + RFB_SOCIOS_FILE_COUNT * 2 + RFB_EMPRESAS_FILE_COUNT + RFB_ESTABELECIMENTOS_FILE_COUNT
+        step = 0
+
+        # Reference tables
+        if not checkpoint.get("completed_reference", False):
+            if on_progress:
+                on_progress(step, total_steps, "RFB: Tabelas de referencia")
+            fetch_reference_tables(
+                config.output_dir,
+                base_url,
+                config.timeout_seconds,
+                download_zip=_download_zip,
+                parse_csv_from_zip_text=_parse_csv_from_zip_text,
+            )
+            checkpoint["completed_reference"] = True
+            _save_checkpoint_via_manifest(config.output_dir, checkpoint)
+        step += 1
+
+        # ------------------------------------------------------------------ #
+        # Partners artifact (passes 1 + 2)
+        # ------------------------------------------------------------------ #
+        unique_partners: list[dict[str, Any]] = []
+
+        if not partners_valid:
+            # Pass 1: Socios by name + TSE CPF/CNPJ targets
+            all_partners, matched_cnpjs, step = run_pass1_socios(
+                base_url=base_url,
+                socios_file_count=RFB_SOCIOS_FILE_COUNT,
+                config_output_dir=config.output_dir,
+                config_timeout=config.timeout_seconds,
+                target_names=target_names,
+                checkpoint=checkpoint,
+                download_zip=_download_zip,
+                parse_csv_from_zip_text=_parse_csv_from_zip_text,
+                save_checkpoint=_save_checkpoint_via_manifest,
+                on_progress=on_progress,
+                step=step,
+                total_steps=total_steps,
+                target_cpfs=pf_cpfs,
+                target_partner_cnpjs=pj_cnpjs_full,
+                manifest_dir=config.output_dir,
+            )
+
+            # Inject PJ cnpj_basico from TSE donors (empresa própria — caminho A)
+            if pj_cnpjs_basico:
+                pre_count = len(matched_cnpjs)
+                matched_cnpjs.update(pj_cnpjs_basico)
+                logger.info(
+                    "Injected %d TSE PJ cnpj_basico into matched_cnpjs (%d -> %d)",
+                    len(pj_cnpjs_basico),
+                    pre_count,
+                    len(matched_cnpjs),
+                )
+
+            # Pass 2: Socios co-partners by CNPJ
+            pass2_partners, step = run_pass2_socios(
+                base_url=base_url,
+                socios_file_count=RFB_SOCIOS_FILE_COUNT,
+                config_output_dir=config.output_dir,
+                config_timeout=config.timeout_seconds,
+                matched_cnpjs=matched_cnpjs,
+                checkpoint=checkpoint,
+                download_zip=_download_zip,
+                parse_csv_from_zip_text=_parse_csv_from_zip_text,
+                save_checkpoint=_save_checkpoint_via_manifest,
+                on_progress=on_progress,
+                step=step,
+                total_steps=total_steps,
+                manifest_dir=config.output_dir,
+            )
+            all_partners.extend(pass2_partners)
+
+            # Deduplicate partners
+            seen: set[str] = set()
+            for p in all_partners:
+                key = f"{p['cnpj_basico']}:{p.get('partner_name_normalized', '')}"
+                if key not in seen:
+                    seen.add(key)
+                    unique_partners.append(p)
+
+            # Write and commit partners artifact immediately
+            record_count = write_partners_jsonl(config.output_dir, unique_partners)
+            _stamp_artifact_commit(
+                _ARTIFACT_PARTNERS,
+                record_count,
+                run_id,
+                checkpoint,
+                config.output_dir,
+            )
+        else:
+            # Partners already committed; reconstruct matched_cnpjs from checkpoint
+            matched_cnpjs = set(checkpoint.get("cnpjs", []))
+            if pj_cnpjs_basico:
+                matched_cnpjs.update(pj_cnpjs_basico)
+            # Advance step counter to stay consistent with total_steps accounting
+            step += RFB_SOCIOS_FILE_COUNT * 2
+
+        # ------------------------------------------------------------------ #
+        # Companies artifact (pass 3)
+        # ------------------------------------------------------------------ #
+        all_companies: list[dict[str, Any]] = []
+
+        if not companies_valid:
+            all_companies, step = run_pass3_empresas(
+                base_url=base_url,
+                empresas_file_count=RFB_EMPRESAS_FILE_COUNT,
+                config_output_dir=config.output_dir,
+                config_timeout=config.timeout_seconds,
+                matched_cnpjs=matched_cnpjs,
+                checkpoint=checkpoint,
+                download_zip=_download_zip,
+                parse_csv_from_zip_text=_parse_csv_from_zip_text,
+                save_checkpoint=_save_checkpoint_via_manifest,
+                on_progress=on_progress,
+                step=step,
+                total_steps=total_steps,
+                manifest_dir=config.output_dir,
+            )
+
+            record_count = write_companies_jsonl(config.output_dir, all_companies)
+            _stamp_artifact_commit(
+                _ARTIFACT_COMPANIES,
+                record_count,
+                run_id,
+                checkpoint,
+                config.output_dir,
+            )
+        else:
+            step += RFB_EMPRESAS_FILE_COUNT
+
+        # ------------------------------------------------------------------ #
+        # Establishments artifact (pass 4)
+        # ------------------------------------------------------------------ #
+        all_establishments: list[dict[str, Any]] = []
+
+        if not establishments_valid:
+            all_establishments, step = run_pass4_estabelecimentos(
+                base_url=base_url,
+                estabelecimentos_file_count=RFB_ESTABELECIMENTOS_FILE_COUNT,
+                config_output_dir=config.output_dir,
+                config_timeout=config.timeout_seconds,
+                matched_cnpjs=matched_cnpjs,
+                checkpoint=checkpoint,
+                download_zip=_download_zip,
+                parse_csv_from_zip_text=_parse_csv_from_zip_text,
+                save_checkpoint=_save_checkpoint_via_manifest,
+                on_progress=on_progress,
+                step=step,
+                total_steps=total_steps,
+                manifest_dir=config.output_dir,
+            )
+
+            record_count = write_establishments_jsonl(config.output_dir, all_establishments)
+            _stamp_artifact_commit(
+                _ARTIFACT_ESTABLISHMENTS,
+                record_count,
+                run_id,
+                checkpoint,
+                config.output_dir,
+            )
+        else:
+            step += RFB_ESTABELECIMENTOS_FILE_COUNT
+
+        # Cleanup cached Socios ZIPs (Empresas/Estabelecimentos are deleted by pass runners)
+        for i in range(RFB_SOCIOS_FILE_COUNT):
+            cache_path = config.output_dir / f"Socios{i}.zip"
+            if cache_path.exists():
+                cache_path.unlink()
+
         if on_progress:
-            on_progress(1, 1, "RFB: Ja completo (cache)")
+            on_progress(total_steps, total_steps, "RFB: Concluido")
+        total_records = len(unique_partners) + len(all_companies) + len(all_establishments)
+        timer.log_success(
+            records_written=total_records,
+            detail=f"{len(unique_partners)} partners, {len(all_companies)} companies, "
+            f"{len(all_establishments)} establishments",
+        )
         return config.output_dir
+    except Exception as exc:
+        timer.log_failure(exc)
+        raise
 
-    # Total steps: reference(1) + socios*2 + empresas + estabelecimentos
-    total_steps = 1 + RFB_SOCIOS_FILE_COUNT * 2 + RFB_EMPRESAS_FILE_COUNT + RFB_ESTABELECIMENTOS_FILE_COUNT
-    step = 0
 
-    # Reference tables
-    if not checkpoint.get("completed_reference", False):
-        if on_progress:
-            on_progress(step, total_steps, "RFB: Tabelas de referencia")
-        fetch_reference_tables(
-            config.output_dir,
-            base_url,
-            config.timeout_seconds,
-            download_zip=_download_zip,
-            parse_csv_from_zip_text=_parse_csv_from_zip_text,
-        )
-        checkpoint["completed_reference"] = True
-        _save_checkpoint(config.output_dir, checkpoint)
-    step += 1
+def _stamp_artifact_commit(
+    artifact_name: str,
+    record_count: int,
+    run_id: str,
+    checkpoint: dict[str, Any],
+    output_dir: Path,
+) -> None:
+    """Record that an artifact was successfully written to disk.
 
-    # Pass 1: Socios by name + TSE CPF/CNPJ targets
-    all_partners, matched_cnpjs, step = run_pass1_socios(
-        base_url=base_url,
-        socios_file_count=RFB_SOCIOS_FILE_COUNT,
-        config_output_dir=config.output_dir,
-        config_timeout=config.timeout_seconds,
-        target_names=target_names,
-        checkpoint=checkpoint,
-        download_zip=_download_zip,
-        parse_csv_from_zip_text=_parse_csv_from_zip_text,
-        save_checkpoint=_save_checkpoint,
-        on_progress=on_progress,
-        step=step,
-        total_steps=total_steps,
-        target_cpfs=pf_cpfs,
-        target_partner_cnpjs=pj_cnpjs_full,
-    )
-
-    # Inject PJ cnpj_basico from TSE donors (empresa própria — caminho A)
-    if pj_cnpjs_basico:
-        pre_count = len(matched_cnpjs)
-        matched_cnpjs.update(pj_cnpjs_basico)
-        logger.info(
-            "Injected %d TSE PJ cnpj_basico into matched_cnpjs (%d -> %d)",
-            len(pj_cnpjs_basico),
-            pre_count,
-            len(matched_cnpjs),
-        )
-
-    # Pass 2: Socios co-partners by CNPJ
-    pass2_partners, step = run_pass2_socios(
-        base_url=base_url,
-        socios_file_count=RFB_SOCIOS_FILE_COUNT,
-        config_output_dir=config.output_dir,
-        config_timeout=config.timeout_seconds,
-        matched_cnpjs=matched_cnpjs,
-        checkpoint=checkpoint,
-        download_zip=_download_zip,
-        parse_csv_from_zip_text=_parse_csv_from_zip_text,
-        save_checkpoint=_save_checkpoint,
-        on_progress=on_progress,
-        step=step,
-        total_steps=total_steps,
-    )
-    all_partners.extend(pass2_partners)
-
-    # Deduplicate partners
-    seen: set[str] = set()
-    unique_partners: list[dict[str, Any]] = []
-    for p in all_partners:
-        key = f"{p['cnpj_basico']}:{p.get('partner_name_normalized', '')}"
-        if key not in seen:
-            seen.add(key)
-            unique_partners.append(p)
-
-    # Pass 3: Empresas
-    all_companies, step = run_pass3_empresas(
-        base_url=base_url,
-        empresas_file_count=RFB_EMPRESAS_FILE_COUNT,
-        config_output_dir=config.output_dir,
-        config_timeout=config.timeout_seconds,
-        matched_cnpjs=matched_cnpjs,
-        checkpoint=checkpoint,
-        download_zip=_download_zip,
-        parse_csv_from_zip_text=_parse_csv_from_zip_text,
-        save_checkpoint=_save_checkpoint,
-        on_progress=on_progress,
-        step=step,
-        total_steps=total_steps,
-    )
-
-    # Pass 4: Estabelecimentos
-    all_establishments, step = run_pass4_estabelecimentos(
-        base_url=base_url,
-        estabelecimentos_file_count=RFB_ESTABELECIMENTOS_FILE_COUNT,
-        config_output_dir=config.output_dir,
-        config_timeout=config.timeout_seconds,
-        matched_cnpjs=matched_cnpjs,
-        checkpoint=checkpoint,
-        download_zip=_download_zip,
-        parse_csv_from_zip_text=_parse_csv_from_zip_text,
-        save_checkpoint=_save_checkpoint,
-        on_progress=on_progress,
-        step=step,
-        total_steps=total_steps,
-    )
-
-    # Enrich and write all results
-    enrich_and_write_results(
-        config_output_dir=config.output_dir,
-        unique_partners=unique_partners,
-        all_companies=all_companies,
-        all_establishments=all_establishments,
-    )
-
-    # Cleanup cached ZIPs
-    for i in range(RFB_SOCIOS_FILE_COUNT):
-        cache_path = config.output_dir / f"Socios{i}.zip"
-        if cache_path.exists():
-            cache_path.unlink()
-
-    if on_progress:
-        on_progress(total_steps, total_steps, "RFB: Concluido")
+    This commit proves the JSONL file corresponds to the data produced by the
+    completed passes.  Written immediately after the atomic JSONL write so that
+    a crash between write and stamp is recoverable without re-running passes.
+    """
+    artifact_commits: dict[str, Any] = checkpoint.setdefault("artifact_commits", {})
+    artifact_commits[artifact_name] = {
+        "run_id": run_id,
+        "record_count": record_count,
+        "committed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _save_checkpoint_via_manifest(output_dir, checkpoint)
     logger.info(
-        "RFB fetch complete: %d partners, %d companies, %d establishments, %d CNPJs",
-        len(unique_partners),
-        len(all_companies),
-        len(all_establishments),
-        len(matched_cnpjs),
+        "Artifact commit stamped: %s (%d records, run_id=%s)",
+        artifact_name,
+        record_count,
+        run_id,
     )
-    return config.output_dir
+
+
+# Keep enrich_and_write_results accessible from this module for any external callers.
+__all__ = [
+    "_build_target_names",
+    "_checkpoint_to_manifest",
+    "_compute_tse_targets_hash",
+    "_extract_tse_donor_targets",
+    "_manifest_to_checkpoint",
+    "_save_checkpoint_via_manifest",
+    "_stamp_artifact_commit",
+    "enrich_and_write_results",
+    "fetch_rfb_data",
+]

@@ -11,7 +11,7 @@ Os dados são de tribunal público (STF).
 
 ## Decisão
 
-- 73 endpoints GET-only — nenhum POST/PUT/DELETE
+- 86 endpoints GET-only + 1 POST excepcional (`/graph/review/decision` — calibração humana de scores)
 - CORS permite apenas método GET (`allow_methods=["GET"]`)
 - Rate limiting in-memory, fail-closed (429) — configurável via env vars
 - Sem autenticação — dados públicos de tribunal
@@ -34,4 +34,4 @@ Os dados são de tribunal público (STF).
 ## Evidência no código
 
 - `api/app.py` — CORS config, rate limiter, security headers, timeout middleware
-- `api/_routes_*.py` — 8 route registrars, todos `@app.get()`
+- `api/_routes_*.py` — 9 route registrars, `@app.get()` + 1 `@app.post()` em graph review

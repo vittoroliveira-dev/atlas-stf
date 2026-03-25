@@ -37,6 +37,8 @@ def _row_to_item(row: ServingEconomicGroup) -> EconomicGroupItem:
         active_establishment_count=row.active_establishment_count,
         total_establishment_count=row.total_establishment_count,
         is_law_firm_group=row.is_law_firm_group,
+        law_firm_member_count=row.law_firm_member_count,
+        law_firm_member_ratio=row.law_firm_member_ratio,
         has_minister_partner=row.has_minister_partner,
         has_party_partner=row.has_party_partner,
         has_counsel_partner=row.has_counsel_partner,

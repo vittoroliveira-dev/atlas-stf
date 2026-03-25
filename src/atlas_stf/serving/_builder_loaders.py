@@ -60,6 +60,9 @@ from ._builder_loaders_corporate import (
 from ._builder_loaders_corporate import (
     load_economic_groups as load_economic_groups,
 )
+from ._builder_loaders_corporate import (
+    stream_economic_group_rows as stream_economic_group_rows,
+)
 from ._builder_loaders_representation import (
     load_law_firm_entities as load_law_firm_entities,
 )

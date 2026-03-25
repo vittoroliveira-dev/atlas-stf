@@ -41,7 +41,7 @@ def test_build_party_records_extracts_labeled_process_parties(tmp_path: Path):
 
     records = build_party_records(process_path=process_path)
 
-    assert {record["party_name_normalized"] for record in records} == {"ESTADO X", "UNIÃO"}
+    assert {record["party_name_normalized"] for record in records} == {"ESTADO X", "UNIAO"}
 
 
 def test_build_party_records_extracts_labeled_process_parties_with_spaced_colon(tmp_path: Path):
@@ -59,7 +59,7 @@ def test_build_party_records_extracts_labeled_process_parties_with_spaced_colon(
 
     records = build_party_records(process_path=process_path)
 
-    assert {record["party_name_normalized"] for record in records} == {"JULIANA MATIAS", "JOÃO ALFREDO"}
+    assert {record["party_name_normalized"] for record in records} == {"JULIANA MATIAS", "JOAO ALFREDO"}
 
 
 def test_build_party_jsonl_writes_file(tmp_path: Path):
@@ -99,7 +99,7 @@ def test_build_party_records_populates_identity_fields(tmp_path: Path):
 
     assert len(records) == 1
     record = records[0]
-    assert record["canonical_name_normalized"] == "PETRÓLEO BRASILEIRO"
+    assert record["canonical_name_normalized"] == "PETROLEO BRASILEIRO"
     assert record["entity_tax_id"] is None
     assert record["identity_strategy"] == "name"
     assert record["identity_key"] == build_identity_key("PETRÓLEO BRASILEIRO S.A.")

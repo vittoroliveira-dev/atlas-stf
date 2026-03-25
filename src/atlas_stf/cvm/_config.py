@@ -19,3 +19,4 @@ class CvmFetchConfig:
     output_dir: Path = field(default_factory=lambda: Path("data/raw/cvm"))
     timeout_seconds: int = 120
     dry_run: bool = False
+    force_refresh: bool = False

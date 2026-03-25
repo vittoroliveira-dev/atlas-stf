@@ -6,6 +6,72 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-25
+
+### Added
+
+- **fetch/**: manifesto unificado de downloads — model (`FetchUnit`, `RemoteState`, `SourceManifest`, `FetchPlan`, `RefreshPolicy`), store (atomic write com `FetchLock` + `os.replace`), planner (read-only, comparação discovered vs manifest, ações download/redownload/repair/skip), executor (dispatch por fonte, manifest commit por item), discovery (enumeração de artefatos por fonte), adapters (7 fontes: TSE doações/despesas/órgãos, CGU, CVM, RFB, DataJud) e migração transacional de checkpoints legados. CLI: `fetch plan`, `fetch status`, `fetch run`, `fetch migrate`. ADR-005 documenta decisão
+- **contracts/**: módulo de data contracts com 9 submódulos — `_inspector` (inspeção CSV/JSONL streaming), `_sentinel` (drift detection: colunas faltantes, null spikes, fingerprint stale), `_governance` (join fitness classification), `_governance_validator` (validação de declarations vs inventários), `_coverage` (metadados de disponibilidade por ano), `_semantic_audit` (dual-use, fallback conflation, masked identifiers, high-null join risk), `_entity_identity` (classificação de identificadores CPF/CNPJ/name), `_stf_overlap` (duplicatas estruturais cross-CSV), `inspect_sources` (runner + cross-file reports)
+- **serving/_builder_graph.py**: materialização do grafo de investigação — nodes (lawyers, firms, parties, counsels, cases, economic groups), edges (representação D1, corporate D2, risk signals D3), path candidates 1-hop, evidence bundles por entidade, review queue (entidades com ≥2 sinais + arestas truncated/fuzzy), module availability checker. 7 novos modelos SQLAlchemy (`ServingGraphNode`, `ServingGraphEdge`, `ServingGraphPathCandidate`, `ServingGraphScore`, `ServingEvidenceBundle`, `ServingReviewQueue`, `ServingModuleAvailability`)
+- **serving/_builder_scoring.py**: scoring decomposto por entidade — documentary/statistical/network/temporal com penalties (fuzzy, truncation, singleton, missing_identifier). Dois modos de traversal (strict/broad). `RISK_EDGE_TYPES` e `_NETWORK_EDGE_TYPES` como fonte única de verdade. 14 pesos heurísticos documentados com plano de calibração de 4 passos. Enriquecimento da review queue com `operational_priority`
+- **api/_routes_graph.py**, **_schemas_graph.py**, **_service_graph.py**, **_service_graph_review.py**: 12 endpoints de grafo — search/node/edge/neighbors/paths/explain/scores/metrics (GET), investigations top/entity (GET), review queue (GET), review decision (POST com auth via `X-Review-API-Key` + `secrets.compare_digest`). 17 schemas Pydantic. ADR-006 documenta exceção ao GET-only
+- **core/fetch_lock.py**: lock advisory POSIX (`fcntl.flock`) por fonte com detecção e recuperação de stale locks via PID recorded; previne runs concorrentes de mesma fonte
+- **core/fetch_result.py**: `FetchResult` imutável + `FetchTimer` para emissão de log JSON estruturado ao final de cada fetch (source, status, records_written, duration, exit_code)
+- **core/http_stream_safety.py**: `write_stream_resilient()` — download com `.part` + rename atômico, stall detection (timeout configurável), HTTP Range resume via `.progress` marker com validação etag/content-length
+- **serving/_builder_utils.py**: validação pre-build completa — `_validate_inputs()` verifica PKs de 27 artefatos JSONL, classifica findings em 3 categorias (empty PK / exact duplicate / conflito divergente) com budgets configuráveis, relatório JSON estruturado, abort se erros
+- **ingest_manifest.py**: captura de provenance para CSVs — sha256, header normalizado NFKD, layout signature, sample rows, contagem de registros; suporte a disco e stream in-memory
+- **cli/_handlers_fetch.py**, **_parsers_fetch.py**: handlers e parsers para `fetch plan|status|run|migrate` com opções --sources, --force-refresh, --json, --plan, --api-key, --dry-run
+- ~385 novos testes: fetch (107), contracts (58), graph API (20), graph materialization/scoring/smoke/regression (52), stream resilience (19), progress (17), fetch_lock/result (21), parser field contracts CGU/TSE/RFB (40), e2e sampling (6), donation event dedup (5), preflight coverage (6), checkpoint granular (7), run context pulse (5), SCL bench/dedup (12), builder mid-phase failure (1), auth/validation (5), noise filter calibração (2), registry consistency (3); total: ~2541
+
+### Changed
+
+- **fontes externas (CGU, CVM, TSE, RFB, DataJud)**: checkpoints legados (`_CguCheckpoint`, `_CvmCheckpoint`, `_Checkpoint` TSE, `_load_checkpoint` RFB) substituídos por `SourceManifest` unificado; `FetchLock` + `FetchTimer` adicionados em todas as fontes para concurrency safety e logging estruturado; `force_refresh` propagado via config em CGU/CVM/RFB
+- **cgu/_runner_csv.py**: `urllib` substituído por `httpx`; User-Agent compatível com WAF; validação de headers CSV contra layouts esperados (CEIS/CNEP/Leniência) com tabela de aliases para typos históricos; captura de provenance manifest por CSV
+- **rfb/_runner_http.py**: `_download_zip()` reescrito com `.part` safety, stall detection (300s), HTTP Range resume (até 3 retries), validação Content-Range/ETag, verificação de integridade ZIP pós-download; `_ManifestCapturingStream` para captura de provenance single-pass
+- **rfb/_runner.py**: per-artifact commit stamping elimina gap crash entre pass completion e output commit; `enrich_and_write_results()` decomposta em 3 funções write independentes
+- **rfb/_parser_estabelecimentos.py**: schema posicional documentado (30 colunas); `_col()` para bounds check; campo `correio_eletronico` (coluna 27) extraído
+- **rfb/_parser.py**: `capital_social` retorna `None` em vez de `0.0` para valores inválidos/vazios — preserva semântica "capital desconhecido" vs "capital zero"
+- **tse/_parser.py**: `_safe_get()` retorna `None` para campos ausentes na geração (em vez de `""`), distinguindo "inexistente" de "vazio"
+- **analytics/sanction_corporate_link.py**: universo de CNPJs unificado com fases; cache de match; circuit breaker a 5000 CNPJs por sanção (trunca mega-componentes); logging periódico e métricas detalhadas
+- **analytics/economic_group.py**: `is_law_firm_group` usa threshold de maioria (>50% CNAE 6911) em vez de ANY; adicionados `law_firm_member_count` e `law_firm_member_ratio`
+- **analytics/_compound_risk_evidence.py**: removido multiplicador 1.5x de `has_law_firm_group` no `adjusted_rate_delta` (flag contaminado por mega-componentes)
+- **analytics/counsel_affinity.py**: migrado para `ProgressTracker` com 4 fases ponderadas e progresso granular por item
+- **serving/builder.py**: build refatorado em 9 fases com sessions separadas, RSS/elapsed logging por fase, `del` explícito entre fases; economic groups via streaming bulk insert; error path com `except BaseException` + `build_path.unlink()` para cleanup do `.build`
+- **serving/_builder_flow.py**: default de workers alterado de 8 para 1 (serial); multiprocessing mantido como opt-in via `ATLAS_FLOW_WORKERS`
+- **serving/_builder_schema.py**: schema version 16 → 19 (tabelas de grafo)
+- **web/api-client.ts**: `AbortSignal.timeout(15s)` em `fetchApiJson` (configurável via `ATLAS_STF_API_TIMEOUT_MS`); helper `isNotFoundError()` para distinguir 404 de outros erros
+- **web/ (8 data files)**: 12 catches genéricos convertidos para `isApiFetchError` guard; 6 detail fetchers migrados para `isNotFoundError` — somente 404 retorna `null`, outros erros propagam ao error boundary
+- **docs/**: README (+7 env vars, contagens 2541/198), 00-visão-geral (grafo + revisão), 02-fontes (+4 fontes), 03-modelo (+grafo + representação), 04-metodologia (+scoring de grafo), 09-roadmap (+submódulos Fase 7); ADR-004 atualizado (86 GET + 1 POST)
+- **Dockerfile**: HEALTHCHECK via stdlib Python; comentário single-worker. **docker-compose.yml**: `restart: unless-stopped`, `mem_limit: 3g`, healthcheck com `start_period: 180s`
+
+### Fixed
+
+- **analytics/donation_match.py**: deduplicação de donation events corrigida — `event_id` inclui `donation_description`, `seen_events` set impede duplicatas; resource classification movida para depois do dedup
+- **analytics/sanction_match.py**: `match_id` inclui `norm_name` na composição; `seen_matches` set impede duplicatas party+counsel
+- **analytics/rapporteur_change.py**: `change_id` inclui `decision_event_id` no hash, evitando colisões em múltiplas mudanças de relator na mesma data
+- **analytics/compound_risk.py**: variáveis mortas `sanction_by_party` e `counsels_with_direct_sanction` removidas (dead code de cross-entity inference não implementada)
+- **curated/build_agenda.py**: deduplicação de agenda events por `agenda_event_id` via `seen_ids` set
+- **curated/build_movement.py**: `movement_id` inclui `detail` na composição do hash, evitando colisões entre movimentações com mesma descrição mas detalhes diferentes
+- **serving/_builder_loaders_agenda.py**: campo de ID tenta `agenda_event_id` antes de `event_id` (incompatibilidade curated→loader)
+- **serving/_builder_loaders_analytics_sanctions.py**: `load_donation_events()` deduplica por `event_id` com classificação exact dupe vs conflito divergente
+- **serving/_builder_loaders_timeline.py**: `load_movements()` deduplica por `movement_id`
+- **api/_service_agenda.py**: tie-breaker `event_id.asc()` e `exposure_id.asc()` em 2 queries paginadas da agenda por ministro
+- **core/fetch_lock.py**, **core/fetch_result.py**: `exc_tb` → `_exc_tb` em `__exit__` (vulture deadcode)
+- **contracts/_stf_overlap.py**: `_open_csv` convertido para context manager com file handle seguro
+- **datajud/_runner.py**: `FetchLock("datajud")` adicionado ao corpo do fetch (antes só o manifest save tinha lock)
+- **web/error.tsx**: `error.message` condicionado a `NODE_ENV === "development"`
+
+### Security
+
+- **api/_routes_graph.py**: auth via `X-Review-API-Key` + `secrets.compare_digest` no POST `/review/decision`; fail-open sem key (dev mode) com log debug; 401 com key errada. `tier` e `status` validados por pattern/Literal
+- **api/app.py**: rate limiter in-memory (120 req/60s, fail-closed 429), request timeout middleware (30s → 504), constante `DEFAULT_REVIEW_API_KEY_ENV`
+- **Dockerfile**: non-root user `app`, multi-stage build; **docker-compose.yml**: porta exposta apenas em loopback (`127.0.0.1:8000`)
+
+### Removed
+
+- **ui-spec/**: 4 specs de UI removidas (`dashboard-spec.md`, `evidence-panel-spec.md`, `filters-spec.md`, `information-architecture.md`) — substituídas por implementação materializada no dashboard
+- **cgu/_checkpoint.py**: módulo de checkpoint legado removido (substituído por `SourceManifest`)
+
 ## [1.0.9] - 2026-03-19
 
 ### Added

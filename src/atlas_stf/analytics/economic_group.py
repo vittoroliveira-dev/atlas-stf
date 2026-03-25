@@ -208,7 +208,7 @@ def build_economic_groups(
         ufs: list[str] = []
         active_count = 0
         total_estab_count = 0
-        is_law_firm = False
+        law_firm_cnpjs: set[str] = set()
         for cnpj in member_cnpjs_sorted:
             for estab in estab_by_cnpj.get(cnpj, []):
                 total_estab_count += 1
@@ -219,7 +219,13 @@ def build_economic_groups(
                     ufs.append(uf)
                 cnae = estab.get("cnae_fiscal", "")
                 if cnae.startswith("6911"):
-                    is_law_firm = True
+                    law_firm_cnpjs.add(cnpj)
+        law_firm_member_count = len(law_firm_cnpjs)
+        law_firm_member_ratio = (
+            round(law_firm_member_count / len(member_cnpjs_sorted), 4)
+            if member_cnpjs_sorted else 0.0
+        )
+        is_law_firm = law_firm_member_ratio > 0.5
 
         # Check partner flags
         has_minister = False
@@ -260,6 +266,8 @@ def build_economic_groups(
                 "active_establishment_count": active_count,
                 "total_establishment_count": total_estab_count,
                 "is_law_firm_group": is_law_firm,
+                "law_firm_member_count": law_firm_member_count,
+                "law_firm_member_ratio": law_firm_member_ratio,
                 "has_minister_partner": has_minister,
                 "has_party_partner": has_party,
                 "has_counsel_partner": has_counsel,

@@ -280,8 +280,8 @@ class TestOriginatorFallback:
         records = parse_receitas_csv(path)
         assert len(records) == 1
         assert records[0]["donor_name"] == "INTERMEDIARIO"
-        # No originator column in standard fixture
-        assert records[0]["donor_name_originator"] == ""
+        # No originator column in standard fixture — absent field yields None
+        assert records[0]["donor_name_originator"] is None
 
     def test_empty_donor_empty_originator_skipped(self, tmp_path: Path) -> None:
         """If both donor and originator are empty, record is skipped."""

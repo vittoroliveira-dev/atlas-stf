@@ -1,4 +1,4 @@
-import { fetchApiJson, isApiFetchError } from "@/lib/api-client";
+import { fetchApiJson, isApiFetchError, isNotFoundError } from "@/lib/api-client";
 
 export type SanctionMatch = {
   match_id: string;
@@ -151,10 +151,8 @@ export async function getCounselSanctionProfile(counselId: string): Promise<Coun
       `/counsels/${encodeURIComponent(counselId)}/sanction-profile`,
     );
   } catch (error) {
-    if (isApiFetchError(error)) {
-      return null;
-    }
-    throw error;
+    if (isNotFoundError(error)) return null;
+    throw error; // unreachable — isNotFoundError throws non-404
   }
 }
 

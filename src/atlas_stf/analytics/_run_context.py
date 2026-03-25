@@ -125,6 +125,8 @@ class RunContext:
         self._last_snapshot_time: float = 0.0
         self._resume_count: int = 0
         self._resumed_at: str | None = None
+        self._last_pulse_at: str | None = None
+        self._last_pulse_extra: dict[str, Any] | None = None
         self._session_count: int = 1
 
         mem_available = _read_mem_available_mb()
@@ -227,11 +229,38 @@ class RunContext:
             )
             raise MemoryError(f"RSS {rss:.1f} MB excedeu orçamento de memória {self._memory_budget_mb:.1f} MB")
 
-    def pulse(self, label: str) -> None:
+    def pulse(self, label: str, extra: dict[str, Any] | None = None) -> None:
+        # 1. Sanitize OUTSIDE the lock (can be expensive for large dicts)
+        sanitized: dict[str, Any] | None = None
+        if extra is not None:
+            sanitized = {}
+            for k, v in extra.items():
+                if isinstance(v, (str, int, float, bool)) or v is None:
+                    sanitized[k] = v
+                elif isinstance(v, (list, dict)):
+                    try:
+                        serialized = json.dumps(v, ensure_ascii=False)
+                    except (TypeError, ValueError):
+                        sanitized[k] = f"<unserializable {type(v).__name__}>"
+                        continue
+                    if len(serialized) > 1024:
+                        sanitized[k] = f"<truncated, {len(serialized)} chars>"
+                    else:
+                        sanitized[k] = v
+                else:
+                    sanitized[k] = str(v)
+
+        # 2. Single lock: write state (does NOT touch last_advance_at — preserves stall detection)
         with self._lock:
-            if self._step_progress is not None:
-                self._step_progress.last_advance_at = _now_iso()
-        self._emit_event({"event": "pulse", "label": label, "timestamp": _now_iso()})
+            self._last_pulse_at = _now_iso()
+            self._last_pulse_extra = sanitized
+            emit_extra = sanitized
+
+        # 3. Emit event OUTSIDE the lock
+        event: dict[str, Any] = {"event": "pulse", "label": label, "timestamp": _now_iso()}
+        if emit_extra:
+            event["extra"] = emit_extra
+        self._emit_event(event)
 
     def log_memory(self, label: str, structure_count: int | None = None) -> None:
         rss = _read_rss_mb()
@@ -363,6 +392,8 @@ class RunContext:
         instance._step_durations = {}
         instance._total_items_processed = 0
         instance._last_snapshot_time = 0.0
+        instance._last_pulse_at = None
+        instance._last_pulse_extra = None
 
         mem_available = _read_mem_available_mb()
         if memory_budget_mb is not None:
@@ -461,6 +492,8 @@ class RunContext:
                 "elapsed_s": now_mono - self._monotonic_start,
                 "eta_s": eta_s,
                 "last_heartbeat": now_iso,
+                "last_pulse_at": self._last_pulse_at,
+                "last_pulse_extra": self._last_pulse_extra,
             }
 
         _atomic_write_json(self._run_dir / "status.json", snapshot)

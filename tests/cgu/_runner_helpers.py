@@ -35,32 +35,44 @@ def _write_party_jsonl(path: Path, parties: list[dict]) -> None:
 
 
 def _make_ceis_csv(records: list[list[str]]) -> str:
-    """Build a CEIS CSV string with header + rows."""
+    """Build a CEIS CSV string with real portal headers + rows.
+
+    Rows may have fewer than 24 columns; missing trailing columns are padded
+    with empty strings so the data offsets match _CEIS_COL indices.
+    """
     header = ";".join(
         [
             '"CADASTRO"',
-            '"CÓDIGO"',
-            '"TIPO"',
-            '"CPF/CNPJ"',
-            '"NOME"',
-            '"NOME ORG"',
-            '"RAZAO"',
-            '"FANTASIA"',
-            '"PROCESSO"',
-            '"CATEGORIA"',
-            '"DATA INÍCIO"',
-            '"DATA FIM"',
-            '"DATA PUB"',
+            '"CÓDIGO DA SANÇÃO"',
+            '"TIPO DE PESSOA"',
+            '"CPF OU CNPJ DO SANCIONADO"',
+            '"NOME DO SANCIONADO"',
+            '"NOME INFORMADO PELO ÓRGÃO SANCIONADOR"',
+            '"RAZÃO SOCIAL - CADASTRO RECEITA"',
+            '"NOME FANTASIA - CADASTRO RECEITA"',
+            '"NÚMERO DO PROCESSO"',
+            '"CATEGORIA DA SANÇÃO"',
+            '"DATA INÍCIO SANÇÃO"',
+            '"DATA FINAL SANÇÃO"',
+            '"DATA PUBLICAÇÃO"',
             '"PUBLICAÇÃO"',
-            '"DETALHE"',
-            '"TRANSITO"',
-            '"ABRANGENCIA"',
-            '"ÓRGÃO"',
+            '"DETALHAMENTO DO MEIO DE PUBLICAÇÃO"',
+            '"DATA DO TRÂNSITO EM JULGADO"',
+            '"ABRAGÊNCIA DA SANÇÃO"',
+            '"ÓRGÃO SANCIONADOR"',
+            '"UF ÓRGÃO SANCIONADOR"',
+            '"ESFERA ÓRGÃO SANCIONADOR"',
+            '"FUNDAMENTAÇÃO LEGAL"',
+            '"DATA ORIGEM INFORMAÇÃO"',
+            '"ORIGEM INFORMAÇÕES"',
+            '"OBSERVAÇÕES"',
         ]
     )
     lines = [header]
     for row in records:
-        lines.append(";".join(f'"{v}"' for v in row))
+        # Pad to 24 columns so header/data alignment is always valid
+        padded = list(row) + [""] * (24 - len(row))
+        lines.append(";".join(f'"{v}"' for v in padded[:24]))
     return "\n".join(lines)
 
 
@@ -72,21 +84,64 @@ def _make_csv_zip(csv_content: str, csv_name: str = "20260306_CEIS.csv") -> byte
     return buf.getvalue()
 
 
+def _make_cnep_csv(records: list[list[str]]) -> str:
+    """Build a CNEP CSV string with real portal headers + rows.
+
+    Identical to CEIS except it has "VALOR DA MULTA" at position 10, making it
+    25 columns total. Rows may have fewer than 25 columns; missing trailing
+    columns are padded with empty strings.
+    """
+    header = ";".join(
+        [
+            '"CADASTRO"',
+            '"CÓDIGO DA SANÇÃO"',
+            '"TIPO DE PESSOA"',
+            '"CPF OU CNPJ DO SANCIONADO"',
+            '"NOME DO SANCIONADO"',
+            '"NOME INFORMADO PELO ÓRGÃO SANCIONADOR"',
+            '"RAZÃO SOCIAL - CADASTRO RECEITA"',
+            '"NOME FANTASIA - CADASTRO RECEITA"',
+            '"NÚMERO DO PROCESSO"',
+            '"CATEGORIA DA SANÇÃO"',
+            '"VALOR DA MULTA"',
+            '"DATA INÍCIO SANÇÃO"',
+            '"DATA FINAL SANÇÃO"',
+            '"DATA PUBLICAÇÃO"',
+            '"PUBLICAÇÃO"',
+            '"DETALHAMENTO DO MEIO DE PUBLICAÇÃO"',
+            '"DATA DO TRÂNSITO EM JULGADO"',
+            '"ABRAGÊNCIA DA SANÇÃO"',
+            '"ÓRGÃO SANCIONADOR"',
+            '"UF ÓRGÃO SANCIONADOR"',
+            '"ESFERA ÓRGÃO SANCIONADOR"',
+            '"FUNDAMENTAÇÃO LEGAL"',
+            '"DATA ORIGEM INFORMAÇÃO"',
+            '"ORIGEM INFORMAÇÕES"',
+            '"OBSERVAÇÕES"',
+        ]
+    )
+    lines = [header]
+    for row in records:
+        padded = list(row) + [""] * (25 - len(row))
+        lines.append(";".join(f'"{v}"' for v in padded[:25]))
+    return "\n".join(lines)
+
+
 def _make_leniencia_csv(records: list[list[str]]) -> str:
-    """Build a Leniência CSV string with header + rows (real CSV structure)."""
+    """Build a Leniência CSV string with real portal headers + rows."""
     header = ";".join(
         [
             '"ID DO ACORDO"',
             '"CNPJ DO SANCIONADO"',
-            '"RAZAO SOCIAL - CADASTRO RECEITA"',
-            '"NOME FANTASIA - CADASTRO RECEITA"',
-            '"DATA DE INICIO DO ACORDO"',
+            '"RAZÃO SOCIAL  CADASTRO RECEITA"',
+            '"NOME FANTASIA  CADASTRO RECEITA"',
+            '"DATA DE INÍCIO DO ACORDO"',
             '"DATA DE FIM DO ACORDO"',
-            '"SITUACAO DO ACORDO DE LENIENCIA"',
-            '"DATA DA INFORMACAO"',
-            '"NUMERO DO PROCESSO"',
+            '"SITUAÇÃO DO ACORDO DE LENIÊNCIA"',
+            '"DATA DA INFORMAÇÃO"',
+            '"NÚMERO DO PROCESSO"',
             '"TERMOS DO ACORDO"',
-            '"ORGAO SANCIONADOR"',
+            '"ÓRGÃO SANCIONADOR"',
         ]
     )
     lines = [header]

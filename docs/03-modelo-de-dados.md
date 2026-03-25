@@ -585,6 +585,33 @@ O projeto deve priorizar:
 
 ---
 
+## Grafo de investigação
+
+O serving materializa um grafo de investigação que conecta ministros, advogados, partes e entidades corporativas via arestas tipadas. As entidades principais são:
+
+| Entidade | Tabela | Papel |
+|----------|--------|-------|
+| `ServingGraphNode` | `serving_graph_node` | Nó do grafo (ministro, advogado, parte, empresa, processo) |
+| `ServingGraphEdge` | `serving_graph_edge` | Aresta tipada com `evidence_strength` (deterministic/statistical/fuzzy/truncated/inferred) e `traversal_policy` (strict_allowed/broad_only) |
+| `ServingGraphPathCandidate` | `serving_graph_path_candidate` | Caminhos entre nós com custo e composição de arestas |
+| `ServingGraphScore` | `serving_graph_score` | Score decomposto (documentary/statistical/network/temporal) com penalties e ranking operacional |
+| `ServingEvidenceBundle` | `serving_evidence_bundle` | Bundle de evidência por entidade com contagem de sinais |
+| `ServingReviewQueue` | `serving_review_queue` | Fila de revisão humana com status (pending/confirmed_relevant/false_positive/needs_more_data/deferred) |
+| `ServingModuleAvailability` | `serving_module_availability` | Disponibilidade de módulos analíticos no build |
+
+O scoring opera em dois modos: **strict** (apenas arestas determinísticas, sem truncação) e **broad** (inclui estatísticas, fuzzy e inferidas, com penalties).
+
+### Entidades de representação processual
+
+| Entidade | Tabela | Papel |
+|----------|--------|-------|
+| `ServingLawyerEntity` | `serving_lawyer_entity` | Advogado com identidade OAB normalizada |
+| `ServingLawFirmEntity` | `serving_law_firm_entity` | Escritório com identidade CNPJ/CNSA |
+| `ServingRepresentationEdge` | `serving_representation_edge` | Vínculo advogado→escritório ou advogado→processo |
+| `ServingRepresentationEvent` | `serving_representation_event` | Evento de representação (admissão, desligamento, etc.) |
+
+---
+
 ## Extensões futuras
 
 A camada textual poderá introduzir novas entidades:

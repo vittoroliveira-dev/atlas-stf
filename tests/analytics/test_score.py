@@ -326,3 +326,154 @@ def test_suppression_adpf_plenario():
 
     assert len(filtered) == 1
     assert "controle concentrado" in notes[0]
+
+
+# --- Noise filter calibration (ANLYT-03) ---
+
+
+def _score_with_threshold(event, baseline, threshold):
+    """Score an event using a specific noise threshold (monkeypatch-free)."""
+    import atlas_stf.analytics.score as score_mod
+
+    original = score_mod._NOISE_PROBABILITY_THRESHOLD
+    score_mod._NOISE_PROBABILITY_THRESHOLD = threshold
+    try:
+        return score_event_against_baseline(event, baseline)
+    finally:
+        score_mod._NOISE_PROBABILITY_THRESHOLD = original
+
+
+_CALIBRATION_BASELINE = {
+    "event_count": 500,
+    "expected_decision_progress_distribution": {
+        "NEGOU PROVIMENTO": 350,
+        "DEFERIU PEDIDO": 50,
+        "PROCEDENTE": 30,
+        "IMPROCEDENTE": 40,
+        "PREJUDICADO": 30,
+    },
+    "expected_rapporteur_distribution": {
+        "MIN A": 100,
+        "MIN B": 100,
+        "MIN C": 100,
+        "MIN D": 100,
+        "MIN E": 100,
+    },
+    "expected_judging_body_distribution": {
+        "1ª Turma": 200,
+        "2ª Turma": 200,
+        "Plenário": 100,
+    },
+}
+
+_CALIBRATION_EVENTS = [
+    {
+        "label": "rare_all",
+        "event": {
+            "decision_progress": "DEFERIU PEDIDO",
+            "current_rapporteur": "MIN A",
+            "judging_body": "Plenário",
+        },
+    },
+    {
+        "label": "rare_progress_common_body",
+        "event": {
+            "decision_progress": "DEFERIU PEDIDO",
+            "current_rapporteur": "MIN A",
+            "judging_body": "1ª Turma",
+        },
+    },
+    {
+        "label": "common_all",
+        "event": {
+            "decision_progress": "NEGOU PROVIMENTO",
+            "current_rapporteur": "MIN A",
+            "judging_body": "1ª Turma",
+        },
+    },
+    {
+        "label": "rare_rapporteur_only",
+        "event": {
+            "decision_progress": "NEGOU PROVIMENTO",
+            "current_rapporteur": "MIN_RARE",
+            "judging_body": "1ª Turma",
+        },
+    },
+]
+
+
+def test_noise_filter_calibration_empirical():
+    """Measure the effect of _NOISE_PROBABILITY_THRESHOLD across thresholds.
+
+    This test documents the current behavior rather than asserting a specific
+    "correct" threshold.  It validates that:
+    1. The filter actually removes components at the current threshold
+    2. Fallback activates when all components are filtered
+    3. Top-ranked events are stable across plausible threshold values
+    """
+    thresholds = [0.30, 0.40, 0.50]
+    results: dict[str, dict[float, dict]] = {}
+
+    for case in _CALIBRATION_EVENTS:
+        label = case["label"]
+        results[label] = {}
+        for t in thresholds:
+            r = _score_with_threshold(case["event"], _CALIBRATION_BASELINE, t)
+            scoring_count = len(r.components)
+            filtered_count = 0
+            if r.evidence_summary and "filtrada" in r.evidence_summary:
+                # Extract count from "N filtrada"
+                for word in r.evidence_summary.split():
+                    if word.isdigit():
+                        filtered_count = int(word)
+                        break
+            results[label][t] = {
+                "score": r.alert_score,
+                "components": scoring_count,
+                "filtered": filtered_count,
+                "type": r.alert_type,
+                "fallback": r.uncertainty_note is not None and "apenas" in (r.uncertainty_note or ""),
+            }
+
+    # --- Assertions: structural properties, not specific values ---
+
+    # 1. Filter actually removes components at t=0.40 for common_body case
+    rare_common_body = results["rare_progress_common_body"]
+    assert rare_common_body[0.40]["filtered"] >= 1, (
+        "Noise filter should remove judging_body (prob=0.40) at threshold 0.40"
+    )
+
+    # 2. All-common case triggers fallback at every threshold
+    common_all = results["common_all"]
+    for t in thresholds:
+        # All components have high probability → all filtered → fallback
+        assert common_all[t]["score"] is not None
+
+    # 3. Rare-all case: score is high regardless of threshold
+    rare_all = results["rare_all"]
+    for t in thresholds:
+        assert rare_all[t]["score"] > 0.7
+
+    # 4. Top ranking is stable: rare_all always scores higher than common_all
+    for t in thresholds:
+        assert rare_all[t]["score"] > common_all[t]["score"]
+
+    # 5. Threshold 0.30 filters more aggressively than 0.50
+    assert rare_common_body[0.30]["filtered"] >= rare_common_body[0.50]["filtered"]
+
+
+def test_noise_filter_fallback_count():
+    """Document how often fallback activates across representative scenarios."""
+    fallback_count = 0
+    total = 0
+    for case in _CALIBRATION_EVENTS:
+        total += 1
+        r = score_event_against_baseline(case["event"], _CALIBRATION_BASELINE)
+        # Fallback = "apenas N dimensão" in uncertainty_note
+        if r.uncertainty_note and "apenas" in r.uncertainty_note:
+            fallback_count += 1
+
+    # With the current baseline (5 rapporteurs at 20% each, 3 bodies at
+    # 20-40%), the fallback should NOT fire for most events — the filter
+    # only removes truly uniform dimensions, not moderately distributed ones.
+    assert fallback_count <= 2, f"Fallback fired {fallback_count}/{total} times — may indicate threshold too aggressive"

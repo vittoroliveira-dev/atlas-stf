@@ -76,13 +76,11 @@ def build_compound_risk(
     redistribution_rows = _load_rows(analytics_dir / "rapporteur_change.jsonl", red_flag_only=True)
     scl_rows = _load_rows(analytics_dir / "sanction_corporate_link.jsonl")
 
-    sanction_by_party: dict[str, list[dict[str, Any]]] = defaultdict(list)
     donation_by_party: dict[str, list[dict[str, Any]]] = defaultdict(list)
     pairs: dict[tuple[str, str, str], PairEvidence] = {}
     applied_cross_entity_donations: set[tuple[str, str, str]] = set()
-    # Track counsels with direct sanction/donation matches to avoid duplicate
+    # Track counsels with direct donation matches to avoid duplicate
     # propagation via cross-entity inference.
-    counsels_with_direct_sanction: set[str] = set()
     counsels_with_direct_donation: set[str] = set()
 
     ctx.start_step(1, "Compound Risk: Cruzando sinais...")
@@ -93,7 +91,6 @@ def build_compound_risk(
             counsel_name = str(row.get("entity_name_normalized") or counsel_names.get(counsel_id) or "")
             if not counsel_id or counsel_id not in counsel_names:
                 continue
-            counsels_with_direct_sanction.add(counsel_id)
             for minister_name, process_ids in counsel_pair_processes.get(counsel_id, []):
                 evidence = _evidence_for(pairs, minister_name, "counsel", counsel_id, counsel_name)
                 evidence.signals.add("sanction")
@@ -105,7 +102,6 @@ def build_compound_risk(
             party_id = str(row.get("party_id") or row.get("entity_id") or "")
             if not party_id or party_id not in party_names:
                 continue
-            sanction_by_party[party_id].append(row)
             for minister_name, process_ids in party_pair_processes.get(party_id, []):
                 evidence = _evidence_for(pairs, minister_name, "party", party_id, party_names[party_id])
                 evidence.signals.add("sanction")

@@ -40,7 +40,7 @@ def normalize_entity_name(value: Any) -> str | None:
     text = as_optional_str(value)
     if text is None:
         return None
-    return _WHITESPACE_RE.sub(" ", text).upper()
+    return _WHITESPACE_RE.sub(" ", strip_accents(text)).upper()
 
 
 def normalize_tax_id(value: Any) -> str | None:
@@ -117,7 +117,8 @@ def _tokenize_for_similarity(value: Any) -> list[str]:
     canonical = canonicalize_entity_name(value)
     if canonical is None:
         return []
-    return [token for token in strip_accents(canonical).split(" ") if token]
+    # canonicalize_entity_name already strips accents via normalize_entity_name
+    return [token for token in canonical.split(" ") if token]
 
 
 def _tokens_match(left: str, right: str) -> bool:

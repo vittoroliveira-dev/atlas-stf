@@ -1,4 +1,4 @@
-import { fetchApiJson } from "@/lib/api-client";
+import { fetchApiJson, isApiFetchError } from "@/lib/api-client";
 
 export type CounselNetworkCluster = {
   cluster_id: string;
@@ -58,6 +58,7 @@ export async function getCounselNetworkPageData(params: {
       pageSize: payload.page_size,
     };
   } catch (error) {
+    if (!isApiFetchError(error)) throw error;
     console.error("Failed to fetch counsel network data:", error);
     return { items: [], total: 0, page, pageSize };
   }
@@ -71,6 +72,7 @@ export async function getCounselNetworkRedFlags(): Promise<CounselNetworkRedFlag
       total: payload.total,
     };
   } catch (error) {
+    if (!isApiFetchError(error)) throw error;
     console.error("Failed to fetch counsel network red flags:", error);
     return { items: [], total: 0 };
   }

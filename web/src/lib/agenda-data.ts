@@ -1,4 +1,4 @@
-import { fetchApiJson } from "@/lib/api-client";
+import { fetchApiJson, isApiFetchError, isNotFoundError } from "@/lib/api-client";
 
 export type AgendaEvent = {
   event_id: string;
@@ -78,7 +78,9 @@ export async function getAgendaPageData(): Promise<AgendaPageData> {
       fetchApiJson<PaginatedExposures>("/agenda/exposures", { page: 1, page_size: 10, priority_tier: "high" }),
     ]);
     return { ministers, summary, exposures: expData.items, exposureTotal: expData.total };
-  } catch {
+  } catch (error) {
+    if (!isApiFetchError(error)) throw error;
+    console.error("Failed to fetch agenda data:", error);
     return {
       ministers: [], exposures: [], exposureTotal: 0,
       summary: { total_events: 0, total_ministerial_events: 0, total_private_advocacy: 0, total_with_process_ref: 0, ministers_covered: 0, total_exposures: 0, high_priority_exposures: 0, methodology_note: "", disclaimer: "" },
@@ -98,5 +100,8 @@ export async function getMinisterDetailData(slug: string, params: { page?: numbe
   try {
     const detail = await fetchApiJson<{ events: { total: number; items: AgendaEvent[] }; exposures: AgendaExposure[]; coverages: MinisterDetailData["coverages"]; minister_name: string }>(`/agenda/ministers/${slug}`, { page: params.page ?? 1, page_size: 20 });
     return { events: detail.events.items, eventTotal: detail.events.total, exposures: detail.exposures, coverages: detail.coverages, ministerName: detail.minister_name };
-  } catch { return null; }
+  } catch (error) {
+    if (isNotFoundError(error)) return null;
+    throw error; // unreachable — isNotFoundError throws non-404
+  }
 }

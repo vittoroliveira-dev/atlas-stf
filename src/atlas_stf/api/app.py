@@ -26,6 +26,7 @@ DEFAULT_RATE_LIMIT_MAX_REQUESTS_ENV = "ATLAS_STF_RATE_LIMIT_MAX_REQUESTS"
 DEFAULT_RATE_LIMIT_WINDOW_SECONDS_ENV = "ATLAS_STF_RATE_LIMIT_WINDOW_SECONDS"
 DEFAULT_REQUEST_TIMEOUT_SECONDS_ENV = "ATLAS_STF_REQUEST_TIMEOUT_SECONDS"
 DEFAULT_TRUST_PROXY_HEADERS_ENV = "ATLAS_STF_TRUST_PROXY_HEADERS"
+DEFAULT_REVIEW_API_KEY_ENV = "ATLAS_STF_REVIEW_API_KEY"
 
 
 _RATE_LIMITER_MAX_KEYS = 100_000
@@ -248,6 +249,7 @@ def create_app(*, database_url: str | None = None) -> FastAPI:
     from ._routes_analytics import register_analytics_routes
     from ._routes_core import register_core_routes
     from ._routes_entities import register_entities_routes
+    from ._routes_graph import register_graph_routes
     from ._routes_representation import register_representation_routes
     from ._routes_risk import register_risk_routes
     from ._routes_timeline import register_timeline_routes
@@ -260,5 +262,6 @@ def create_app(*, database_url: str | None = None) -> FastAPI:
     register_timeline_routes(app, factory, build_filters, get_base_filters)
     register_representation_routes(app, factory, build_filters, get_base_filters)
     register_agenda_routes(app, factory, build_filters, get_base_filters)
+    register_graph_routes(app, factory, build_filters, get_base_filters)
 
     return app

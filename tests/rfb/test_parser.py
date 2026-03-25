@@ -82,7 +82,7 @@ class TestParseSociosCsvFiltered:
             [["12345678", "2", "JOSÉ DA SILVA", "12345678901", "49", "20200101", "", "", "", "", ""]],
             encoding="iso-8859-1",
         )
-        records, _ = parse_socios_csv_filtered(csv_bytes, target_names={"JOSÉ DA SILVA"}, target_cnpjs=set())
+        records, _ = parse_socios_csv_filtered(csv_bytes, target_names={"JOSE DA SILVA"}, target_cnpjs=set())
         assert len(records) == 1
 
     def test_invalid_utf8_suffix_is_not_silently_replaced(self) -> None:
@@ -269,4 +269,4 @@ class TestParseEmpresasCsvFiltered:
         )
         records = parse_empresas_csv_filtered(csv_bytes, target_cnpjs={"12345678"})
         assert len(records) == 1
-        assert records[0]["capital_social"] == 0.0
+        assert records[0]["capital_social"] is None

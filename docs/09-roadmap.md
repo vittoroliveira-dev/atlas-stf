@@ -169,6 +169,13 @@ Transformar os resultados em interface e relatórios.
 - normalização TPU (Tabelas Processuais Unificadas do CNJ)
 - análise de janelas temporais precisas (procedural timeline)
 - detecção de anomalia de sessão por ministro (pauta anomaly)
+- rede de representação processual (advogados, escritórios, arestas, eventos)
+- grafo de investigação materializado (nós, arestas tipadas, paths, scoring decomposto)
+- fila de revisão humana com status rastreáveis (ADR-006)
+- vínculos corporativos indiretos de sancionados (CEIS/CVM→RFB→STF)
+- contrapartes de pagamento de órgãos partidários TSE
+- agenda ministerial (fetch GraphQL + eventos + exposição temporal)
+- contratos de schema e drift analysis por fonte
 
 ### Observação
 
@@ -217,7 +224,7 @@ Adicionar camadas derivadas opcionais, sem substituir o pipeline determinístico
 - pipeline-base determinístico: `concluída`
 - serving database: `concluída`
 - API e dashboard auditáveis: `em consolidação`
-- módulos opcionais CGU, TSE, CVM, DataJud, RFB, afinidade, compound risk, temporal, decision velocity, rapporteur change, counsel network, procedural timeline e pauta anomaly: `materializados com dependência de dados locais`
+- módulos opcionais CGU, TSE, CVM, DataJud, RFB, afinidade, compound risk, temporal, decision velocity, rapporteur change, counsel network, procedural timeline, pauta anomaly, representação, grafo de investigação, agenda ministerial, contratos e SCL: `materializados com dependência de dados locais`
 - análise derivada por IA sobre bundles: `futura`
 
 ## Critério de passagem de fase

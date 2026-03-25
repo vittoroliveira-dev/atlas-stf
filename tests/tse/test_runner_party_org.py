@@ -9,13 +9,15 @@ import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from atlas_stf.fetch._manifest_model import FetchUnit, RemoteState, SourceManifest, build_unit_id
+from atlas_stf.fetch._manifest_store import load_manifest, save_manifest_locked
 from atlas_stf.tse._config import TSE_PARTY_ORG_YEARS, TsePartyOrgFetchConfig
-from atlas_stf.tse._runner import _YearMeta
 from atlas_stf.tse._runner_party_org import (
-    _Checkpoint,
     _download_year_zip,
     fetch_party_org_data,
 )
+
+_FAKE_META = {"url": "http://test/party_org.zip", "content_length": 1234, "etag": '"abc"'}
 
 _RECEITAS_HEADER = ";".join(
     [
@@ -240,9 +242,6 @@ def _make_zip_with_party_org(year: int) -> bytes:
     return buf.getvalue()
 
 
-_FAKE_META = _YearMeta(url="http://test/party_org.zip", content_length=1234, etag='"abc"')
-
-
 class _FakeStreamResponse:
     def __init__(self, chunks: list[bytes]) -> None:
         self._chunks = chunks
@@ -261,38 +260,25 @@ class _FakeStreamResponse:
         yield from self._chunks
 
 
-class TestCheckpoint:
-    def test_load_empty(self, tmp_path: Path) -> None:
-        cp = _Checkpoint.load(tmp_path)
-        assert cp.completed_years == set()
-        assert cp.year_meta == {}
-
-    def test_save_and_load(self, tmp_path: Path) -> None:
-        cp = _Checkpoint(completed_years={2022, 2024}, year_meta={2022: _FAKE_META})
-        cp.save(tmp_path)
-        loaded = _Checkpoint.load(tmp_path)
-        assert loaded.completed_years == {2022, 2024}
-        assert loaded.year_meta[2022].etag == '"abc"'
-        # Uses separate checkpoint file from candidates
-        assert (tmp_path / "_checkpoint_party_org.json").exists()
-        assert not (tmp_path / "_checkpoint.json").exists()
-
-    def test_isolation_from_candidate_checkpoint(self, tmp_path: Path) -> None:
-        """Party org checkpoint must not interfere with candidate checkpoint."""
-        # Write candidate checkpoint
-        candidate_data = {"completed_years": [2020], "year_meta": {}}
-        (tmp_path / "_checkpoint.json").write_text(json.dumps(candidate_data))
-
-        # Write party org checkpoint
-        cp = _Checkpoint(completed_years={2024})
-        cp.save(tmp_path)
-
-        # Both should coexist independently
-        assert (tmp_path / "_checkpoint.json").exists()
-        assert (tmp_path / "_checkpoint_party_org.json").exists()
-
-        loaded = _Checkpoint.load(tmp_path)
-        assert loaded.completed_years == {2024}
+def _write_committed_manifest(output_dir: Path, years: list[int]) -> None:
+    """Write a manifest with committed units for the given party org years."""
+    manifest = SourceManifest(source="tse_party_org")
+    for year in years:
+        uid = build_unit_id("tse_party_org", str(year))
+        manifest.units[uid] = FetchUnit(
+            unit_id=uid,
+            source="tse_party_org",
+            label=f"TSE party org {year}",
+            remote_url=_FAKE_META["url"],
+            remote_state=RemoteState(
+                url=_FAKE_META["url"],
+                etag=_FAKE_META["etag"],
+                content_length=_FAKE_META["content_length"],
+            ),
+            status="committed",
+            fetch_date="2025-01-01T00:00:00+00:00",
+        )
+    save_manifest_locked(manifest, output_dir)
 
 
 class TestFetchPartyOrgData:
@@ -341,7 +327,7 @@ class TestFetchPartyOrgData:
         for r in records:
             assert len(r["record_hash"]) == 64
             assert re.fullmatch(r"[0-9a-f]{64}", r["record_hash"])
-            assert r["source_url"] == _FAKE_META.url
+            assert r["source_url"] == _FAKE_META["url"]
             assert "T" in r["collected_at"]
             assert re.fullmatch(
                 r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
@@ -352,13 +338,12 @@ class TestFetchPartyOrgData:
         assert not (output_dir / "extracted_party_org_2024").exists()
 
     @patch("atlas_stf.tse._runner_party_org._download_year_zip")
-    def test_checkpoint_resumability(self, mock_download: MagicMock, tmp_path: Path) -> None:
+    def test_manifest_resumability(self, mock_download: MagicMock, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
         output_dir.mkdir(parents=True)
 
-        # Pre-populate checkpoint with 2022 done
-        cp = _Checkpoint(completed_years={2022})
-        cp.save(output_dir)
+        # Pre-populate manifest with 2022 done
+        _write_committed_manifest(output_dir, [2022])
         raw_path = output_dir / "party_org_finance_raw.jsonl"
         raw_path.write_text(json.dumps({"counterparty_name": "EXISTING", "election_year": 2022}) + "\n")
 
@@ -377,7 +362,7 @@ class TestFetchPartyOrgData:
         assert mock_download.call_count == 1
 
     @patch("atlas_stf.tse._runner_party_org._download_year_zip")
-    def test_empty_year_not_checkpointed(self, mock_download: MagicMock, tmp_path: Path) -> None:
+    def test_empty_year_not_committed(self, mock_download: MagicMock, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -390,8 +375,11 @@ class TestFetchPartyOrgData:
         config = TsePartyOrgFetchConfig(output_dir=output_dir, years=(2024,))
         fetch_party_org_data(config)
 
-        cp = _Checkpoint.load(output_dir)
-        assert 2024 not in cp.completed_years
+        manifest = load_manifest("tse_party_org", output_dir)
+        if manifest is not None:
+            uid = build_unit_id("tse_party_org", "2024")
+            unit = manifest.units.get(uid)
+            assert unit is None or unit.status != "committed"
 
     @patch("atlas_stf.tse._runner_party_org._download_year_zip")
     def test_force_refresh_no_duplication(self, mock_download: MagicMock, tmp_path: Path) -> None:
@@ -399,8 +387,7 @@ class TestFetchPartyOrgData:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Pre-populate with old records
-        cp = _Checkpoint(completed_years={2024}, year_meta={2024: _FAKE_META})
-        cp.save(output_dir)
+        _write_committed_manifest(output_dir, [2024])
         raw_path = output_dir / "party_org_finance_raw.jsonl"
         old_records = [json.dumps({"counterparty_name": "OLD", "election_year": 2024})]
         raw_path.write_text("\n".join(old_records) + "\n")

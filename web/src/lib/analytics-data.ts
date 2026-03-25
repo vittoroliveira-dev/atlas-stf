@@ -1,4 +1,4 @@
-import { fetchApiJson } from "@/lib/api-client";
+import { fetchApiJson, isNotFoundError } from "@/lib/api-client";
 
 export type RapporteurProfile = {
   rapporteur: string;
@@ -75,8 +75,9 @@ export async function getMinisterBioData(
     return await fetchApiJson<MinisterBio>(
       `/ministers/${encodeURIComponent(minister)}/bio`,
     );
-  } catch {
-    return null;
+  } catch (error) {
+    if (isNotFoundError(error)) return null;
+    throw error; // unreachable — isNotFoundError throws non-404
   }
 }
 

@@ -131,6 +131,51 @@ Registrar apenas as fontes que já possuem função operacional comprovável no 
   - matching por nome normalizado;
   - vínculos históricos encerrados antes da fotografia aberta podem não aparecer
 
+### STF-AGENDA
+
+- categoria: `complementar`
+- origem: API GraphQL do STF (agenda ministerial)
+- formato: bruto em `data/raw/agenda/`
+- uso atual:
+  - `uv run atlas-stf agenda fetch`
+  - `uv run atlas-stf agenda build-events`
+  - artefatos `agenda_event.jsonl`, `agenda_coverage.jsonl`, `agenda_exposure.jsonl`
+  - endpoints e páginas de agenda ministerial e exposição temporal
+- limitações:
+  - cobertura depende da publicação oficial de agenda pelo STF
+
+### STF-PORTAL
+
+- categoria: `complementar`
+- origem: portal público do STF (httpx scraping)
+- formato: bruto em `data/raw/stf_portal/`
+- uso atual:
+  - `uv run atlas-stf stf-portal fetch`
+  - extração de linha do tempo processual (andamentos, sessões, vistas, sustentação oral)
+  - alimenta representação processual e timeline no serving
+- limitações:
+  - sujeito a mudanças no HTML do portal
+
+### DEOAB
+
+- categoria: `complementar`
+- origem: Diário Eletrônico da OAB (PDF público)
+- formato: bruto em `data/raw/deoab/`
+- uso atual:
+  - `uv run atlas-stf deoab fetch`
+  - registros de sociedades de advocacia, vínculos OAB→escritório (2019–presente)
+- limitações:
+  - dependente de extração de PDF (pdftotext)
+
+### OAB-SP
+
+- categoria: `complementar`
+- origem: consulta à seccional OAB/SP (httpx + checkpoint)
+- uso atual:
+  - detalhes cadastrais de sociedades e advogados inscritos na OAB de São Paulo
+- limitações:
+  - cobertura restrita à seccional de São Paulo
+
 ## 4. Fontes contextuais externas
 
 ### EXTERNAL-EVENTS

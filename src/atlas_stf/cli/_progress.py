@@ -16,7 +16,6 @@ from rich.progress import (
     SpinnerColumn,
     TextColumn,
     TimeElapsedColumn,
-    TimeRemainingColumn,
 )
 
 ProgressFn = Callable[[int, int, str], None]
@@ -26,6 +25,14 @@ _ROOT_LOGGING_LOCK = RLock()
 @contextmanager
 def cli_progress(label: str) -> Generator[ProgressFn]:
     """Create a rich progress bar and yield a callback ``(current, total, desc)``.
+
+    ETA is provided by ``ProgressTracker`` via the description string, not by
+    Rich's ``TimeRemainingColumn``.  This avoids two competing ETA estimates
+    and ensures the ETA source is the tracker's throughput-based calculation
+    (with confidence gating), not Rich's internal linear extrapolation.
+
+    Builders that don't use ``ProgressTracker`` will show elapsed time only —
+    which is honest when granular progress data isn't available.
 
     Logs from the ``logging`` module are rendered above the progress bar
     via ``rich.console.Console`` so they stay visible.
@@ -43,7 +50,6 @@ def cli_progress(label: str) -> Generator[ProgressFn]:
         MofNCompleteColumn(),
         TextColumn("[cyan]({task.percentage:>5.1f}%)"),
         TimeElapsedColumn(),
-        TimeRemainingColumn(),
         console=console,
         disable=not is_tty,
     )

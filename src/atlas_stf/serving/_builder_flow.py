@@ -372,20 +372,39 @@ def _materialize_minister_flows(session: Session) -> list[ServingMinisterFlow]:
     _worker_cases = all_cases
     _worker_alert_ids = alert_event_ids
 
-    max_workers = min(os.cpu_count() or 4, int(os.environ.get("ATLAS_FLOW_WORKERS", "8")))
-    chunksize = max(1, len(tasks) // (max_workers * 4))
-    ctx = multiprocessing.get_context("fork")
+    max_workers = min(os.cpu_count() or 4, int(os.environ.get("ATLAS_FLOW_WORKERS", "1")))
+
+    # Log memory before pool creation so operators can diagnose OOM.
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith(("VmRSS:", "VmPeak:")):
+                    logger.info("Minister flows pre-pool: %s", line.strip())
+    except OSError:
+        pass
 
     logger.info("Minister flows: computing with %d workers...", max_workers)
     results: dict[str, ServingMinisterFlow] = {}
     try:
-        with ctx.Pool(processes=max_workers) as pool:
+        if max_workers <= 1:
+            # Serial path: avoids fork() overhead and OOM risk from copy-on-write.
             done = 0
-            for key, filters, payload in pool.imap_unordered(_worker_compute_flow, tasks, chunksize=chunksize):
+            for task in tasks:
+                key, filters, payload = _worker_compute_flow(task)
                 results[key] = _flow_to_model(key, filters, payload)
                 done += 1
                 if done % 5000 == 0:
                     logger.info("Minister flows: %d / %d computed", done, len(tasks))
+        else:
+            chunksize = max(1, len(tasks) // (max_workers * 4))
+            ctx = multiprocessing.get_context("fork")
+            with ctx.Pool(processes=max_workers) as pool:
+                done = 0
+                for key, filters, payload in pool.imap_unordered(_worker_compute_flow, tasks, chunksize=chunksize):
+                    results[key] = _flow_to_model(key, filters, payload)
+                    done += 1
+                    if done % 5000 == 0:
+                        logger.info("Minister flows: %d / %d computed", done, len(tasks))
     finally:
         _worker_cases = []
         _worker_alert_ids = frozenset()

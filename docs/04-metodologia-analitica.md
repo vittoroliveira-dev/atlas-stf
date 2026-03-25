@@ -231,9 +231,28 @@ Se essa etapa for implementada, o artefato mínimo deve:
 - preservar nota de incerteza;
 - permanecer restrito a síntese descritiva ou comparativa.
 
+## Scoring de grafo de investigação
+
+O serving materializa um grafo de investigação (Camada E) que conecta entidades via arestas tipadas e produz scores decompostos para priorização de revisão humana.
+
+### Traversal modes
+
+- **Strict**: apenas arestas determinísticas (`evidence_strength = "deterministic"`, `traversal_policy = "strict_allowed"`, sem truncação).
+- **Broad**: inclui arestas estatísticas, fuzzy, truncadas e inferidas, com penalties proporcionais.
+
+### Componentes do score
+
+O score é aditivo-subtrativo: `raw = documentary + statistical + network + temporal`. Penalties (fuzzy, truncation, singleton, missing_identifier) são subtraídas. `operational_priority = calibrated × min(signal_count, 10)`.
+
+Os pesos atuais são heurísticos (não calibrados empiricamente). O plano de calibração está documentado em `_builder_scoring.py`.
+
+### Workflow de revisão
+
+O endpoint `POST /review/decision` (ADR-006) permite que revisores humanos classifiquem itens da fila como `confirmed_relevant`, `false_positive`, `needs_more_data` ou `deferred`. Reviews não recalibram scores automaticamente na versão atual.
+
 ## Critérios de validação
 
-- a documentação metodológica deve continuar coerente com `build_groups.py`, `baseline.py`, `score.py`, `build_alerts.py`, `build_bundle.py`, `compound_risk.py`, `temporal_analysis.py`, `decision_velocity.py`, `rapporteur_change.py` e `counsel_network.py`;
+- a documentação metodológica deve continuar coerente com `build_groups.py`, `baseline.py`, `score.py`, `build_alerts.py`, `build_bundle.py`, `compound_risk.py`, `temporal_analysis.py`, `decision_velocity.py`, `rapporteur_change.py`, `counsel_network.py`, `_builder_graph.py` e `_builder_scoring.py`;
 - qualquer mudança no limiar, nas dimensões do score ou na chave do grupo exige revisão deste documento;
 - nenhum texto metodológico pode afirmar causalidade, intenção ou prova.
 

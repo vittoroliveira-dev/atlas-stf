@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 from ._builder_utils import (
     _coerce_bool,
@@ -112,6 +114,8 @@ def load_economic_groups(analytics_dir: Path) -> list[ServingEconomicGroup]:
                 active_establishment_count=_coerce_int(record.get("active_establishment_count")),
                 total_establishment_count=_coerce_int(record.get("total_establishment_count")),
                 is_law_firm_group=_coerce_bool(record.get("is_law_firm_group")),
+                law_firm_member_count=_coerce_int(record.get("law_firm_member_count")),
+                law_firm_member_ratio=_coerce_float(record.get("law_firm_member_ratio")),
                 has_minister_partner=_coerce_bool(record.get("has_minister_partner")),
                 has_party_partner=_coerce_bool(record.get("has_party_partner")),
                 has_counsel_partner=_coerce_bool(record.get("has_counsel_partner")),
@@ -119,3 +123,34 @@ def load_economic_groups(analytics_dir: Path) -> list[ServingEconomicGroup]:
             )
         )
     return results
+
+
+def stream_economic_group_rows(analytics_dir: Path) -> Iterator[dict[str, Any]]:
+    """Yield economic group rows as plain dicts for Core bulk insert."""
+    eg_path = analytics_dir / "economic_group.jsonl"
+    if not eg_path.exists():
+        return
+    seen: set[str] = set()
+    for record in _read_jsonl(eg_path):
+        gid = str(record.get("group_id", ""))
+        if gid in seen:
+            continue
+        seen.add(gid)
+        yield {
+            "group_id": gid,
+            "member_cnpjs_json": json.dumps(record.get("member_cnpjs", []), ensure_ascii=False),
+            "razoes_sociais_json": json.dumps(record.get("razoes_sociais", []), ensure_ascii=False),
+            "member_count": _coerce_int(record.get("member_count")),
+            "total_capital_social": _coerce_float(record.get("total_capital_social")),
+            "cnae_labels_json": json.dumps(record.get("cnae_labels", []), ensure_ascii=False),
+            "ufs_json": json.dumps(record.get("ufs", []), ensure_ascii=False),
+            "active_establishment_count": _coerce_int(record.get("active_establishment_count")),
+            "total_establishment_count": _coerce_int(record.get("total_establishment_count")),
+            "is_law_firm_group": _coerce_bool(record.get("is_law_firm_group")),
+            "law_firm_member_count": _coerce_int(record.get("law_firm_member_count")),
+            "law_firm_member_ratio": _coerce_float(record.get("law_firm_member_ratio")) or 0.0,
+            "has_minister_partner": _coerce_bool(record.get("has_minister_partner")),
+            "has_party_partner": _coerce_bool(record.get("has_party_partner")),
+            "has_counsel_partner": _coerce_bool(record.get("has_counsel_partner")),
+            "generated_at": _parse_datetime(record.get("generated_at")),
+        }

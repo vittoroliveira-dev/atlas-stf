@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.identity import stable_id
+from ..core.progress import PhaseSpec, ProgressTracker
 from ..core.rules import classify_outcome_materiality, classify_outcome_raw
 from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import (
@@ -22,6 +23,12 @@ from ._match_helpers import (
 logger = logging.getLogger(__name__)
 
 RED_FLAG_DELTA_THRESHOLD = 0.15
+# Minimum shared cases to trigger a red flag.  Set to 5 (vs 3 in
+# sanction_match/donation_match) because counsel-affinity measures an
+# indirect, pairwise relationship (minister × counsel) whose favorable
+# rate is statistically less stable than direct entity matches.  Fewer
+# than 5 shared processes produce volatile rates that would generate
+# excessive false-positive red flags.
 MIN_CASES_FOR_RED_FLAG = 5
 
 
@@ -128,30 +135,43 @@ def build_counsel_affinity(
     """Build counsel affinity analytics: detect anomalous minister-counsel pairs."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if on_progress:
-        on_progress(0, 3, "Affinity: Carregando dados...")
+    tracker = ProgressTracker(
+        phases=[
+            PhaseSpec("Affinity: Carregando dados", weight=0.05),
+            PhaseSpec("Affinity: Construindo pares", weight=0.05),
+            PhaseSpec("Affinity: Analisando pares", weight=0.85),
+            PhaseSpec("Affinity: Gravando resultados", weight=0.05),
+        ],
+        callback=on_progress,
+    )
+
+    tracker.begin_phase("Affinity: Carregando dados")
     rapporteur_map = _build_rapporteur_map(decision_event_path)
     counsel_id_to_name = _build_counsel_id_to_name(counsel_path)
     counsel_process_map = _build_counsel_process_map(process_counsel_link_path)
     process_outcomes = _build_process_outcomes_map(decision_event_path)
     process_class_map = build_process_class_map(process_path)
+    tracker.complete_phase()
 
     # Build pairs: (rapporteur, counsel_id) -> set of process_ids
+    tracker.begin_phase("Affinity: Construindo pares", total=len(counsel_process_map), unit="advogados")
     pair_processes: dict[tuple[str, str], set[str]] = defaultdict(set)
-    for cid, pids in counsel_process_map.items():
+    for i, (cid, pids) in enumerate(counsel_process_map.items()):
         if cid not in counsel_id_to_name:
+            tracker.advance()
             continue
         for pid in pids:
             rapporteur = rapporteur_map.get(pid)
             if rapporteur:
                 pair_processes[(rapporteur, cid)].add(pid)
-
-    if on_progress:
-        on_progress(1, 3, "Affinity: Analisando pares...")
+        tracker.advance()
+    tracker.complete_phase()
+    tracker.begin_phase("Affinity: Analisando pares", total=len(pair_processes), unit="pares")
     now_iso = datetime.now(timezone.utc).isoformat()
     affinities: list[dict[str, Any]] = []
 
     for (rapporteur, counsel_id), shared_pids in pair_processes.items():
+        tracker.advance()
         if len(shared_pids) < 2:
             continue
 
@@ -244,8 +264,9 @@ def build_counsel_affinity(
             }
         )
 
-    if on_progress:
-        on_progress(2, 3, "Affinity: Gravando resultados...")
+    tracker.complete_phase()
+
+    tracker.begin_phase("Affinity: Gravando resultados")
     # Write affinity records
     output_path = output_dir / "counsel_affinity.jsonl"
     with AtomicJsonlWriter(output_path) as fh:
@@ -267,6 +288,5 @@ def build_counsel_affinity(
         len(affinities),
         summary["red_flag_count"],
     )
-    if on_progress:
-        on_progress(3, 3, "Affinity: Concluído")
+    tracker.complete_phase()
     return output_path

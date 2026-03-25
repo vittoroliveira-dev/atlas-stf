@@ -1,4 +1,4 @@
-import { fetchApiJson } from "@/lib/api-client";
+import { fetchApiJson, isApiFetchError } from "@/lib/api-client";
 
 export type RapporteurChange = {
   change_id: string;
@@ -62,6 +62,7 @@ export async function getRapporteurChangePageData(params: {
       pageSize: payload.page_size,
     };
   } catch (error) {
+    if (!isApiFetchError(error)) throw error;
     console.error("Failed to fetch rapporteur change data:", error);
     return { items: [], total: 0, page, pageSize };
   }
@@ -75,6 +76,7 @@ export async function getRapporteurChangeRedFlags(): Promise<RapporteurChangeRed
       total: payload.total,
     };
   } catch (error) {
+    if (!isApiFetchError(error)) throw error;
     console.error("Failed to fetch rapporteur change red flags:", error);
     return { items: [], total: 0 };
   }

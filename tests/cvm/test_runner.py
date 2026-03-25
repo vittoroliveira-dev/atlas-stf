@@ -98,3 +98,43 @@ class TestFetchDownload:
 
         assert result == config.output_dir
         assert not (config.output_dir / "sanctions_raw.jsonl").exists()
+
+    @patch("atlas_stf.cvm._runner._download_zip")
+    def test_force_refresh_bypasses_cache(self, mock_download_zip, tmp_path: Path) -> None:
+        """force_refresh must re-download even when manifest says unchanged."""
+        import json as _json
+
+        from atlas_stf.fetch._manifest_model import FetchUnit, RemoteState, SourceManifest
+        from atlas_stf.fetch._manifest_store import save_manifest_locked
+
+        zip_bytes = _make_cvm_zip()
+        output_dir = tmp_path / "cvm"
+        output_dir.mkdir(parents=True)
+
+        # Pre-populate manifest (pretend we already have cached data)
+        old_manifest = SourceManifest(source="cvm")
+        old_manifest.units["cvm:sanctions"] = FetchUnit(
+            unit_id="cvm:sanctions",
+            source="cvm",
+            label="CVM sanctions",
+            remote_url="https://example.test/cvm.zip",
+            remote_state=RemoteState(url="https://example.test/cvm.zip", etag='"old"', content_length=999),
+            status="committed",
+            published_record_count=2,
+        )
+        save_manifest_locked(old_manifest, output_dir)
+        # Pre-populate output (so cache check would normally skip)
+        (output_dir / "sanctions_raw.jsonl").write_text(_json.dumps({"old": True}) + "\n")
+
+        zip_path = output_dir / "cvm_source.zip"
+        zip_path.write_bytes(zip_bytes)
+        mock_download_zip.return_value = zip_path
+
+        config = CvmFetchConfig(output_dir=output_dir, force_refresh=True)
+        fetch_cvm_data(config)
+
+        # Should have called download (not skipped via cache)
+        mock_download_zip.assert_called_once()
+        records = [_json.loads(line) for line in (output_dir / "sanctions_raw.jsonl").read_text().strip().split("\n")]
+        assert len(records) == 2
+        assert all(r["sanction_source"] == "cvm" for r in records)

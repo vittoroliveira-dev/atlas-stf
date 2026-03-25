@@ -15,24 +15,45 @@ from atlas_stf.cgu._runner import (
     fetch_sanctions_data,
 )
 from tests.cgu._runner_helpers import (
-    _FakeUrlopenResponse,
     _make_ceis_csv,
     _make_csv_zip,
     _write_party_jsonl,
 )
 
 
+class _FakeHttpxStream:
+    """Fake httpx streaming response for testing."""
+
+    def __init__(self, content: bytes) -> None:
+        self._content = content
+
+    def raise_for_status(self) -> None:
+        pass
+
+    def iter_bytes(self, chunk_size: int = 8192) -> list[bytes]:
+        chunks = []
+        for i in range(0, len(self._content), chunk_size):
+            chunks.append(self._content[i : i + chunk_size])
+        return chunks
+
+    def __enter__(self) -> _FakeHttpxStream:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        pass
+
+
 class TestFetchSanctionsData:
-    @patch("atlas_stf.cgu._runner_csv.urlopen")
+    @patch("atlas_stf.cgu._runner_csv.httpx.stream")
     def test_download_and_extract_csv_rejects_traversal_member(
         self,
-        mock_urlopen: MagicMock,
+        mock_stream: MagicMock,
         tmp_path: Path,
     ) -> None:
         csv_content = _make_ceis_csv(
             [["CEIS", "100", "J", "12", "ACME", "", "", "", "", "", "", "", "", "", "", "", "", "CGU"]]
         )
-        mock_urlopen.return_value = _FakeUrlopenResponse(_make_csv_zip(csv_content, "../../evil.csv"))
+        mock_stream.return_value = _FakeHttpxStream(_make_csv_zip(csv_content, "../../evil.csv"))
 
         assert _download_and_extract_csv("ceis", "20260306", tmp_path) is None
 
@@ -52,10 +73,10 @@ class TestFetchSanctionsData:
         assert len(results) == 45
         assert client.search_ceis.call_count == 3
 
-    @patch("atlas_stf.cgu._runner_csv.urlopen")
+    @patch("atlas_stf.cgu._runner_csv.httpx.stream")
     def test_download_and_extract_csv_rejects_large_zip(
         self,
-        mock_urlopen: MagicMock,
+        mock_stream: MagicMock,
         monkeypatch,
         tmp_path: Path,
     ) -> None:
@@ -64,19 +85,19 @@ class TestFetchSanctionsData:
             [["CEIS", "100", "J", "12", "ACME", "", "", "", "", "", "", "", "", "", "", "", "", "CGU"]]
         )
         zip_bytes = _make_csv_zip(csv_content)
-        mock_urlopen.return_value = _FakeUrlopenResponse(zip_bytes)
+        mock_stream.return_value = _FakeHttpxStream(zip_bytes)
 
         assert _download_and_extract_csv("ceis", "20260306", tmp_path) is None
 
-    @patch("atlas_stf.cgu._runner_csv.urlopen")
+    @patch("atlas_stf.cgu._runner_csv.httpx.stream")
     def test_download_and_extract_csv_rejects_oversized_stream(
         self,
-        mock_urlopen: MagicMock,
+        mock_stream: MagicMock,
         monkeypatch,
         tmp_path: Path,
     ) -> None:
         monkeypatch.setattr("atlas_stf.cgu._runner_csv._CGU_MAX_DOWNLOAD_BYTES", 4)
-        mock_urlopen.return_value = _FakeUrlopenResponse(chunks=[b"12", b"345"])
+        mock_stream.return_value = _FakeHttpxStream(b"12345")
 
         assert _download_and_extract_csv("ceis", "20260306", tmp_path) is None
         assert not (tmp_path / "ceis.zip").exists()
@@ -167,3 +188,20 @@ class TestFetchSanctionsData:
         raw_path = output_dir / "sanctions_raw.jsonl"
         assert raw_path.exists()
         assert raw_path.read_text().strip() == ""
+
+    @patch("atlas_stf.cgu._runner._fetch_via_csv")
+    def test_force_refresh_runs_fetch(self, mock_csv: MagicMock, tmp_path: Path) -> None:
+        """force_refresh must invoke _fetch_via_csv regardless of any cached state."""
+        output_dir = tmp_path / "output"
+        output_dir.mkdir(parents=True)
+
+        mock_csv.return_value = [{"sanction_source": "ceis", "entity_name": "ACME"}]
+        config = CguFetchConfig(output_dir=output_dir, force_refresh=True)
+        fetch_sanctions_data(config)
+
+        # _fetch_via_csv must have been called (force_refresh does not skip it)
+        mock_csv.assert_called_once()
+        raw_path = output_dir / "sanctions_raw.jsonl"
+        assert raw_path.exists()
+        records = [json.loads(line) for line in raw_path.read_text().strip().split("\n") if line.strip()]
+        assert len(records) == 1

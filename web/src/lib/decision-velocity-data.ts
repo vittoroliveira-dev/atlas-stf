@@ -1,4 +1,4 @@
-import { fetchApiJson } from "@/lib/api-client";
+import { fetchApiJson, isApiFetchError } from "@/lib/api-client";
 
 export type DecisionVelocity = {
   velocity_id: string;
@@ -72,6 +72,7 @@ export async function getDecisionVelocityPageData(params: {
       pageSize: payload.page_size,
     };
   } catch (error) {
+    if (!isApiFetchError(error)) throw error;
     console.error("Failed to fetch decision velocity data:", error);
     return { items: [], total: 0, page, pageSize };
   }
@@ -85,6 +86,7 @@ export async function getDecisionVelocityFlags(): Promise<DecisionVelocityFlags>
       total: payload.total,
     };
   } catch (error) {
+    if (!isApiFetchError(error)) throw error;
     console.error("Failed to fetch decision velocity flags:", error);
     return { items: [], total: 0 };
   }

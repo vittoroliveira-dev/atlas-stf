@@ -62,7 +62,7 @@ class TestBuildCompoundRiskEnrichment:
         assert party_pair["signal_count"] == 4
 
     def test_adjusted_rate_delta_law_firm_group(self, tmp_path: Path) -> None:
-        """Donation with is_law_firm_group=True: adjusted_rate_delta == max_rate_delta * 1.5."""
+        """Donation with is_law_firm_group=True: adjusted_rate_delta == max_rate_delta (no multiplier)."""
         paths = _build_setup(tmp_path)
         analytics_dir = paths["analytics_dir"]
 
@@ -88,9 +88,9 @@ class TestBuildCompoundRiskEnrichment:
         rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
         party_pair = next(row for row in rows if row["entity_type"] == "party" and row["entity_id"] == "p1")
         # max_rate_delta comes from sanction (0.33) which is larger than donation (0.20)
-        # but adjusted_rate_delta uses max_rate_delta * 1.5
+        # is_law_firm_group is informational only — no longer amplifies adjusted_rate_delta
         assert party_pair["has_law_firm_group"] is True
-        expected = party_pair["max_rate_delta"] * 1.5
+        expected = party_pair["max_rate_delta"] * 1.0
         assert abs(party_pair["adjusted_rate_delta"] - expected) < 1e-9
 
     def test_adjusted_rate_delta_donor_group_has_minister_partner(self, tmp_path: Path) -> None:
@@ -123,7 +123,7 @@ class TestBuildCompoundRiskEnrichment:
         assert abs(party_pair["adjusted_rate_delta"] - expected) < 1e-9
 
     def test_adjusted_rate_delta_combined_multipliers(self, tmp_path: Path) -> None:
-        """is_law_firm_group + donor_group_has_minister_partner: multiplier 3.0."""
+        """is_law_firm_group + donor_group_has_minister_partner: multiplier 2.0 (only minister partner)."""
         paths = _build_setup(tmp_path)
         analytics_dir = paths["analytics_dir"]
 
@@ -149,7 +149,8 @@ class TestBuildCompoundRiskEnrichment:
         output_path = build_compound_risk(**paths)
         rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
         party_pair = next(row for row in rows if row["entity_type"] == "party" and row["entity_id"] == "p1")
-        expected = party_pair["max_rate_delta"] * 3.0
+        # is_law_firm_group no longer amplifies; only donor_group_has_minister_partner applies (2.0x)
+        expected = party_pair["max_rate_delta"] * 2.0
         assert abs(party_pair["adjusted_rate_delta"] - expected) < 1e-9
 
     def test_adjusted_rate_delta_attenuation_high_degree(self, tmp_path: Path) -> None:
@@ -353,7 +354,7 @@ class TestBuildCompoundRiskEnrichment:
         assert sd["red_flag_confidences"] == ["high"]
 
     def test_multiple_donation_rows_same_flag_no_multiplier_inflation(self, tmp_path: Path) -> None:
-        """3 donation rows with is_law_firm_group=True: adjusted == max_rate_delta * 1.5, not more."""
+        """3 donation rows with is_law_firm_group=True: adjusted == max_rate_delta (no multiplier)."""
         paths = _build_setup(tmp_path)
         analytics_dir = paths["analytics_dir"]
 
@@ -380,7 +381,7 @@ class TestBuildCompoundRiskEnrichment:
         rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]
         party_pair = next(row for row in rows if row["entity_type"] == "party" and row["entity_id"] == "p1")
         # max_rate_delta is max of sanction(0.33) and donation(0.20) = 0.33
-        # is_law_firm_group is binary OR: True regardless of how many rows
-        # so adjusted = 0.33 * 1.5 = 0.495
-        expected = party_pair["max_rate_delta"] * 1.5
+        # is_law_firm_group is informational only — no multiplier regardless of how many rows carry the flag
+        # so adjusted = 0.33 * 1.0 = 0.33
+        expected = party_pair["max_rate_delta"] * 1.0
         assert abs(party_pair["adjusted_rate_delta"] - expected) < 1e-9

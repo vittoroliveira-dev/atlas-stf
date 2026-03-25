@@ -180,7 +180,7 @@ def get_agenda_minister_detail(session: Session, slug: str, page: int, page_size
         session.scalars(
             select(ServingAgendaEvent)
             .where(ServingAgendaEvent.minister_slug == slug)
-            .order_by(ServingAgendaEvent.event_date.desc())
+            .order_by(ServingAgendaEvent.event_date.desc(), ServingAgendaEvent.event_id.asc())
             .offset((page - 1) * page_size)
             .limit(page_size)
         ).all(),
@@ -190,7 +190,7 @@ def get_agenda_minister_detail(session: Session, slug: str, page: int, page_size
         session.scalars(
             select(ServingAgendaExposure)
             .where(ServingAgendaExposure.minister_slug == slug)
-            .order_by(ServingAgendaExposure.agenda_date.desc())
+            .order_by(ServingAgendaExposure.agenda_date.desc(), ServingAgendaExposure.exposure_id.asc())
             .limit(100)
         ).all(),
     )

@@ -124,6 +124,27 @@ def _add_external_parsers(subparsers: Any) -> None:
         default=DEFAULT_ANALYTICS_DIR,
         help="Analytics artifact directory",
     )
+    serving_validate = serving_sub.add_parser(
+        "validate-inputs", help="Validate JSONL input artifacts before serving build"
+    )
+    serving_validate.add_argument(
+        "--curated-dir",
+        type=Path,
+        default=DEFAULT_CURATED_DIR,
+        help="Curated JSONL directory",
+    )
+    serving_validate.add_argument(
+        "--analytics-dir",
+        type=Path,
+        default=DEFAULT_ANALYTICS_DIR,
+        help="Analytics artifact directory",
+    )
+    serving_validate.add_argument(
+        "--report-path",
+        type=Path,
+        default=Path("data/serving/validation_report.json"),
+        help="Output path for validation report JSON",
+    )
 
     datajud = subparsers.add_parser("datajud", help="Fetch and process CNJ DataJud data")
     datajud_sub = datajud.add_subparsers(dest="datajud_target", required=True)
@@ -179,6 +200,11 @@ def _add_external_parsers(subparsers: Any) -> None:
         help="Output directory for raw CGU data",
     )
     cgu_fetch.add_argument("--dry-run", action="store_true", help="List names without querying")
+    cgu_fetch.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Clear checkpoint and re-download all datasets",
+    )
     cgu_build = cgu_sub.add_parser("build-matches", help="Build sanction match analytics")
     cgu_build.add_argument(
         "--cgu-dir",
@@ -286,6 +312,11 @@ def _add_external_parsers(subparsers: Any) -> None:
         help="Output directory for raw CVM data",
     )
     cvm_fetch.add_argument("--dry-run", action="store_true", help="Show URL without downloading")
+    cvm_fetch.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Clear checkpoint and re-download even if unchanged",
+    )
     cvm_build = cvm_sub.add_parser("build-matches", help="Rebuild sanction matches (includes CVM)")
     cvm_build.add_argument(
         "--cvm-dir",
@@ -305,6 +336,7 @@ def _add_external_parsers(subparsers: Any) -> None:
     rfb_fetch = rfb_sub.add_parser("fetch", help="Download Socios/Empresas from RFB open data")
     rfb_fetch.add_argument("--output-dir", type=Path, default=Path("data/raw/rfb"))
     rfb_fetch.add_argument("--dry-run", action="store_true")
+    rfb_fetch.add_argument("--force-refresh", action="store_true", help="Clear checkpoint and re-download all files")
     rfb_build = rfb_sub.add_parser("build-network", help="Build corporate network analytics")
     rfb_build.add_argument("--rfb-dir", type=Path, default=Path("data/raw/rfb"))
     rfb_build.add_argument("--output-dir", type=Path, default=DEFAULT_ANALYTICS_DIR)

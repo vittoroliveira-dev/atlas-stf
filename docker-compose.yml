@@ -11,3 +11,20 @@ services:
       - /bin/bash
       - -lc
       - atlas-stf serving build --database-url "$$ATLAS_STF_DATABASE_URL" && uvicorn atlas_stf.api.app:create_app --factory --host 0.0.0.0 --port 8000
+    # Restart on failure (e.g. OOM, crash), but not on explicit stop.
+    # The serving build runs once at startup; on restart, it re-builds
+    # from the latest artifacts (idempotent).
+    restart: unless-stopped
+    # Memory: serving build peaks at ~1.5 GB; API steady-state is ~200 MB.
+    # The 3 GB limit prevents a malformed pipeline from exhausting host RAM
+    # while leaving headroom for the build phase.
+    mem_limit: 3g
+    # Healthcheck: /health executes SELECT 1 against the SQLite database,
+    # so it verifies both process liveness and database readability.
+    # start_period accounts for the serving build phase (~2 min).
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 180s
+      retries: 3

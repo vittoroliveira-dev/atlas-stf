@@ -8,24 +8,30 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
+from atlas_stf.fetch._manifest_store import load_manifest
 from atlas_stf.rfb import _runner_http
 from atlas_stf.rfb._config import RfbFetchConfig
 from atlas_stf.rfb._runner import (
     _build_target_names,
+    _checkpoint_to_manifest,
     _compute_tse_targets_hash,
     _discover_latest_month,
     _download_zip,
     _extract_csv_from_zip,
     _extract_tse_donor_targets,
     _is_rfb_data_member,
+    _manifest_to_checkpoint,
+    _save_checkpoint_via_manifest,
     fetch_rfb_data,
 )
 from atlas_stf.rfb._runner_fetch import enrich_and_write_results
 
 
 class _FakeStreamResponse:
-    def __init__(self, chunks: list[bytes]) -> None:
+    def __init__(self, chunks: list[bytes], status_code: int = 200) -> None:
         self._chunks = chunks
+        self.status_code = status_code
+        self.headers: dict[str, str] = {}
 
     def __enter__(self) -> _FakeStreamResponse:
         return self
@@ -192,64 +198,93 @@ class TestTseTargetsHash:
         assert h1 != h2
 
 
-class TestCheckpointTseIntegration:
-    def test_checkpoint_without_tse_hash(self, tmp_path: Path) -> None:
-        """Old checkpoint without tse_targets_hash loads normally."""
-        from atlas_stf.rfb._runner import _load_checkpoint
-
-        checkpoint_path = tmp_path / "_rfb_checkpoint.json"
-        checkpoint_path.write_text(
-            json.dumps(
-                {
-                    "completed_socios_pass1": [0, 1],
-                    "completed_socios_pass2": [],
-                    "completed_empresas": [],
-                    "completed_estabelecimentos": [],
-                    "completed_reference": True,
-                    "cnpjs": ["12345678"],
-                }
-            )
-        )
-        cp = _load_checkpoint(tmp_path)
-        assert "tse_targets_hash" not in cp
+class TestManifestTseIntegration:
+    def test_manifest_roundtrip(self, tmp_path: Path) -> None:
+        """Manifest → checkpoint dict → manifest roundtrip preserves data."""
+        state = {
+            "completed_socios_pass1": [0, 1],
+            "completed_socios_pass2": [],
+            "completed_empresas": [],
+            "completed_estabelecimentos": [],
+            "completed_reference": True,
+            "cnpjs": ["12345678"],
+        }
+        manifest = _checkpoint_to_manifest(state)
+        cp = _manifest_to_checkpoint(manifest)
         assert cp["completed_socios_pass1"] == [0, 1]
+        assert cp["completed_reference"] is True
 
-    def test_checkpoint_invalidation_on_tse_change(self, tmp_path: Path) -> None:
+    def test_tse_hash_invalidation(self, tmp_path: Path) -> None:
         """When TSE hash changes, passes are invalidated."""
-        from atlas_stf.rfb._runner import _load_checkpoint, _save_checkpoint
-
         old_hash = _compute_tse_targets_hash({"A"}, set(), set())
-        checkpoint_path = tmp_path / "_rfb_checkpoint.json"
-        checkpoint_path.write_text(
-            json.dumps(
-                {
-                    "completed_socios_pass1": [0, 1, 2],
-                    "completed_socios_pass2": [0],
-                    "completed_empresas": [0],
-                    "completed_estabelecimentos": [0],
-                    "completed_reference": True,
-                    "cnpjs": ["12345678"],
-                    "tse_targets_hash": old_hash,
-                }
-            )
-        )
+        state = {
+            "completed_socios_pass1": [0, 1, 2],
+            "completed_socios_pass2": [0],
+            "completed_empresas": [0],
+            "completed_estabelecimentos": [0],
+            "completed_reference": True,
+            "cnpjs": ["12345678"],
+            "tse_targets_hash": old_hash,
+        }
+        _save_checkpoint_via_manifest(tmp_path, state)
 
-        cp = _load_checkpoint(tmp_path)
+        manifest = load_manifest("rfb", tmp_path)
+        assert manifest is not None
+        cp = _manifest_to_checkpoint(manifest)
+
         new_hash = _compute_tse_targets_hash({"A", "B"}, set(), set())
         assert old_hash != new_hash
 
-        # Simulate what fetch_rfb_data does
+        # Simulate invalidation
         if cp.get("tse_targets_hash", "") and cp["tse_targets_hash"] != new_hash:
             cp["completed_socios_pass1"] = []
             cp["completed_socios_pass2"] = []
             cp["completed_empresas"] = []
             cp["completed_estabelecimentos"] = []
             cp["cnpjs"] = []
-            _save_checkpoint(tmp_path, cp)
+            _save_checkpoint_via_manifest(tmp_path, cp)
 
-        reloaded = _load_checkpoint(tmp_path)
-        assert reloaded["completed_socios_pass1"] == []
-        assert reloaded["completed_empresas"] == []
+        manifest2 = load_manifest("rfb", tmp_path)
+        assert manifest2 is not None
+        cp2 = _manifest_to_checkpoint(manifest2)
+        assert cp2["completed_socios_pass1"] == []
+        assert cp2["completed_empresas"] == []
+
+
+class TestForceRefreshManifest:
+    def test_force_refresh_resets_all_keys(self, tmp_path: Path) -> None:
+        """force_refresh must reset ALL manifest state."""
+        full_state = {
+            "completed_socios_pass1": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            "completed_socios_pass2": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            "completed_empresas": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            "completed_estabelecimentos": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            "completed_reference": True,
+            "cnpjs": ["12345678", "87654321"],
+            "tse_targets_hash": "abc123",
+        }
+        _save_checkpoint_via_manifest(tmp_path, full_state)
+
+        # Simulate force_refresh
+        empty_state = {
+            "completed_socios_pass1": [],
+            "completed_socios_pass2": [],
+            "completed_empresas": [],
+            "completed_estabelecimentos": [],
+            "completed_reference": False,
+            "cnpjs": [],
+        }
+        _save_checkpoint_via_manifest(tmp_path, empty_state)
+
+        manifest = load_manifest("rfb", tmp_path)
+        assert manifest is not None
+        cp = _manifest_to_checkpoint(manifest)
+        assert cp["completed_socios_pass1"] == []
+        assert cp["completed_socios_pass2"] == []
+        assert cp["completed_empresas"] == []
+        assert cp["completed_estabelecimentos"] == []
+        assert cp["completed_reference"] is False
+        assert cp["cnpjs"] == []
 
 
 class TestExtractCsvFromZip:

@@ -108,7 +108,8 @@ step "2/10 — Metricas do projeto (auto-contagem)"
 
 COUNT_TABLES=$(grep -r '__tablename__' src/atlas_stf/serving/models.py src/atlas_stf/serving/_models_*.py 2>/dev/null | wc -l)
 COUNT_ENDPOINTS=$(grep -rc '@app\.\(get\|post\|put\|delete\)' src/atlas_stf/api/ 2>/dev/null | awk -F: '{s+=$2} END {print s}')
-COUNT_TESTS=$(grep -rc 'def test_' tests/ 2>/dev/null | awk -F: '{s+=$2} END {print s}')
+# Use pytest --co for accurate count (includes parametrized cases)
+COUNT_TESTS=$(uv run pytest --co -q 2>/dev/null | tail -1 | grep -oP '^\d+' || grep -rc 'def test_' tests/ 2>/dev/null | awk -F: '{s+=$2} END {print s}')
 COUNT_PAGES=$(find web/src/app -name 'page.tsx' 2>/dev/null | wc -l)
 COUNT_SRC_MODULES=$(find src/atlas_stf -mindepth 1 -maxdepth 1 -type d ! -name '__pycache__' | wc -l)
 COUNT_SRC_FILES=$(find src/atlas_stf -name '*.py' ! -path '*__pycache__*' | wc -l)

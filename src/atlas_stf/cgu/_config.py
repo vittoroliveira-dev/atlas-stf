@@ -25,3 +25,4 @@ class CguFetchConfig:
     max_retries: int = 3
     timeout_seconds: int = 30
     dry_run: bool = False
+    force_refresh: bool = False

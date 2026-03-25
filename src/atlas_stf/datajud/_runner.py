@@ -1,4 +1,11 @@
-"""DataJud fetch runner: reads curated processes, queries API, writes raw JSON."""
+"""DataJud fetch runner: reads curated processes, queries API, writes raw JSON.
+
+Public interface (used by fetch adapter):
+- ``discover_indices(process_path)`` — discover DataJud index names
+- ``fetch_single_index(client, index, output_dir)`` — query one index, write JSON
+
+No checkpoint logic — manifest store is the single source of truth.
+"""
 
 from __future__ import annotations
 
@@ -22,24 +29,31 @@ from ._queries import (
 logger = logging.getLogger(__name__)
 
 
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as fh:
+# ---------------------------------------------------------------------------
+# Public interface
+# ---------------------------------------------------------------------------
+
+
+def discover_indices(process_path: Path) -> list[str]:
+    """Read process.jsonl and discover unique DataJud API index names.
+
+    Returns a sorted, deduplicated list of index names like
+    ``["api_publica_tjsp", "api_publica_trf3", ...]``.
+    """
+    seen_pairs: set[tuple[str, str]] = set()
+    with process_path.open("r", encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
-            if line:
-                records.append(json.loads(line))
-    return records
-
-
-def _discover_indices(process_path: Path) -> list[str]:
-    """Read process.jsonl and discover unique DataJud indices."""
-    seen_pairs: set[tuple[str, str]] = set()
-    for record in _read_jsonl(process_path):
-        court = record.get("origin_court_or_body") or ""
-        state = record.get("origin_description") or ""
-        if court or state:
-            seen_pairs.add((court, state))
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            court = record.get("origin_court_or_body") or ""
+            state = record.get("origin_description") or ""
+            if court or state:
+                seen_pairs.add((court, state))
 
     all_indices: set[str] = set()
     for court, state in seen_pairs:
@@ -49,30 +63,57 @@ def _discover_indices(process_path: Path) -> list[str]:
     return sorted(all_indices)
 
 
-def _load_checkpoint(output_dir: Path) -> set[str]:
-    checkpoint_path = output_dir / "_checkpoint.json"
-    if checkpoint_path.exists():
-        data = json.loads(checkpoint_path.read_text(encoding="utf-8"))
-        return set(data.get("completed", []))
-    return set()
+def fetch_single_index(client: DatajudClient, index: str, output_dir: Path) -> dict[str, Any]:
+    """Query aggregated stats for one DataJud index and write result JSON.
+
+    Returns the result dict (also written to ``output_dir/{index}.json``).
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    total_resp = client.search(index, build_total_query())
+    total = extract_total(total_resp)
+
+    assunto_resp = client.search(index, build_assunto_aggregation())
+    top_assuntos = extract_aggregation_buckets(assunto_resp, "top_assuntos")
+
+    orgao_resp = client.search(index, build_orgao_julgador_aggregation())
+    top_orgaos = extract_aggregation_buckets(orgao_resp, "top_orgaos")
+
+    class_resp = client.search(index, build_class_aggregation())
+    classes = extract_aggregation_buckets(class_resp, "classes")
+
+    result: dict[str, Any] = {
+        "index": index,
+        "tribunal_label": index_to_tribunal_label(index),
+        "total_processes": total,
+        "top_assuntos": top_assuntos,
+        "top_orgaos_julgadores": top_orgaos,
+        "class_distribution": classes,
+    }
+
+    out_path = output_dir / f"{index}.json"
+    out_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    logger.info("Completed index %s: %d processes", index, total)
+    return result
 
 
-def _save_checkpoint(output_dir: Path, completed: set[str]) -> None:
-    checkpoint_path = output_dir / "_checkpoint.json"
-    checkpoint_path.write_text(
-        json.dumps({"completed": sorted(completed)}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+# ---------------------------------------------------------------------------
+# Legacy CLI entry point (preserved for `atlas-stf datajud fetch`)
+# ---------------------------------------------------------------------------
 
 
 def fetch_origin_data(config: DatajudFetchConfig) -> Path:
     """Fetch aggregated data from DataJud for each discovered origin index.
 
-    Returns the output directory path.
+    Uses the manifest store for tracking. Falls back to full run
+    (no checkpoint) — each re-run re-queries all indices unless the
+    caller uses the fetch engine plan/execute cycle.
     """
+    from ..core.fetch_lock import FetchLock
+
     config.output_dir.mkdir(parents=True, exist_ok=True)
 
-    indices = _discover_indices(config.process_path)
+    indices = discover_indices(config.process_path)
     logger.info("Discovered %d DataJud indices from %s", len(indices), config.process_path)
 
     if config.dry_run:
@@ -80,7 +121,18 @@ def fetch_origin_data(config: DatajudFetchConfig) -> Path:
             logger.info("[dry-run] Would query index: %s", index)
         return config.output_dir
 
-    completed = _load_checkpoint(config.output_dir)
+    with FetchLock(config.output_dir, "datajud"):
+        _fetch_datajud_locked(config, indices)
+
+    return config.output_dir
+
+
+def _fetch_datajud_locked(config: DatajudFetchConfig, indices: list[str]) -> None:
+    """Inner implementation guarded by FetchLock."""
+    from ..fetch._manifest_model import FetchUnit, RemoteState, SourceManifest, build_unit_id
+    from ..fetch._manifest_store import load_manifest, write_manifest_unlocked
+
+    manifest = load_manifest("datajud", config.output_dir) or SourceManifest(source="datajud")
 
     with DatajudClient(
         config.api_key,
@@ -89,42 +141,26 @@ def fetch_origin_data(config: DatajudFetchConfig) -> Path:
         max_retries=config.max_retries,
     ) as client:
         for index in indices:
-            if index in completed:
-                logger.info("Skipping already completed index: %s", index)
+            uid = build_unit_id("datajud", index.lower().replace(".", "_"))
+            existing = manifest.units.get(uid)
+            if existing and existing.status == "committed":
+                logger.info("Skipping already committed index: %s", index)
                 continue
 
             logger.info("Querying index: %s", index)
+            result = fetch_single_index(client, index, config.output_dir)
 
-            total_resp = client.search(index, build_total_query())
-            total = extract_total(total_resp)
-
-            assunto_resp = client.search(index, build_assunto_aggregation())
-            top_assuntos = extract_aggregation_buckets(assunto_resp, "top_assuntos")
-
-            orgao_resp = client.search(index, build_orgao_julgador_aggregation())
-            top_orgaos = extract_aggregation_buckets(orgao_resp, "top_orgaos")
-
-            class_resp = client.search(index, build_class_aggregation())
-            classes = extract_aggregation_buckets(class_resp, "classes")
-
-            result = {
-                "index": index,
-                "tribunal_label": index_to_tribunal_label(index),
-                "total_processes": total,
-                "top_assuntos": top_assuntos,
-                "top_orgaos_julgadores": top_orgaos,
-                "class_distribution": classes,
-            }
-
-            out_path = config.output_dir / f"{index}.json"
-            out_path.write_text(
-                json.dumps(result, ensure_ascii=False, indent=2),
-                encoding="utf-8",
+            manifest.units[uid] = FetchUnit(
+                unit_id=uid,
+                source="datajud",
+                label=f"DataJud {index}",
+                remote_url="",
+                remote_state=RemoteState(url=""),
+                local_path=str(config.output_dir / f"{index}.json"),
+                status="committed",
+                metadata={"index": index},
+                published_record_count=result.get("total_processes", 0),
             )
 
-            completed.add(index)
-            _save_checkpoint(config.output_dir, completed)
-            logger.info("Completed index %s: %d processes", index, total)
-
-    logger.info("DataJud fetch complete: %d indices", len(completed))
-    return config.output_dir
+    write_manifest_unlocked(manifest, config.output_dir)
+    logger.info("DataJud fetch complete: %d indices committed", len(manifest.units))

@@ -12,7 +12,6 @@ import logging
 import shutil
 import uuid
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -20,9 +19,11 @@ from typing import Any
 import httpx
 
 from ..core.http_stream_safety import write_limited_stream_to_file
+from ..fetch._manifest_model import FetchUnit, RemoteState, SourceManifest, build_unit_id
+from ..fetch._manifest_store import load_manifest, save_manifest_locked
 from ._config import TSE_CDN_BASE_URL, TsePartyOrgFetchConfig
 from ._parser_party_org import iter_despesas_csv, iter_receitas_csv, normalize_party_org_record
-from ._runner import _extract_zip, _record_content_hash, _YearMeta
+from ._runner import _extract_zip, _record_content_hash
 
 logger = logging.getLogger(__name__)
 
@@ -38,76 +39,15 @@ def _build_zip_url(year: int) -> str:
     return f"{TSE_CDN_BASE_URL}/prestacao_de_contas_eleitorais_orgaos_partidarios_{year}.zip"
 
 
-def _resolve_url(year: int, timeout: int) -> tuple[str, httpx.Headers] | None:
-    """Find the working URL for a year via HEAD request."""
-    url = _build_zip_url(year)
-    try:
-        r = httpx.head(url, timeout=timeout, follow_redirects=True)
-        if r.status_code == 200:
-            return url, r.headers
-    except httpx.RequestError:
-        pass
-    return None
-
-
-@dataclass
-class _Checkpoint:
-    """Persistent state for party org fetch runs (separate from candidate checkpoint)."""
-
-    completed_years: set[int] = field(default_factory=set)
-    year_meta: dict[int, _YearMeta] = field(default_factory=dict)
-
-    _FILENAME = "_checkpoint_party_org.json"
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "completed_years": sorted(self.completed_years),
-            "year_meta": {str(y): m.to_dict() for y, m in self.year_meta.items()},
-        }
-
-    @classmethod
-    def load(cls, output_dir: Path) -> _Checkpoint:
-        path = output_dir / cls._FILENAME
-        if not path.exists():
-            return cls()
-        data = json.loads(path.read_text(encoding="utf-8"))
-        meta = {}
-        for k, v in data.get("year_meta", {}).items():
-            meta[int(k)] = _YearMeta.from_dict(v)
-        return cls(completed_years=set(data.get("completed_years", [])), year_meta=meta)
-
-    def save(self, output_dir: Path) -> None:
-        path = output_dir / self._FILENAME
-        path.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def _remote_unchanged(year: int, checkpoint: _Checkpoint, timeout: int) -> bool:
-    """Check if remote file matches cached metadata (HEAD only, no download)."""
-    meta = checkpoint.year_meta.get(year)
-    if meta is None:
-        return False
-    resolved = _resolve_url(year, timeout)
-    if resolved is None:
-        return False
-    _url, headers = resolved
-    return meta.matches(headers)
-
-
 def _download_year_zip(
     year: int,
     output_dir: Path,
     timeout: int,
-    checkpoint: _Checkpoint | None = None,
-) -> tuple[Path | None, _YearMeta | None]:
+) -> tuple[Path | None, dict[str, Any] | None]:
     """Download party organ ZIP from TSE CDN for a given year.
 
     Returns (zip_path, meta) on success, (None, None) on failure/skip.
     """
-    if checkpoint and year in checkpoint.completed_years:
-        if _remote_unchanged(year, checkpoint, timeout):
-            logger.info("TSE party org %d: unchanged on server, skipping download", year)
-            return None, None
-
     output_dir.mkdir(parents=True, exist_ok=True)
     zip_path = output_dir / f"tse_party_org_{year}.zip"
     url = _build_zip_url(year)
@@ -124,7 +64,7 @@ def _download_year_zip(
                 max_download_bytes=_TSE_MAX_DOWNLOAD_BYTES,
             )
         logger.info("Downloaded %s (%d bytes)", zip_path.name, actual_size)
-        meta = _YearMeta(url=url, content_length=content_length or actual_size, etag=etag)
+        meta = {"url": url, "content_length": content_length or actual_size, "etag": etag}
         return zip_path, meta
     except ValueError as exc:
         logger.warning("Failed to download TSE party org %d: %s", year, exc)
@@ -216,18 +156,18 @@ def fetch_party_org_data(
             logger.info("[dry-run] %s", _build_zip_url(year))
         return config.output_dir
 
-    checkpoint = _Checkpoint.load(config.output_dir)
+    manifest = load_manifest("tse_party_org", config.output_dir) or SourceManifest(source="tse_party_org")
     if config.force_refresh:
-        logger.info("TSE party org: force-refresh enabled — clearing checkpoint for requested years")
+        logger.info("TSE party org: force-refresh — clearing manifest for requested years")
         for year in config.years:
-            checkpoint.completed_years.discard(year)
-            checkpoint.year_meta.pop(year, None)
-        checkpoint.save(config.output_dir)
+            uid = build_unit_id("tse_party_org", str(year))
+            manifest.units.pop(uid, None)
 
     output_path = config.output_dir / "party_org_finance_raw.jsonl"
     total_record_count = 0
 
-    pending_years = [y for y in config.years if y not in checkpoint.completed_years]
+    committed_years = {int(uid.split(":")[-1]) for uid, u in manifest.units.items() if u.status == "committed"}
+    pending_years = [y for y in config.years if y not in committed_years]
     total_years = len(config.years)
 
     if on_progress:
@@ -236,9 +176,9 @@ def fetch_party_org_data(
             on_progress(cached, total_years, f"TSE party org: {cached} anos em cache")
 
     # Download ZIPs sequentially (party org ZIPs are large, ~60-260MB each)
-    downloaded: dict[int, tuple[Path, _YearMeta]] = {}
+    downloaded: dict[int, tuple[Path, dict[str, Any]]] = {}
     for year in pending_years:
-        zip_path, meta = _download_year_zip(year, config.output_dir, config.timeout_seconds, checkpoint)
+        zip_path, meta = _download_year_zip(year, config.output_dir, config.timeout_seconds)
         if zip_path is not None and meta is not None:
             downloaded[year] = (zip_path, meta)
         if on_progress:
@@ -254,7 +194,7 @@ def fetch_party_org_data(
     tmp_path = output_path.with_suffix(".jsonl.tmp")
     with tmp_path.open("w", encoding="utf-8") as out:
         # Copy existing records, excluding years that will be re-processed
-        if output_path.exists() and checkpoint.completed_years:
+        if output_path.exists() and committed_years:
             existing_count = 0
             excluded_count = 0
             with output_path.open("r", encoding="utf-8") as fh:
@@ -280,7 +220,7 @@ def fetch_party_org_data(
             )
 
         # Process downloaded ZIPs
-        checkpoint_pending: list[tuple[int, _YearMeta]] = []
+        manifest_pending: list[tuple[int, dict[str, Any]]] = []
         for year in config.years:
             if year not in downloaded:
                 continue
@@ -289,7 +229,7 @@ def fetch_party_org_data(
             extract_dir = config.output_dir / f"extracted_party_org_{year}"
             year_count = 0
             try:
-                for record in _iter_year_records(year, zip_path, extract_dir, source_url=meta.url):
+                for record in _iter_year_records(year, zip_path, extract_dir, source_url=meta["url"]):
                     record["collected_at"] = run_collected_at
                     record["ingest_run_id"] = run_id
                     out.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -301,18 +241,31 @@ def fetch_party_org_data(
             if year_count:
                 total_record_count += year_count
                 logger.info("Wrote %d party org records for year %d", year_count, year)
-                checkpoint_pending.append((year, meta))
+                manifest_pending.append((year, meta))
             else:
                 logger.warning("Year %d returned 0 party org records — not marking as completed", year)
 
     # Atomic rename
     tmp_path.replace(output_path)
 
-    for year, meta in checkpoint_pending:
-        checkpoint.completed_years.add(year)
-        checkpoint.year_meta[year] = meta
-    if checkpoint_pending:
-        checkpoint.save(config.output_dir)
+    for year, meta in manifest_pending:
+        uid = build_unit_id("tse_party_org", str(year))
+        manifest.units[uid] = FetchUnit(
+            unit_id=uid,
+            source="tse_party_org",
+            label=f"TSE party org {year}",
+            remote_url=meta["url"],
+            remote_state=RemoteState(
+                url=meta["url"],
+                etag=meta.get("etag", ""),
+                content_length=meta.get("content_length", 0),
+            ),
+            status="committed",
+            fetch_date=datetime.now(timezone.utc).isoformat(),
+        )
+    if manifest_pending:
+        manifest.last_updated = datetime.now(timezone.utc).isoformat()
+        save_manifest_locked(manifest, config.output_dir)
 
     if on_progress:
         on_progress(total_years, total_years, "TSE party org: Concluído")

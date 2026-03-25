@@ -46,6 +46,7 @@ def _load_partners() -> list[dict]:
 
 
 @pytest.mark.skipif(not DATA_EXISTS, reason="Real RFB data not available")
+@pytest.mark.xdist_group("rfb_heavy")
 class TestRealRfbIntegration:
     def test_civil_names_expand_minister_matches(self) -> None:
         """Civil names find more companies than parliamentary names."""
@@ -127,6 +128,7 @@ class TestRealRfbIntegration:
         # Informational — count how many PJ partners exist in minister companies
         assert isinstance(pj_cnpjs, set)
 
+    @pytest.mark.heavy
     def test_full_corporate_network_with_improvements(self, tmp_path: Path) -> None:
         """End-to-end: build_corporate_network with real data produces >= 3 conflicts."""
         curated_dir = Path("data/curated")

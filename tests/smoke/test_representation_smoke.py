@@ -242,7 +242,7 @@ class TestServingSmoke:
     def test_schema_version_is_14(self) -> None:
         from atlas_stf.serving._builder_schema import SERVING_SCHEMA_VERSION
 
-        assert SERVING_SCHEMA_VERSION == 16
+        assert SERVING_SCHEMA_VERSION == 19
 
     def test_schema_upgrade_drops_and_recreates(self, tmp_path: Path) -> None:
         """P4/P5: incompatible schema must be rebuilt, not crash."""

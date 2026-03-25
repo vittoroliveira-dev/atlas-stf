@@ -1,4 +1,4 @@
-import { fetchApiJson } from "@/lib/api-client";
+import { fetchApiJson, isApiFetchError, isNotFoundError } from "@/lib/api-client";
 
 export type LawyerEntity = {
   lawyer_id: string;
@@ -122,6 +122,7 @@ export async function getRepresentationPageData(params: {
       pageSize: lawyerData.page_size,
     };
   } catch (error) {
+    if (!isApiFetchError(error)) throw error;
     console.error("Failed to fetch representation data:", error);
     return {
       lawyers: [],
@@ -137,16 +138,18 @@ export async function getRepresentationPageData(params: {
 
 export async function getLawyerDetail(lawyerId: string): Promise<LawyerDetailResponse | null> {
   try {
-    return await fetchApiJson<LawyerDetailResponse>(`/representation/lawyers/${lawyerId}`);
-  } catch {
-    return null;
+    return await fetchApiJson<LawyerDetailResponse>(`/representation/lawyers/${encodeURIComponent(lawyerId)}`);
+  } catch (error) {
+    if (isNotFoundError(error)) return null;
+    throw error; // unreachable — isNotFoundError throws non-404
   }
 }
 
 export async function getFirmDetail(firmId: string): Promise<FirmDetailResponse | null> {
   try {
-    return await fetchApiJson<FirmDetailResponse>(`/representation/firms/${firmId}`);
-  } catch {
-    return null;
+    return await fetchApiJson<FirmDetailResponse>(`/representation/firms/${encodeURIComponent(firmId)}`);
+  } catch (error) {
+    if (isNotFoundError(error)) return null;
+    throw error; // unreachable — isNotFoundError throws non-404
   }
 }

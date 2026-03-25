@@ -38,7 +38,7 @@ class TestNormalizeEntityName:
     @pytest.mark.parametrize(
         "input_val,expected",
         [
-            ("  João  da   Silva  ", "JOÃO DA SILVA"),
+            ("  João  da   Silva  ", "JOAO DA SILVA"),
             ("maria souza", "MARIA SOUZA"),
             (None, None),
             ("", None),
@@ -51,10 +51,10 @@ class TestNormalizeEntityName:
 
 class TestCanonicalizeEntityName:
     def test_removes_common_corporate_suffixes(self):
-        assert canonicalize_entity_name("Petróleo Brasileiro S.A.") == "PETRÓLEO BRASILEIRO"
+        assert canonicalize_entity_name("Petróleo Brasileiro S.A.") == "PETROLEO BRASILEIRO"
 
     def test_preserves_meaningful_tokens(self):
-        assert canonicalize_entity_name("João da Silva") == "JOÃO DA SILVA"
+        assert canonicalize_entity_name("João da Silva") == "JOAO DA SILVA"
 
 
 class TestNormalizeTaxId:

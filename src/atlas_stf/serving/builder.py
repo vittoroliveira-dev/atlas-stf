@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import logging
+import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, func, insert, select
 from sqlalchemy.orm import Session
 
 from ._builder_flow import FLOW_SHAPES as FLOW_SHAPES  # re-export
 from ._builder_flow import _materialize_minister_flows
+from ._builder_graph import materialize_graph
 from ._builder_loaders import (
     build_source_audits,
     load_alerts,
@@ -22,7 +26,6 @@ from ._builder_loaders import (
     load_decision_velocities,
     load_donation_events,
     load_donation_matches,
-    load_economic_groups,
     load_law_firm_entities,
     load_lawyer_entities,
     load_metrics,
@@ -42,6 +45,7 @@ from ._builder_loaders import (
     load_sequential_analyses,
     load_session_events,
     load_temporal_analyses,
+    stream_economic_group_rows,
 )
 from ._builder_loaders_agenda import load_agenda_coverage, load_agenda_events, load_agenda_exposures
 from ._builder_schema import (
@@ -50,52 +54,151 @@ from ._builder_schema import (
     _ensure_compatible_schema,
     _serving_schema_fingerprint,
 )
-from ._builder_utils import ServingBuildResult, SourceFile
+from ._builder_scoring import compute_graph_scores
+from ._builder_utils import ServingBuildResult, SourceFile, _validate_inputs
 from .models import (
-    ServingAgendaCoverage,
-    ServingAgendaEvent,
-    ServingAgendaExposure,
     ServingAlert,
-    ServingAssignmentAudit,
     ServingCase,
-    ServingCompoundRisk,
-    ServingCorporateConflict,
     ServingCounsel,
-    ServingCounselAffinity,
-    ServingCounselDonationProfile,
-    ServingCounselNetworkCluster,
-    ServingCounselSanctionProfile,
-    ServingDecisionVelocity,
-    ServingDonationMatch,
     ServingEconomicGroup,
-    ServingLawFirmEntity,
-    ServingLawyerEntity,
-    ServingMetric,
-    ServingMinisterBio,
     ServingMinisterFlow,
-    ServingMlOutlierScore,
-    ServingMovement,
-    ServingOriginContext,
     ServingParty,
-    ServingPaymentCounterparty,
-    ServingProcessCounsel,
-    ServingProcessLawyer,
-    ServingProcessParty,
-    ServingRapporteurChange,
-    ServingRapporteurProfile,
-    ServingRepresentationEdge,
-    ServingRepresentationEvent,
-    ServingSanctionCorporateLink,
-    ServingSanctionMatch,
     ServingSchemaMeta,
-    ServingSequentialAnalysis,
-    ServingSessionEvent,
-    ServingSourceAudit,
-    ServingTemporalAnalysis,
 )
 
 DEFAULT_CURATED_DIR = Path("data/curated")
 DEFAULT_ANALYTICS_DIR = Path("data/analytics")
+
+logger = logging.getLogger(__name__)
+
+_EG_BATCH_SIZE = 5000
+
+_CRITICAL_TABLES: dict[type, int] = {
+    ServingCase: 1,
+    ServingAlert: 1,
+    ServingCounsel: 1,
+    ServingParty: 1,
+    ServingMinisterFlow: 1,
+    ServingSchemaMeta: 1,
+}
+
+
+def _rss_mb() -> float:
+    """Read VmRSS from /proc/self/status in megabytes."""
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024.0
+    except OSError:
+        pass
+    return 0.0
+
+
+def _log_phase(
+    phase: str,
+    *,
+    rss_before: float,
+    rss_after: float,
+    row_count: int,
+    elapsed: float,
+) -> None:
+    logger.info(
+        "Phase %s: %d rows, %.1fs, RSS %.0f→%.0f MB",
+        phase,
+        row_count,
+        elapsed,
+        rss_before,
+        rss_after,
+    )
+
+
+def _extract_db_path(database_url: str) -> Path:
+    """Extract the filesystem path from a SQLite database URL."""
+    prefix = "sqlite+pysqlite:///"
+    if not database_url.startswith(prefix):
+        msg = f"Expected sqlite+pysqlite:/// URL, got: {database_url}"
+        raise ValueError(msg)
+    return Path(database_url[len(prefix) :])
+
+
+def _validate_critical_tables(engine: Any) -> None:
+    """Verify critical tables have at least the minimum required rows."""
+    with Session(engine) as session:
+        for model, min_rows in _CRITICAL_TABLES.items():
+            count = session.scalar(select(func.count()).select_from(model)) or 0
+            if count < min_rows:
+                table_name = model.__tablename__  # type: ignore[attr-defined]
+                msg = f"Validation failed: {table_name} has {count} rows, expected at least {min_rows}"
+                raise RuntimeError(msg)
+
+
+def _collect_source_files(curated_dir: Path, analytics_dir: Path) -> list[SourceFile]:
+    """Enumerate required and optional source files for the build."""
+    required = [
+        SourceFile("process", "curated", curated_dir / "process.jsonl"),
+        SourceFile("decision_event", "curated", curated_dir / "decision_event.jsonl"),
+        SourceFile("party", "curated", curated_dir / "party.jsonl"),
+        SourceFile("process_party_link", "curated", curated_dir / "process_party_link.jsonl"),
+        SourceFile("counsel", "curated", curated_dir / "counsel.jsonl"),
+        SourceFile("process_counsel_link", "curated", curated_dir / "process_counsel_link.jsonl"),
+        SourceFile("outlier_alert", "analytics", analytics_dir / "outlier_alert.jsonl"),
+        SourceFile("outlier_alert_summary", "analytics", analytics_dir / "outlier_alert_summary.json"),
+        SourceFile("comparison_group_summary", "analytics", analytics_dir / "comparison_group_summary.json"),
+        SourceFile("baseline_summary", "analytics", analytics_dir / "baseline_summary.json"),
+    ]
+    optional = [
+        SourceFile("rapporteur_profile", "analytics", analytics_dir / "rapporteur_profile.jsonl"),
+        SourceFile("rapporteur_profile_summary", "analytics", analytics_dir / "rapporteur_profile_summary.json"),
+        SourceFile("sequential_analysis", "analytics", analytics_dir / "sequential_analysis.jsonl"),
+        SourceFile("sequential_analysis_summary", "analytics", analytics_dir / "sequential_analysis_summary.json"),
+        SourceFile("assignment_audit", "analytics", analytics_dir / "assignment_audit.jsonl"),
+        SourceFile("assignment_audit_summary", "analytics", analytics_dir / "assignment_audit_summary.json"),
+        SourceFile("ml_outlier_score", "analytics", analytics_dir / "ml_outlier_score.jsonl"),
+        SourceFile("ml_outlier_score_summary", "analytics", analytics_dir / "ml_outlier_score_summary.json"),
+        SourceFile("sanction_match", "analytics", analytics_dir / "sanction_match.jsonl"),
+        SourceFile("sanction_match_summary", "analytics", analytics_dir / "sanction_match_summary.json"),
+        SourceFile("counsel_sanction_profile", "analytics", analytics_dir / "counsel_sanction_profile.jsonl"),
+        SourceFile("donation_match", "analytics", analytics_dir / "donation_match.jsonl"),
+        SourceFile("donation_match_summary", "analytics", analytics_dir / "donation_match_summary.json"),
+        SourceFile("counsel_donation_profile", "analytics", analytics_dir / "counsel_donation_profile.jsonl"),
+        SourceFile("corporate_network", "analytics", analytics_dir / "corporate_network.jsonl"),
+        SourceFile("corporate_network_summary", "analytics", analytics_dir / "corporate_network_summary.json"),
+        SourceFile("counsel_affinity", "analytics", analytics_dir / "counsel_affinity.jsonl"),
+        SourceFile("counsel_affinity_summary", "analytics", analytics_dir / "counsel_affinity_summary.json"),
+        SourceFile("compound_risk", "analytics", analytics_dir / "compound_risk.jsonl"),
+        SourceFile("compound_risk_summary", "analytics", analytics_dir / "compound_risk_summary.json"),
+        SourceFile("temporal_analysis", "analytics", analytics_dir / "temporal_analysis.jsonl"),
+        SourceFile("temporal_analysis_summary", "analytics", analytics_dir / "temporal_analysis_summary.json"),
+        SourceFile("decision_velocity", "analytics", analytics_dir / "decision_velocity.jsonl"),
+        SourceFile("decision_velocity_summary", "analytics", analytics_dir / "decision_velocity_summary.json"),
+        SourceFile("rapporteur_change", "analytics", analytics_dir / "rapporteur_change.jsonl"),
+        SourceFile("rapporteur_change_summary", "analytics", analytics_dir / "rapporteur_change_summary.json"),
+        SourceFile("counsel_network_cluster", "analytics", analytics_dir / "counsel_network_cluster.jsonl"),
+        SourceFile(
+            "counsel_network_cluster_summary",
+            "analytics",
+            analytics_dir / "counsel_network_cluster_summary.json",
+        ),
+        SourceFile("economic_group", "analytics", analytics_dir / "economic_group.jsonl"),
+        SourceFile("lawyer_entity", "curated", curated_dir / "lawyer_entity.jsonl"),
+        SourceFile("law_firm_entity", "curated", curated_dir / "law_firm_entity.jsonl"),
+        SourceFile("representation_edge", "curated", curated_dir / "representation_edge.jsonl"),
+        SourceFile("representation_event", "curated", curated_dir / "representation_event.jsonl"),
+        SourceFile("agenda_event", "curated", curated_dir / "agenda_event.jsonl"),
+        SourceFile("agenda_coverage", "curated", curated_dir / "agenda_coverage.jsonl"),
+        SourceFile("agenda_exposure", "analytics", analytics_dir / "agenda_exposure.jsonl"),
+        SourceFile("payment_counterparty", "analytics", analytics_dir / "payment_counterparty.jsonl"),
+        SourceFile("sanction_corporate_link", "analytics", analytics_dir / "sanction_corporate_link.jsonl"),
+    ]
+    result = list(required)
+    result.extend(source for source in optional if source.path.exists())
+
+    missing = [source.path for source in result if not source.path.exists()]
+    if missing:
+        missing_text = ", ".join(str(path) for path in missing)
+        raise FileNotFoundError(f"Serving build requires existing artifacts: {missing_text}")
+    return result
 
 
 def build_serving_database(
@@ -105,71 +208,24 @@ def build_serving_database(
     analytics_dir: Path = DEFAULT_ANALYTICS_DIR,
     on_progress: Callable[[int, int, str], None] | None = None,
 ) -> ServingBuildResult:
-    engine = create_engine(database_url)
+    final_path = _extract_db_path(database_url)
+    build_path = final_path.with_suffix(final_path.suffix + ".build")
+    build_url = f"sqlite+pysqlite:///{build_path}"
+
+    # Remove stale build artifact if present.
+    build_path.unlink(missing_ok=True)
+
+    source_files = _collect_source_files(curated_dir, analytics_dir)
+    validation_report_build = build_path.parent / "validation_report.json.build"
+    _validate_inputs(
+        curated_dir,
+        analytics_dir,
+        report_path=validation_report_build,
+    )
+
+    engine = create_engine(build_url)
     try:
         _ensure_compatible_schema(engine)
-        source_files = [
-            SourceFile("process", "curated", curated_dir / "process.jsonl"),
-            SourceFile("decision_event", "curated", curated_dir / "decision_event.jsonl"),
-            SourceFile("party", "curated", curated_dir / "party.jsonl"),
-            SourceFile("process_party_link", "curated", curated_dir / "process_party_link.jsonl"),
-            SourceFile("counsel", "curated", curated_dir / "counsel.jsonl"),
-            SourceFile("process_counsel_link", "curated", curated_dir / "process_counsel_link.jsonl"),
-            SourceFile("outlier_alert", "analytics", analytics_dir / "outlier_alert.jsonl"),
-            SourceFile("outlier_alert_summary", "analytics", analytics_dir / "outlier_alert_summary.json"),
-            SourceFile("comparison_group_summary", "analytics", analytics_dir / "comparison_group_summary.json"),
-            SourceFile("baseline_summary", "analytics", analytics_dir / "baseline_summary.json"),
-        ]
-        optional_source_files = [
-            SourceFile("rapporteur_profile", "analytics", analytics_dir / "rapporteur_profile.jsonl"),
-            SourceFile("rapporteur_profile_summary", "analytics", analytics_dir / "rapporteur_profile_summary.json"),
-            SourceFile("sequential_analysis", "analytics", analytics_dir / "sequential_analysis.jsonl"),
-            SourceFile("sequential_analysis_summary", "analytics", analytics_dir / "sequential_analysis_summary.json"),
-            SourceFile("assignment_audit", "analytics", analytics_dir / "assignment_audit.jsonl"),
-            SourceFile("assignment_audit_summary", "analytics", analytics_dir / "assignment_audit_summary.json"),
-            SourceFile("ml_outlier_score", "analytics", analytics_dir / "ml_outlier_score.jsonl"),
-            SourceFile("ml_outlier_score_summary", "analytics", analytics_dir / "ml_outlier_score_summary.json"),
-            SourceFile("sanction_match", "analytics", analytics_dir / "sanction_match.jsonl"),
-            SourceFile("sanction_match_summary", "analytics", analytics_dir / "sanction_match_summary.json"),
-            SourceFile("counsel_sanction_profile", "analytics", analytics_dir / "counsel_sanction_profile.jsonl"),
-            SourceFile("donation_match", "analytics", analytics_dir / "donation_match.jsonl"),
-            SourceFile("donation_match_summary", "analytics", analytics_dir / "donation_match_summary.json"),
-            SourceFile("counsel_donation_profile", "analytics", analytics_dir / "counsel_donation_profile.jsonl"),
-            SourceFile("corporate_network", "analytics", analytics_dir / "corporate_network.jsonl"),
-            SourceFile("corporate_network_summary", "analytics", analytics_dir / "corporate_network_summary.json"),
-            SourceFile("counsel_affinity", "analytics", analytics_dir / "counsel_affinity.jsonl"),
-            SourceFile("counsel_affinity_summary", "analytics", analytics_dir / "counsel_affinity_summary.json"),
-            SourceFile("compound_risk", "analytics", analytics_dir / "compound_risk.jsonl"),
-            SourceFile("compound_risk_summary", "analytics", analytics_dir / "compound_risk_summary.json"),
-            SourceFile("temporal_analysis", "analytics", analytics_dir / "temporal_analysis.jsonl"),
-            SourceFile("temporal_analysis_summary", "analytics", analytics_dir / "temporal_analysis_summary.json"),
-            SourceFile("decision_velocity", "analytics", analytics_dir / "decision_velocity.jsonl"),
-            SourceFile("decision_velocity_summary", "analytics", analytics_dir / "decision_velocity_summary.json"),
-            SourceFile("rapporteur_change", "analytics", analytics_dir / "rapporteur_change.jsonl"),
-            SourceFile("rapporteur_change_summary", "analytics", analytics_dir / "rapporteur_change_summary.json"),
-            SourceFile("counsel_network_cluster", "analytics", analytics_dir / "counsel_network_cluster.jsonl"),
-            SourceFile(
-                "counsel_network_cluster_summary",
-                "analytics",
-                analytics_dir / "counsel_network_cluster_summary.json",
-            ),
-            SourceFile("economic_group", "analytics", analytics_dir / "economic_group.jsonl"),
-            SourceFile("lawyer_entity", "curated", curated_dir / "lawyer_entity.jsonl"),
-            SourceFile("law_firm_entity", "curated", curated_dir / "law_firm_entity.jsonl"),
-            SourceFile("representation_edge", "curated", curated_dir / "representation_edge.jsonl"),
-            SourceFile("representation_event", "curated", curated_dir / "representation_event.jsonl"),
-            SourceFile("agenda_event", "curated", curated_dir / "agenda_event.jsonl"),
-            SourceFile("agenda_coverage", "curated", curated_dir / "agenda_coverage.jsonl"),
-            SourceFile("agenda_exposure", "analytics", analytics_dir / "agenda_exposure.jsonl"),
-            SourceFile("payment_counterparty", "analytics", analytics_dir / "payment_counterparty.jsonl"),
-            SourceFile("sanction_corporate_link", "analytics", analytics_dir / "sanction_corporate_link.jsonl"),
-        ]
-        source_files.extend(source for source in optional_source_files if source.path.exists())
-
-        missing = [source.path for source in source_files if not source.path.exists()]
-        if missing:
-            missing_text = ", ".join(str(path) for path in missing)
-            raise FileNotFoundError(f"Serving build requires existing artifacts: {missing_text}")
 
         _total = 39  # 34 loaders + 5 DB phases
         _step = 0
@@ -180,16 +236,86 @@ def build_serving_database(
                 on_progress(_step, _total, desc)
             _step += 1
 
+        # ── Phase 1: Schema + cases + alerts ──────────────────────────
+        rss0 = _rss_mb()
+        t0 = time.monotonic()
+
         _tick("Serving: Carregando processos...")
         cases = load_cases(curated_dir)
         _tick("Serving: Carregando alertas...")
         alerts = load_alerts(analytics_dir)
+
+        _tick("Serving: Inserindo processos e alertas...")
+        with Session(engine) as session:
+            with session.begin():
+                session.add_all(cases)
+                session.add_all(alerts)
+
+        phase1_rows = len(cases) + len(alerts)
+        case_count = len(cases)
+        alert_count = len(alerts)
+        del cases, alerts
+        _log_phase(
+            "1-cases-alerts",
+            rss_before=rss0,
+            rss_after=_rss_mb(),
+            row_count=phase1_rows,
+            elapsed=time.monotonic() - t0,
+        )
+
+        # ── Phase 2: Minister flows ──────────────────────────────────
+        rss0 = _rss_mb()
+        t0 = time.monotonic()
+
+        _tick("Serving: Materializando fluxo ministros...")
+        with Session(engine) as session:
+            with session.begin():
+                minister_flows = _materialize_minister_flows(session)
+                session.add_all(minister_flows)
+
+        phase2_rows = len(minister_flows)
+        del minister_flows
+        _log_phase(
+            "2-minister-flows",
+            rss_before=rss0,
+            rss_after=_rss_mb(),
+            row_count=phase2_rows,
+            elapsed=time.monotonic() - t0,
+        )
+
+        # ── Phase 3: Entities ─────────────────────────────────────────
+        rss0 = _rss_mb()
+        t0 = time.monotonic()
+
         _tick("Serving: Carregando advogados...")
         counsels, process_counsels = load_counsels(curated_dir)
         _tick("Serving: Carregando partes...")
         parties, process_parties = load_parties(curated_dir)
-        _tick("Serving: Carregando métricas...")
-        metrics = load_metrics(analytics_dir)
+
+        _tick("Serving: Inserindo entidades...")
+        with Session(engine) as session:
+            with session.begin():
+                session.add_all(counsels)
+                session.add_all(process_counsels)
+                session.add_all(parties)
+                session.add_all(process_parties)
+
+        phase3_rows = len(counsels) + len(process_counsels) + len(parties) + len(process_parties)
+        counsel_count = len(counsels)
+        party_count = len(parties)
+        del counsels, process_counsels, parties, process_parties
+        _log_phase(
+            "3-entities",
+            rss_before=rss0,
+            rss_after=_rss_mb(),
+            row_count=phase3_rows,
+            elapsed=time.monotonic() - t0,
+        )
+
+        # ── Phase 4: Analytics ────────────────────────────────────────
+        rss0 = _rss_mb()
+        t0 = time.monotonic()
+
         _tick("Serving: Carregando perfis relatores...")
         rapporteur_profiles = load_rapporteur_profiles(analytics_dir)
         _tick("Serving: Carregando análises sequenciais...")
@@ -202,6 +328,39 @@ def build_serving_database(
         ml_outlier_scores = load_ml_outlier_scores(analytics_dir)
         _tick("Serving: Carregando contexto origem...")
         origin_contexts = load_origin_contexts(analytics_dir)
+
+        _tick("Serving: Inserindo analytics...")
+        with Session(engine) as session:
+            with session.begin():
+                session.add_all(rapporteur_profiles)
+                session.add_all(sequential_analyses)
+                session.add_all(temporal_analyses)
+                session.add_all(assignment_audits)
+                session.add_all(ml_outlier_scores)
+                session.add_all(origin_contexts)
+
+        phase4_rows = (
+            len(rapporteur_profiles)
+            + len(sequential_analyses)
+            + len(temporal_analyses)
+            + len(assignment_audits)
+            + len(ml_outlier_scores)
+            + len(origin_contexts)
+        )
+        del rapporteur_profiles, sequential_analyses, temporal_analyses
+        del assignment_audits, ml_outlier_scores, origin_contexts
+        _log_phase(
+            "4-analytics",
+            rss_before=rss0,
+            rss_after=_rss_mb(),
+            row_count=phase4_rows,
+            elapsed=time.monotonic() - t0,
+        )
+
+        # ── Phase 5: Risk ─────────────────────────────────────────────
+        rss0 = _rss_mb()
+        t0 = time.monotonic()
+
         _tick("Serving: Carregando sanções...")
         sanction_matches, counsel_sanction_profiles = load_sanction_matches(analytics_dir)
         _tick("Serving: Carregando vínculos corporativos sanção...")
@@ -223,8 +382,76 @@ def build_serving_database(
         rapporteur_changes = load_rapporteur_changes(analytics_dir)
         _tick("Serving: Carregando clusters de advogados...")
         counsel_network_clusters = load_counsel_network_clusters(analytics_dir)
+
+        _tick("Serving: Inserindo risco...")
+        with Session(engine) as session:
+            with session.begin():
+                session.add_all(sanction_matches)
+                session.add_all(counsel_sanction_profiles)
+                session.add_all(sanction_corporate_links)
+                session.add_all(donation_matches)
+                session.add_all(donation_events)
+                session.add_all(counsel_donation_profiles)
+                session.add_all(payment_counterparties)
+                session.add_all(corporate_conflicts)
+                session.add_all(counsel_affinities)
+                session.add_all(compound_risks)
+                session.add_all(decision_velocities)
+                session.add_all(rapporteur_changes)
+                session.add_all(counsel_network_clusters)
+
+        phase5_rows = (
+            len(sanction_matches)
+            + len(counsel_sanction_profiles)
+            + len(sanction_corporate_links)
+            + len(donation_matches)
+            + len(donation_events)
+            + len(counsel_donation_profiles)
+            + len(payment_counterparties)
+            + len(corporate_conflicts)
+            + len(counsel_affinities)
+            + len(compound_risks)
+            + len(decision_velocities)
+            + len(rapporteur_changes)
+            + len(counsel_network_clusters)
+        )
+        del sanction_matches, counsel_sanction_profiles, sanction_corporate_links
+        del donation_matches, donation_events, counsel_donation_profiles
+        del payment_counterparties, corporate_conflicts, counsel_affinities
+        del compound_risks, decision_velocities, rapporteur_changes
+        del counsel_network_clusters
+        _log_phase("5-risk", rss_before=rss0, rss_after=_rss_mb(), row_count=phase5_rows, elapsed=time.monotonic() - t0)
+
+        # ── Phase 6: Economic groups (Core bulk insert) ───────────────
+        rss0 = _rss_mb()
+        t0 = time.monotonic()
+
         _tick("Serving: Carregando grupos economicos...")
-        economic_groups = load_economic_groups(analytics_dir)
+        eg_count = 0
+        batch: list[dict[str, Any]] = []
+        with engine.begin() as conn:
+            for row in stream_economic_group_rows(analytics_dir):
+                batch.append(row)
+                if len(batch) >= _EG_BATCH_SIZE:
+                    conn.execute(insert(ServingEconomicGroup), batch)
+                    eg_count += len(batch)
+                    batch = []
+            if batch:
+                conn.execute(insert(ServingEconomicGroup), batch)
+                eg_count += len(batch)
+
+        _log_phase(
+            "6-economic-groups",
+            rss_before=rss0,
+            rss_after=_rss_mb(),
+            row_count=eg_count,
+            elapsed=time.monotonic() - t0,
+        )
+
+        # ── Phase 7: Remaining ────────────────────────────────────────
+        rss0 = _rss_mb()
+        t0 = time.monotonic()
+
         _tick("Serving: Carregando biografias ministros...")
         minister_bios = load_minister_bios(curated_dir)
         _tick("Serving: Carregando movimentações...")
@@ -247,88 +474,11 @@ def build_serving_database(
         agenda_coverage = load_agenda_coverage(curated_dir)
         _tick("Serving: Carregando exposicoes agenda...")
         agenda_exposures = load_agenda_exposures(analytics_dir)
-        _tick("Serving: Calculando auditorias...")
-        audits = build_source_audits(source_files)
 
-        _tick("Serving: Limpando banco...")
+        _tick("Serving: Inserindo dados restantes...")
         with Session(engine) as session:
             with session.begin():
-                for model in (
-                    ServingSourceAudit,
-                    ServingMetric,
-                    ServingSchemaMeta,
-                    ServingAgendaExposure,
-                    ServingAgendaCoverage,
-                    ServingAgendaEvent,
-                    ServingRepresentationEvent,
-                    ServingRepresentationEdge,
-                    ServingProcessLawyer,
-                    ServingLawFirmEntity,
-                    ServingLawyerEntity,
-                    ServingSessionEvent,
-                    ServingMovement,
-                    ServingPaymentCounterparty,
-                    ServingEconomicGroup,
-                    ServingCounselNetworkCluster,
-                    ServingRapporteurChange,
-                    ServingDecisionVelocity,
-                    ServingCounselAffinity,
-                    ServingCompoundRisk,
-                    ServingCorporateConflict,
-                    ServingCounselDonationProfile,
-                    ServingDonationMatch,
-                    ServingCounselSanctionProfile,
-                    ServingSanctionCorporateLink,
-                    ServingSanctionMatch,
-                    ServingOriginContext,
-                    ServingMinisterBio,
-                    ServingMinisterFlow,
-                    ServingAssignmentAudit,
-                    ServingTemporalAnalysis,
-                    ServingSequentialAnalysis,
-                    ServingRapporteurProfile,
-                    ServingMlOutlierScore,
-                    ServingProcessParty,
-                    ServingParty,
-                    ServingProcessCounsel,
-                    ServingCounsel,
-                    ServingAlert,
-                    ServingCase,
-                ):
-                    session.execute(delete(model))
-                _tick("Serving: Inserindo processos e alertas...")
-                session.add_all(cases)
-                session.add_all(alerts)
-                session.flush()
-                _tick("Serving: Materializando fluxo ministros...")
-                minister_flows = _materialize_minister_flows(session)
-                _tick("Serving: Inserindo entidades e analytics...")
-                session.add_all(counsels)
-                session.add_all(process_counsels)
-                session.add_all(parties)
-                session.add_all(process_parties)
-                session.add_all(rapporteur_profiles)
-                session.add_all(temporal_analyses)
-                session.add_all(sequential_analyses)
-                session.add_all(assignment_audits)
-                session.add_all(ml_outlier_scores)
-                session.add_all(origin_contexts)
-                session.add_all(sanction_matches)
-                session.add_all(sanction_corporate_links)
-                session.add_all(counsel_sanction_profiles)
-                session.add_all(donation_matches)
-                session.add_all(donation_events)
-                session.add_all(payment_counterparties)
-                session.add_all(counsel_donation_profiles)
-                session.add_all(corporate_conflicts)
-                session.add_all(counsel_affinities)
-                session.add_all(compound_risks)
-                session.add_all(decision_velocities)
-                session.add_all(rapporteur_changes)
-                session.add_all(counsel_network_clusters)
-                session.add_all(economic_groups)
                 session.add_all(minister_bios)
-                session.add_all(minister_flows)
                 session.add_all(movements)
                 session.add_all(session_events)
                 session.add_all(lawyer_entities)
@@ -339,9 +489,81 @@ def build_serving_database(
                 session.add_all(agenda_events)
                 session.add_all(agenda_coverage)
                 session.add_all(agenda_exposures)
+
+        phase7_rows = (
+            len(minister_bios)
+            + len(movements)
+            + len(session_events)
+            + len(lawyer_entities)
+            + len(law_firm_entities)
+            + len(process_lawyers)
+            + len(representation_edges)
+            + len(representation_events)
+            + len(agenda_events)
+            + len(agenda_coverage)
+            + len(agenda_exposures)
+        )
+        del minister_bios, movements, session_events
+        del lawyer_entities, law_firm_entities, process_lawyers
+        del representation_edges, representation_events
+        del agenda_events, agenda_coverage, agenda_exposures
+        _log_phase(
+            "7-remaining",
+            rss_before=rss0,
+            rss_after=_rss_mb(),
+            row_count=phase7_rows,
+            elapsed=time.monotonic() - t0,
+        )
+
+        # ── Phase 8: Graph materialization ────────────────────────────
+        rss0 = _rss_mb()
+        t0 = time.monotonic()
+        _tick("Serving: Materializando grafo...")
+        with Session(engine) as session:
+            with session.begin():
+                graph_counts = materialize_graph(
+                    session,
+                    analytics_dir=analytics_dir,
+                    curated_dir=curated_dir,
+                )
+        graph_total = sum(graph_counts.values())
+        _log_phase(
+            "8-graph",
+            rss_before=rss0,
+            rss_after=_rss_mb(),
+            row_count=graph_total,
+            elapsed=time.monotonic() - t0,
+        )
+
+        # ── Phase 8b: Graph scoring ───────────────────────────────────
+        rss0 = _rss_mb()
+        t0 = time.monotonic()
+        _tick("Serving: Scoring de grafo...")
+        with Session(engine) as session:
+            with session.begin():
+                score_counts = compute_graph_scores(session)
+        _log_phase(
+            "8b-scoring",
+            rss_before=rss0,
+            rss_after=_rss_mb(),
+            row_count=score_counts.get("scores", 0),
+            elapsed=time.monotonic() - t0,
+        )
+
+        # ── Phase 9: Metadata ─────────────────────────────────────────
+        rss0 = _rss_mb()
+        t0 = time.monotonic()
+
+        _tick("Serving: Calculando auditorias...")
+        audits = build_source_audits(source_files)
+        _tick("Serving: Carregando métricas...")
+        metrics = load_metrics(analytics_dir)
+
+        _tick("Serving: Finalizando metadados...")
+        with Session(engine) as session:
+            with session.begin():
                 session.add_all(metrics)
                 session.add_all(audits)
-                _tick("Serving: Finalizando metadados...")
                 session.add(
                     ServingSchemaMeta(
                         singleton_key=SERVING_SCHEMA_SINGLETON_KEY,
@@ -351,16 +573,44 @@ def build_serving_database(
                     )
                 )
 
-        if on_progress:
-            on_progress(_total, _total, "Serving: Concluído")
-
-        return ServingBuildResult(
-            database_url=database_url,
-            case_count=len(cases),
-            alert_count=len(alerts),
-            counsel_count=len(counsels),
-            party_count=len(parties),
-            source_count=len(audits),
+        source_count = len(audits)
+        del metrics, audits
+        _log_phase(
+            "8-metadata",
+            rss_before=rss0,
+            rss_after=_rss_mb(),
+            row_count=source_count,
+            elapsed=time.monotonic() - t0,
         )
-    finally:
+
+        # ── Validation before publish ─────────────────────────────────
+        _validate_critical_tables(engine)
+
+    except BaseException:
+        # Build failed after engine creation — clean up the temporary
+        # .build file so it doesn't consume disk until the next run.
+        # The final published database is never touched here.
         engine.dispose()
+        build_path.unlink(missing_ok=True)
+        raise
+    else:
+        engine.dispose()
+
+    # ── Atomic publication ────────────────────────────────────────────
+    final_path.parent.mkdir(parents=True, exist_ok=True)
+    build_path.rename(final_path)
+    validation_report_final = final_path.parent / "validation_report.json"
+    if validation_report_build.exists():
+        validation_report_build.rename(validation_report_final)
+
+    if on_progress:
+        on_progress(_total, _total, "Serving: Concluido")
+
+    return ServingBuildResult(
+        database_url=database_url,
+        case_count=case_count,
+        alert_count=alert_count,
+        counsel_count=counsel_count,
+        party_count=party_count,
+        source_count=source_count,
+    )

@@ -164,11 +164,13 @@ def _parse_empresas_reader(
         if cnpj_basico not in target_cnpjs:
             continue
 
-        capital_raw = row[4].strip().replace(",", ".") if len(row) > 4 else "0"
-        try:
-            capital_social = float(capital_raw)
-        except ValueError:
-            capital_social = 0.0
+        capital_raw = row[4].strip().replace(",", ".") if len(row) > 4 else ""
+        capital_social: float | None = None
+        if capital_raw:
+            try:
+                capital_social = float(capital_raw)
+            except ValueError:
+                capital_social = None
 
         records.append(
             {

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections import Counter, defaultdict
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -173,7 +174,38 @@ def build_sanction_corporate_links(
         # Step 9: Resolve corporate routes
         ctx.start_step(9, "SCL: Resolvendo rotas corporativas...", total_items=len(sanctions), unit="sanções")
 
+        # Match cache: (partner_name_normalized, partner_doc_normalized) -> EntityMatchResult | None
+        # Safe because stf_index is immutable within this run and match_entity_record is pure
+        # given the same (name, doc, index, name_field).
+        _match_cache: dict[tuple[str, str], Any] = {}
+        _match_cache_hits = 0
+        _match_cache_misses = 0
+
+        # Circuit breaker: truncate if a single sanction touches too many CNPJs
+        _MAX_CNPJS_PER_SANCTION = 5000
+        _truncated_sanctions: list[dict[str, str]] = []
+        _all_groups_touched: set[str] = set()
+        _total_group_touches: int = 0
+        _total_partners_scanned: int = 0
+        _total_cnpjs_scanned: int = 0
+        sanctions_processed: int = 0
+        _last_log_mono = time.monotonic()
+
+        def _maybe_log_by_time() -> None:
+            nonlocal _last_log_mono
+            now = time.monotonic()
+            if (now - _last_log_mono) < 30.0:
+                return
+            _last_log_mono = now
+            logger.info(
+                "build_sanction_corporate_links: sanctions=%d/%d records=%d "
+                "cache_hits=%d cache_misses=%d groups_unique=%d truncated=%d",
+                sanctions_processed, len(sanctions), len(output_records),
+                _match_cache_hits, _match_cache_misses, len(_all_groups_touched), len(_truncated_sanctions),
+            )
+
         for sanction in sanctions:
+            sanction_start = time.monotonic()
             sanction_id = str(sanction.get("sanction_id", ""))
             raw_doc = str(sanction.get("entity_cnpj_cpf", "") or sanction.get("cpf_cnpj_sancionado", "") or "")
             sanction_entity_name = str(sanction.get("entity_name", "") or sanction.get("razao_social", "") or "")
@@ -209,52 +241,201 @@ def build_sanction_corporate_links(
                     if cb:
                         bridge_companies.append((cb, "exact_partner_cpf", partner))
 
+            # --- Deduplicate scan universe across all bridges for this sanction ---
+            #
+            # Structure:
+            #   Phase 1: collect bridge metas + degree-2 CNPJs.
+            #   Phase 2: estimate degree-3 universe size. If > budget, truncate BEFORE expanding.
+            #   Phase 3: expand degree-3 only if not truncated.
+            #   Phase 4: build cnpj_to_bridges map (deduplicated by bridge identity).
+
+            # Each bridge meta: (link_basis, bridge_cnpj, bridge_partner_record, bridge_company_record)
+            all_bridge_metas: list[tuple[str, str, dict[str, Any] | None, dict[str, Any]]] = []
+            unified_cnpjs: dict[str, int] = {}  # cnpj -> min degree
+            seen_group_ids: set[str] = set()
+            group_to_bridge_indices: dict[str, list[int]] = {}
+
+            # Phase 1: degree-2 bridges
             for bridge_cnpj, link_basis, bridge_partner in bridge_companies:
                 company = company_index.get(bridge_cnpj, {})
-                establishment = establishment_index.get(bridge_cnpj)
-                bridge_company_name = (
-                    company.get("razao_social")
-                    or (establishment.get("nome_fantasia") if establishment else None)
-                    or bridge_cnpj
-                )
+                meta_idx = len(all_bridge_metas)
+                all_bridge_metas.append((link_basis, bridge_cnpj, bridge_partner, company))
 
-                # Collect all CNPJs to scan (bridge + economic group members)
-                cnpjs_to_scan: list[tuple[str, int]] = [(bridge_cnpj, 2)]
+                if bridge_cnpj not in unified_cnpjs or unified_cnpjs[bridge_cnpj] > 2:
+                    unified_cnpjs[bridge_cnpj] = 2
+
                 eg = eg_index.get(bridge_cnpj)
                 if eg:
-                    for member_cnpj in eg.get("member_cnpjs", []):
-                        if member_cnpj != bridge_cnpj:
-                            cnpjs_to_scan.append((member_cnpj, 3))
+                    gid = eg.get("group_id", "")
+                    group_to_bridge_indices.setdefault(gid, []).append(meta_idx)
+                    seen_group_ids.add(gid)
 
-                for scan_cnpj, base_degree in cnpjs_to_scan:
-                    scan_partners = partner_by_cnpj_basico.get(scan_cnpj, [])
-                    for co_partner in scan_partners:
-                        partner_name = co_partner.get("partner_name_normalized", "")
-                        partner_doc = normalize_tax_id(co_partner.get("partner_cpf_cnpj", ""))
+            _all_groups_touched.update(seen_group_ids)
+            _total_group_touches += len(seen_group_ids)
+            ctx.pulse(f"{sanction_entity_name}: bridges coletadas", extra={
+                "current_phase": "bridges",
+                "current_sanction": sanction_entity_name,
+                "bridge_companies_found": len(bridge_companies),
+                "unique_groups_touched": len(seen_group_ids),
+            })
 
-                        if not partner_name:
-                            continue
-                        # Skip if co-partner IS the sanctioned entity
-                        if partner_doc and partner_doc == tax_id_normalized:
-                            continue
+            # TECH DEBT: Componente conectado (RFB QSA) ≠ grupo econômico para inferência.
+            # O circuit breaker é guardrail operacional, não threshold semântico.
+            # Trabalho futuro: travessia que pesa tipos de aresta (controle vs. minoritário).
 
+            # Phase 2: estimate degree-3 universe size BEFORE expanding
+            estimated_degree3 = 0
+            for gid in seen_group_ids:
+                # Pick any bridge in this group to get member count
+                sample_idx = group_to_bridge_indices[gid][0]
+                sample_bridge_cnpj = all_bridge_metas[sample_idx][1]
+                eg_rec = eg_index.get(sample_bridge_cnpj)
+                if eg_rec:
+                    estimated_degree3 += len(eg_rec.get("member_cnpjs", []))
+
+            # Upper bound: may overcount due to overlap between degree-2 bridges and
+            # group members, but safe for circuit breaker (truncates conservatively).
+            pre_truncation_count = len(unified_cnpjs) + estimated_degree3
+            truncated = False
+            if pre_truncation_count > _MAX_CNPJS_PER_SANCTION:
+                _truncated_sanctions.append({
+                    "sanction_id": sanction_id or f"{sanction_entity_name}:{raw_doc}",
+                    "entity_name": sanction_entity_name,
+                })
+                logger.warning(
+                    "SCL: Truncating scan for %s (estimated %d CNPJs > %d limit, skipping group expansion)",
+                    sanction_entity_name,
+                    pre_truncation_count,
+                    _MAX_CNPJS_PER_SANCTION,
+                )
+                truncated = True
+                # Do NOT expand degree-3 — keep only degree-2 bridges
+
+            ctx.pulse(f"{sanction_entity_name}: estimativa degree-3", extra={
+                "current_phase": "estimate",
+                "current_sanction": sanction_entity_name,
+                "estimated_degree3_count": estimated_degree3,
+                "unique_cnpjs_to_scan": len(unified_cnpjs),
+                "truncated": truncated,
+            })
+
+            # Phase 3: expand degree-3 only if not truncated
+            if not truncated:
+                for gid in seen_group_ids:
+                    sample_idx = group_to_bridge_indices[gid][0]
+                    sample_bridge_cnpj = all_bridge_metas[sample_idx][1]
+                    eg_rec = eg_index.get(sample_bridge_cnpj)
+                    if eg_rec:
+                        for member_cnpj in eg_rec.get("member_cnpjs", []):
+                            if member_cnpj not in unified_cnpjs:
+                                unified_cnpjs[member_cnpj] = 3
+
+            # Phase 4: build cnpj_to_bridges map
+            # Degree-2: each bridge CNPJ maps to its own bridge metas.
+            # Degree-3: each group member maps to ALL bridges whose group contains it.
+            # Dedup by (link_basis, bridge_cnpj) to avoid duplicate bridge entries.
+            cnpj_to_bridges: dict[str, list[tuple[str, str, dict[str, Any] | None, dict[str, Any]]]] = {}
+            for meta in all_bridge_metas:
+                _lb, bc, _bp, _co = meta
+                cnpj_to_bridges.setdefault(bc, []).append(meta)
+
+            if not truncated:
+                for gid, bridge_indices in group_to_bridge_indices.items():
+                    group_metas = [all_bridge_metas[i] for i in bridge_indices]
+                    # Dedup group_metas by (link_basis, bridge_cnpj, bridge_partner_id).
+                    # Two metas with same link_basis and bridge_cnpj but different bridge_partner
+                    # represent distinct routes (e.g. different PJ partners at the same company).
+                    seen_bridge_keys: set[tuple[str, str, str]] = set()
+                    deduped_metas: list[tuple[str, str, dict[str, Any] | None, dict[str, Any]]] = []
+                    for m in group_metas:
+                        bp_id = m[2].get("partner_cpf_cnpj", "") if m[2] else ""
+                        bk = (m[0], m[1], bp_id)  # (link_basis, bridge_cnpj, bridge_partner_doc)
+                        if bk not in seen_bridge_keys:
+                            seen_bridge_keys.add(bk)
+                            deduped_metas.append(m)
+
+                    sample_bridge_cnpj = all_bridge_metas[bridge_indices[0]][1]
+                    eg_rec = eg_index.get(sample_bridge_cnpj)
+                    if eg_rec:
+                        for member_cnpj in eg_rec.get("member_cnpjs", []):
+                            if member_cnpj in unified_cnpjs and unified_cnpjs[member_cnpj] >= 3:
+                                cnpj_to_bridges.setdefault(member_cnpj, []).extend(deduped_metas)
+
+            # Iterate unified universe once
+            _last_scan_pulse = time.monotonic()
+            scan_count = 0
+            partners_scanned = 0
+            for scan_cnpj, base_degree in unified_cnpjs.items():
+                scan_count += 1
+                _total_cnpjs_scanned += 1
+                scan_partners = partner_by_cnpj_basico.get(scan_cnpj, [])
+                partners_scanned += len(scan_partners)
+                _total_partners_scanned += len(scan_partners)
+                now_mono = time.monotonic()
+                if scan_count % 500 == 0 or (now_mono - _last_scan_pulse) >= 5.0:
+                    _last_scan_pulse = now_mono
+                    ctx.pulse(f"{sanction_entity_name}: scanning", extra={
+                        "current_phase": "scan",
+                        "current_sanction": sanction_entity_name,
+                        "scan_cnpjs_done": scan_count,
+                        "unique_cnpjs_to_scan": len(unified_cnpjs),
+                        "partners_scanned": partners_scanned,
+                        "match_calls": _match_cache_hits + _match_cache_misses,
+                        "cache_hits": _match_cache_hits,
+                        "cache_misses": _match_cache_misses,
+                    })
+                    _maybe_log_by_time()
+                for co_partner in scan_partners:
+                    partner_name = co_partner.get("partner_name_normalized", "")
+                    partner_doc = normalize_tax_id(co_partner.get("partner_cpf_cnpj", ""))
+
+                    if not partner_name:
+                        continue
+                    # Skip if co-partner IS the sanctioned entity
+                    if partner_doc and partner_doc == tax_id_normalized:
+                        continue
+
+                    # Cached fuzzy match
+                    cache_key = (partner_name, partner_doc or "")
+                    if cache_key in _match_cache:
+                        match_result = _match_cache[cache_key]
+                        _match_cache_hits += 1
+                    else:
                         match_result = match_entity_record(
                             query_name=partner_name,
                             query_tax_id=partner_doc,
                             index=stf_index,
                             name_field="entity_name_normalized",
                         )
-                        if match_result is None or match_result.strategy == "ambiguous":
-                            continue
+                        _match_cache[cache_key] = match_result
+                        _match_cache_misses += 1
 
-                        matched_record = match_result.record
-                        stf_entity_type = str(matched_record.get("entity_type", ""))
-                        stf_entity_id = str(matched_record.get("entity_id", ""))
-                        stf_entity_name = str(matched_record.get("entity_name_normalized", ""))
+                    if match_result is None or match_result.strategy == "ambiguous":
+                        continue
 
-                        if stf_entity_type not in {"party", "counsel"}:
-                            continue
+                    matched_record = match_result.record
+                    stf_entity_type = str(matched_record.get("entity_type", ""))
+                    stf_entity_id = str(matched_record.get("entity_id", ""))
+                    stf_entity_name = str(matched_record.get("entity_name_normalized", ""))
 
+                    if stf_entity_type not in {"party", "counsel"}:
+                        continue
+
+                    # Emit one record per bridge that led to this scan_cnpj.
+                    # Uses pre-computed cnpj_to_bridges (all bridges, no break).
+                    scan_bridges = cnpj_to_bridges.get(scan_cnpj, [])
+                    if not scan_bridges:
+                        # No bridge mapped to this CNPJ — should not happen with correct
+                        # cnpj_to_bridges construction.  Log and skip rather than
+                        # silently attributing to an arbitrary bridge.
+                        logger.debug(
+                            "SCL: No bridge for scan_cnpj=%s (sanction=%s) — skipping",
+                            scan_cnpj,
+                            sanction_entity_name,
+                        )
+                        continue
+
+                    for link_basis, bridge_cnpj, bridge_partner, bridge_company in scan_bridges:
                         dedup_key = (sanction_id, bridge_cnpj, stf_entity_type, stf_entity_id, link_basis)
                         if dedup_key in seen_keys:
                             continue
@@ -293,30 +474,51 @@ def build_sanction_corporate_links(
                             delta = favorable_rate - baseline_rate
                             risk_score = delta * _degree_decay(link_degree)
                             red_flag = (
-                                risk_score > RED_FLAG_DELTA_THRESHOLD and stf_process_count >= MIN_CASES_FOR_RED_FLAG
+                                risk_score > RED_FLAG_DELTA_THRESHOLD
+                                and stf_process_count >= MIN_CASES_FOR_RED_FLAG
                             )
 
-                        power = red_flag_power(stf_process_count, baseline_rate) if baseline_rate is not None else None
+                        power = (
+                            red_flag_power(stf_process_count, baseline_rate) if baseline_rate is not None else None
+                        )
                         confidence = red_flag_confidence_label(power)
+
+                        bridge_company_name = (
+                            (bridge_company.get("razao_social") if bridge_company else None)
+                            or (establishment_index.get(bridge_cnpj, {}).get("nome_fantasia"))
+                            or bridge_cnpj
+                        )
+                        eg = eg_index.get(bridge_cnpj)
 
                         # Evidence chain
                         evidence_chain: list[str] = [
                             f"Sanção {sanction_source.upper()}: {sanction_entity_name} ({raw_doc})",
                         ]
                         if link_basis == "exact_cnpj_basico":
-                            evidence_chain.append(f"→ Empresa {bridge_company_name} (CNPJ base {bridge_cnpj})")
+                            evidence_chain.append(
+                                f"→ Empresa {bridge_company_name} (CNPJ base {bridge_cnpj})"
+                            )
                         elif link_basis == "exact_partner_cnpj":
-                            evidence_chain.append(f"→ Sócio PJ em {bridge_company_name} (CNPJ base {bridge_cnpj})")
+                            evidence_chain.append(
+                                f"→ Sócio PJ em {bridge_company_name} (CNPJ base {bridge_cnpj})"
+                            )
                         else:
-                            evidence_chain.append(f"→ Sócio PF em {bridge_company_name} (CNPJ base {bridge_cnpj})")
+                            evidence_chain.append(
+                                f"→ Sócio PF em {bridge_company_name} (CNPJ base {bridge_cnpj})"
+                            )
                         if scan_cnpj != bridge_cnpj:
                             scan_company = company_index.get(scan_cnpj, {})
-                            evidence_chain.append(f"→ Grupo econômico: {scan_company.get('razao_social', scan_cnpj)}")
+                            evidence_chain.append(
+                                f"→ Grupo econômico: {scan_company.get('razao_social', scan_cnpj)}"
+                            )
                         match_desc = f"match: {match_result.strategy}"
                         if match_result.score is not None:
                             match_desc += f", score {match_result.score}"
-                        evidence_chain.append(f"→ Co-sócio {partner_name} = {stf_entity_type} STF ({match_desc})")
+                        evidence_chain.append(
+                            f"→ Co-sócio {partner_name} = {stf_entity_type} STF ({match_desc})"
+                        )
 
+                        establishment = establishment_index.get(bridge_cnpj)
                         hq_uf = establishment.get("uf") if establishment else None
                         hq_cnae = establishment.get("cnae_fiscal") if establishment else None
                         if hq_uf:
@@ -345,11 +547,9 @@ def build_sanction_corporate_links(
                             "bridge_company_cnpj_basico": bridge_cnpj,
                             "bridge_company_name": bridge_company_name,
                             "bridge_link_basis": link_basis,
-                            "bridge_confidence": "deterministic",
+                            "bridge_confidence": "deterministic" if not truncated else "truncated",
                             "bridge_partner_role": (
-                                co_partner.get("qualification_label")
-                                if co_partner != bridge_partner
-                                else (bridge_partner.get("qualification_label") if bridge_partner else None)
+                                bridge_partner.get("qualification_label") if bridge_partner else None
                             ),
                             "bridge_qualification_code": co_partner.get("qualification_code"),
                             "bridge_qualification_label": co_partner.get("qualification_label"),
@@ -382,6 +582,16 @@ def build_sanction_corporate_links(
                             "red_flag_confidence": confidence,
                             "evidence_chain": evidence_chain,
                             "source_datasets": sorted(set(source_datasets)),
+                            "truncated": truncated,
+                            "pre_truncation_cnpj_count": pre_truncation_count if truncated else None,
+                            # Campos de contexto da sanção, denormalizados por record de propósito.
+                            # Repetidos identicamente em todos os records da mesma sanção.
+                            "truncation_reason": (
+                                f"estimated_{pre_truncation_count}_cnpjs_exceeds_{_MAX_CNPJS_PER_SANCTION}_limit"
+                                if truncated else None
+                            ),
+                            "post_truncation_cnpj_count": len(unified_cnpjs) if truncated else None,
+                            "estimated_degree3_count": estimated_degree3,
                             "generated_at": now_iso,
                         }
                         record["record_hash"] = _record_hash(record)
@@ -390,6 +600,32 @@ def build_sanction_corporate_links(
                         output_records.append(record)
 
             ctx.advance(1, current_item=sanction_entity_name)
+            sanctions_processed += 1
+
+            sanction_elapsed = time.monotonic() - sanction_start
+            if sanction_elapsed > 60.0:
+                logger.warning(
+                    "build_sanction_corporate_links: sanction %s took %.1fs (bridges=%d, cnpjs=%d)",
+                    sanction_entity_name, sanction_elapsed, len(bridge_companies), len(unified_cnpjs),
+                )
+
+            if sanctions_processed % 100 == 0:
+                _last_log_mono = time.monotonic()
+                logger.info(
+                    "build_sanction_corporate_links: sanctions=%d/%d records=%d "
+                    "cache_hits=%d cache_misses=%d groups_unique=%d truncated=%d",
+                    sanctions_processed, len(sanctions), len(output_records),
+                    _match_cache_hits, _match_cache_misses, len(_all_groups_touched), len(_truncated_sanctions),
+                )
+            _maybe_log_by_time()
+
+        logger.info(
+            "build_sanction_corporate_links: match_cache hits=%d misses=%d (%.1f%% hit rate), truncated=%d sanctions",
+            _match_cache_hits,
+            _match_cache_misses,
+            _match_cache_hits * 100.0 / max(_match_cache_hits + _match_cache_misses, 1),
+            len(_truncated_sanctions),
+        )
 
         # Step 10: Dedup and sort
         ctx.start_step(10, "SCL: Deduplicando e ordenando...")
@@ -441,6 +677,20 @@ def build_sanction_corporate_links(
             "sanctions_scanned": len(sanctions),
             "degree_counts": {str(k): v for k, v in sorted(degree_counts.items())},
             "source_counts": dict(Counter(r["sanction_source"] for r in final_records)),
+            "truncated_sanctions": _truncated_sanctions,
+            "truncated_sanctions_count": len(_truncated_sanctions),
+            "cache_stats": {
+                "hits": _match_cache_hits,
+                "misses": _match_cache_misses,
+                "hit_rate_pct": round(
+                    _match_cache_hits * 100.0 / max(_match_cache_hits + _match_cache_misses, 1), 2
+                ),
+            },
+            "total_match_calls": _match_cache_hits + _match_cache_misses,
+            "unique_groups_touched": len(_all_groups_touched),
+            "total_group_touches": _total_group_touches,
+            "total_partners_scanned": _total_partners_scanned,
+            "total_cnpjs_scanned": _total_cnpjs_scanned,
             "generated_at": now_iso,
         }
         summary_path = output_dir / "sanction_corporate_link_summary.json"

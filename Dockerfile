@@ -26,4 +26,11 @@ EXPOSE 8000
 
 USER app
 
+# SQLite: single worker only.  Multiple workers would contend on the
+# same database file.  Override CMD (not this line) to change host/port.
 CMD ["uvicorn", "atlas_stf.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+
+# Verifies that the API process is responsive and the database is readable.
+# Uses Python stdlib to avoid adding curl/wget to the slim image.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD python -c "from urllib.request import urlopen; urlopen('http://localhost:8000/health')"

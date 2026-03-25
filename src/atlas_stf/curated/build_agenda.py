@@ -75,6 +75,7 @@ def build_agenda_events(
     tick("Agenda: Cruzando referencias...")
     ts = utc_now_iso()
     curated: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
 
     for ev in raw_events:
         slug = ev.get("minister_slug", "")
@@ -104,9 +105,14 @@ def build_agenda_events(
                     }
                 )
 
+        aev_id = ev.get("event_id") or stable_id("aev_", f"{slug}:{ev.get('event_date', '')}")
+        if aev_id in seen_ids:
+            continue
+        seen_ids.add(aev_id)
+
         curated.append(
             {
-                "agenda_event_id": ev.get("event_id") or stable_id("aev_", f"{slug}:{ev.get('event_date', '')}"),
+                "agenda_event_id": aev_id,
                 "minister_slug": slug,
                 "minister_name": ev.get("minister_name", ""),
                 "event_date": ev.get("event_date"),

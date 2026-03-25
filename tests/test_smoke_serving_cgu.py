@@ -255,24 +255,29 @@ class TestPhaseCCguNormalization:
     ) -> None:
         cols = [
             "CADASTRO",
-            "SANCAO",
-            "TIPO PESSOA",
-            "CPF/CNPJ",
-            "NOME",
-            "ORG",
-            "RAZAO",
-            "FANTASIA",
-            "PROCESSO",
-            "CATEGORIA",
-            "INICIO",
-            "FINAL",
-            "COL12",
-            "DESCRICAO",
-            "COL14",
-            "COL15",
-            "COL16",
-            "ORGAO",
-            "UF",
+            "CÓDIGO DA SANÇÃO",
+            "TIPO DE PESSOA",
+            "CPF OU CNPJ DO SANCIONADO",
+            "NOME DO SANCIONADO",
+            "NOME INFORMADO PELO ÓRGÃO SANCIONADOR",
+            "RAZÃO SOCIAL - CADASTRO RECEITA",
+            "NOME FANTASIA - CADASTRO RECEITA",
+            "NÚMERO DO PROCESSO",
+            "CATEGORIA DA SANÇÃO",
+            "DATA INÍCIO SANÇÃO",
+            "DATA FINAL SANÇÃO",
+            "DATA PUBLICAÇÃO",
+            "PUBLICAÇÃO",
+            "DETALHAMENTO DO MEIO DE PUBLICAÇÃO",
+            "DATA DO TRÂNSITO EM JULGADO",
+            "ABRAGÊNCIA DA SANÇÃO",
+            "ÓRGÃO SANCIONADOR",
+            "UF ÓRGÃO SANCIONADOR",
+            "ESFERA ÓRGÃO SANCIONADOR",
+            "FUNDAMENTAÇÃO LEGAL",
+            "DATA ORIGEM INFORMAÇÃO",
+            "ORIGEM INFORMAÇÕES",
+            "OBSERVAÇÕES",
         ]
         header = ";".join(cols)
         row1 = ";".join(
@@ -296,6 +301,11 @@ class TestPhaseCCguNormalization:
                 "",
                 "CGU",
                 "DF",
+                "",
+                "",
+                "",
+                "",
+                "",
             ]
         )
         row2 = ";".join(
@@ -319,6 +329,11 @@ class TestPhaseCCguNormalization:
                 "",
                 "TCU",
                 "SP",
+                "",
+                "",
+                "",
+                "",
+                "",
             ]
         )
         csv_path = tmp_path / "ceis.csv"

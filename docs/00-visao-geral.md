@@ -175,6 +175,8 @@ O projeto deve ser capaz de:
 - produzir listas priorizadas de casos atípicos;
 - explicar por que um caso foi sinalizado;
 - expor recortes, alertas e detalhes de caso em API e interface auditáveis;
+- materializar um grafo de investigação com scoring decomposto para priorização de revisão;
+- permitir revisão humana estruturada via fila de revisão com status rastreáveis;
 - permitir verificação externa eficiente, quando desejada.
 
 ## Limites assumidos

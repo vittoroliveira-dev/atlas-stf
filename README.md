@@ -78,7 +78,7 @@ O repositório combina quatro frentes operacionais:
 | Vínculos com doações eleitorais | 234 mil+ |
 | Conexões com sanções públicas | 5,9 mil+ |
 | Registros temporais | 10,8 mil+ |
-| Áreas de consulta no painel | 17 |
+| Áreas de consulta no painel | 18 |
 
 ## Capacidades Atuais
 
@@ -92,8 +92,8 @@ O repositório combina quatro frentes operacionais:
 | `analytics` | Grupos comparáveis, baseline, score, alertas, perfil de relator, auditoria de distribuição, análise temporal, counsel affinity, risco composto, velocidade decisória, mudança de relatoria, rede de advogados, linha do tempo processual, anomalia de pauta, identidade econômica, grupos econômicos, grafo de representação, recorrência, janelas temporais, rede amicus, clusters de escritórios, agenda exposure, contrapartes de pagamento, vínculos corporativos de doadores, vínculos corporativos de sancionados (CEIS→RFB→STF), calibração de fuzzy matching | `src/atlas_stf/analytics/`, `tests/analytics/` |
 | `evidence` | Bundles técnicos por alerta | `src/atlas_stf/evidence/`, `tests/evidence/` |
 | `agenda` | Fetcher de agenda ministerial da API GraphQL do STF, builder de eventos e analytics de exposição | `src/atlas_stf/agenda/`, `tests/agenda/` |
-| `serving` | Banco de serving (41 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
-| `api` | Endpoints FastAPI (73) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
+| `serving` | Banco de serving (48 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
+| `api` | Endpoints FastAPI (85: 84 GET + 1 POST) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
 | `stf_portal` | Extrator de linha do tempo processual do portal STF (httpx) com proxy rotation per-IP | `src/atlas_stf/stf_portal/`, `tests/stf_portal/` |
 | `deoab` | Sociedades de advocacia do Diário Eletrônico da OAB (PDF público → JSONL) | `src/atlas_stf/deoab/`, `tests/deoab/` |
 | `oab_sp` | Consulta à OAB/SP — detalhes de sociedades e advogados inscritos (httpx + checkpoint) | `src/atlas_stf/oab_sp/`, `tests/oab_sp/` |
@@ -130,12 +130,14 @@ O repositório combina quatro frentes operacionais:
 flowchart LR
     A[Dados brutos<br/>Bases públicas e jurisprudência] --> B[Preparação<br/>Limpeza e padronização]
     B --> C[Base canônica<br/>Processos, decisões, partes e advogados]
-    C --> D[Análises<br/>Grupos comparáveis, baselines e alertas]
+    X[Fontes externas<br/>CGU, TSE, CVM, RFB, DataJud] --> D
+    C --> D[Análises<br/>Grupos, baselines, alertas e grafo]
     D --> E[Evidências<br/>Pacotes explicáveis por alerta]
-    C --> F[Base de consulta<br/>Banco usado pela API e pelo painel]
+    C --> F[Base de consulta<br/>Banco SQLite para API e painel]
     D --> F
-    F --> G[API HTTP<br/>Recortes, casos, alertas, entidades e módulos complementares]
-    G --> H[Painel web<br/>Visão geral, alertas, casos, entidades e auditoria]
+    E --> F
+    F --> G[API HTTP<br/>85 endpoints — recortes, entidades, risco e grafo]
+    G --> H[Painel web<br/>18 áreas de consulta auditáveis]
 ```
 
 ### Princípios arquiteturais
@@ -152,9 +154,9 @@ flowchart LR
 |---|---|
 | Backend analítico | Python 3.14+, pandas 3, scikit-learn, scipy |
 | API | FastAPI + SQLAlchemy 2.x |
-| Serving database | SQLite (41 tabelas) |
+| Serving database | SQLite (48 tabelas) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 + Recharts |
-| Qualidade | pytest (~2030 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
+| Qualidade | pytest (~2558 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
 | Infra | Docker, GitHub Actions, uv |
 
 ### Configuração operacional canônica
@@ -170,13 +172,13 @@ flowchart LR
 
 ```bash
 docker pull ghcr.io/vittoroliveira-dev/atlas-stf:latest
-docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.0.9
+docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.0
 ```
 
 ### Via wheel (release asset)
 
 ```bash
-pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.0.9-py3-none-any.whl
+pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.1.0-py3-none-any.whl
 ```
 
 Após a instalação, a CLI fica disponível:
@@ -329,6 +331,9 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | `/agenda` | Agenda ministerial e exposição temporal |
 | `/agenda/ministro/[slug]` | Detalhe de agenda por ministro |
 | `/auditoria` | Auditoria de distribuição por relatoria |
+| `/representacao` | Rede de representação processual |
+| `/representacao/advogados/[id]` | Detalhe do advogado na rede |
+| `/representacao/escritorios/[id]` | Detalhe do escritório na rede |
 
 ## Fluxo de Trabalho da CLI
 
@@ -379,7 +384,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 
 ## API HTTP
 
-### Endpoints principais (73)
+### Endpoints principais (85)
 
 <details>
 <summary>Expandir lista completa de endpoints</summary>
@@ -456,6 +461,18 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | `GET /sanction-corporate-links` | Vínculos corporativos indiretos de sancionados (CEIS/CVM→RFB→STF) |
 | `GET /sanction-corporate-links/red-flags` | Red flags de vínculos corporativos de sancionados |
 | `GET /parties/{party_id}/sanction-corporate-links` | Vínculos corporativos de sancionados da parte |
+| `GET /graph/search` | Busca de nós no grafo de investigação |
+| `GET /graph/nodes/{node_id}` | Detalhe de nó do grafo |
+| `GET /graph/edges/{edge_id}` | Detalhe de aresta do grafo |
+| `GET /graph/neighbors/{node_id}` | Vizinhos de um nó |
+| `GET /graph/paths` | Caminhos entre nós |
+| `GET /graph/explain/{entity_id}` | Explicação investigativa de entidade |
+| `GET /graph/scores` | Scores de risco do grafo |
+| `GET /graph/metrics` | Métricas de build do grafo |
+| `GET /investigations/top` | Investigações priorizadas |
+| `GET /investigations/entity/{entity_id}` | Investigações por entidade |
+| `GET /review/queue` | Fila de revisão |
+| `POST /review/decision` | Registrar decisão de revisão |
 
 </details>
 
@@ -465,7 +482,19 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 |---|---|
 | `ATLAS_STF_DATABASE_URL` | Banco usado pela API |
 | `ATLAS_STF_API_BASE_URL` | Base URL consumida pelo frontend |
+| `ATLAS_STF_API_TIMEOUT_MS` | Timeout do fetch no frontend em ms (default: `15000`) |
+| `ATLAS_STF_CORS_ORIGINS` | Origens CORS (comma-separated); sem valor = sem CORS middleware |
+| `ATLAS_STF_RATE_LIMIT_ENABLED` | Habilita rate limiting (default: `true`) |
+| `ATLAS_STF_RATE_LIMIT_MAX_REQUESTS` | Requisições por janela (default: `120`) |
+| `ATLAS_STF_RATE_LIMIT_WINDOW_SECONDS` | Janela de rate limit em segundos (default: `60`) |
+| `ATLAS_STF_REQUEST_TIMEOUT_SECONDS` | Timeout por requisição em segundos (default: `30`; `0` desabilita) |
+| `ATLAS_STF_TRUST_PROXY_HEADERS` | Usar X-Forwarded-For para identificação de cliente (default: `false`) |
+| `ATLAS_STF_REVIEW_API_KEY` | API key para `POST /review/decision`; vazio = auth desabilitada |
+| `ATLAS_FLOW_WORKERS` | Número de workers do pipeline paralelo |
 | `ATLAS_STF_SCRAPER_IGNORE_HTTPS_ERRORS` | Ignora TLS do STF no scraper (`true` — já configurado no `make scrape`) |
+| `CGU_API_KEY` | API key do Portal da Transparência CGU |
+| `DATAJUD_API_KEY` | API key do DataJud CNJ |
+| `ATLAS_STF_RFB_NEXTCLOUD_SHARE_TOKEN` | Token de acesso Nextcloud para dados RFB |
 
 ## Estrutura do Repositório
 
@@ -481,8 +510,8 @@ atlas-stf/
 │   ├── evidence/         # Bundles de evidência
 │   ├── stf_portal/       # Extrator de linha do tempo do portal STF
 │   ├── agenda/           # Agenda ministerial STF (GraphQL fetcher + builder + analytics)
-│   ├── serving/          # Banco de serving (41 tabelas SQLAlchemy)
-│   ├── api/              # FastAPI (73 endpoints)
+│   ├── serving/          # Banco de serving (48 tabelas SQLAlchemy)
+│   ├── api/              # FastAPI (85 endpoints)
 │   ├── cgu/              # CGU CEIS/CNEP/Leniência (httpx)
 │   ├── tse/              # TSE doações eleitorais + despesas de campanha + finanças órgãos partidários (CSV)
 │   ├── cvm/              # CVM processos sancionadores (CSV)
@@ -491,12 +520,15 @@ atlas-stf/
 │   ├── oab/              # Validação OAB CNA/CNSA
 │   ├── oab_sp/           # Consulta OAB/SP (sociedades e advogados inscritos)
 │   ├── deoab/            # DEOAB sociedades de advocacia (pdftotext)
-│   └── doc_extractor/    # Extração seletiva de PDFs
+│   ├── doc_extractor/    # Extração seletiva de PDFs
+│   ├── transparencia/    # Portal de transparência STF (Playwright)
+│   ├── fetch/            # Manifesto unificado de downloads (discovery, plan, execute)
+│   └── contracts/        # Schema inspection e drift analysis por fonte
 ├── web/                  # Dashboard Next.js 16 + React 19 + TypeScript
 │   ├── src/app/          # 26 páginas (App Router, async Server Components)
 │   ├── src/components/   # 19 componentes
 │   └── src/lib/          # 20 módulos (API client, types, mappers)
-├── tests/                # 164 arquivos, ~2030 testes (mirror da src/)
+├── tests/                # 198 arquivos, ~2558 testes (mirror da src/)
 ├── docs/                 # Documentação metodológica (14 documentos)
 ├── governance/           # Regras, decisões, auditoria e risco
 ├── schemas/              # Contratos JSON das entidades
@@ -515,7 +547,7 @@ make ci
 
 # Ou individualmente:
 make check           # Lint + typecheck + deadcode (Python)
-make test            # Testes (~1707, 83% cobertura mínima)
+make test            # Testes (~2380, 83% cobertura mínima)
 make format          # Formata código (ruff format)
 make format-check    # Verifica formatação sem alterar (para CI)
 make lint-fix        # Corrige problemas de lint auto-fixáveis

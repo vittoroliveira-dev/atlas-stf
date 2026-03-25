@@ -10,15 +10,19 @@ import uuid
 import zipfile
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import httpx
 
+from ..core.fetch_lock import FetchLock
+from ..core.fetch_result import FetchTimer
 from ..core.http_stream_safety import write_limited_stream_to_file
 from ..core.zip_safety import enforce_max_uncompressed_size, is_safe_zip_member
+from ..fetch._manifest_model import FetchUnit, RemoteState, SourceManifest, build_unit_id
+from ..fetch._manifest_store import load_manifest, write_manifest_unlocked
+from ..ingest_manifest import capture_csv_manifest, write_manifest
 from ._config import TSE_CDN_BASE_URL, TseFetchConfig
 from ._parser import _iter_receitas_csv, normalize_donation_record
 
@@ -65,36 +69,23 @@ def _resolve_url(year: int, timeout: int) -> tuple[str, httpx.Headers] | None:
     return None
 
 
-def _remote_unchanged(year: int, checkpoint: _Checkpoint, timeout: int) -> bool:
-    """Check if remote file matches cached metadata (HEAD only, no download)."""
-    meta = checkpoint.year_meta.get(year)
-    if meta is None:
-        return False
-    resolved = _resolve_url(year, timeout)
-    if resolved is None:
-        return False
-    _url, headers = resolved
-    return meta.matches(headers)
-
-
 def _download_year_zip(
     year: int,
     output_dir: Path,
     timeout: int,
-    checkpoint: _Checkpoint | None = None,
-) -> tuple[Path | None, _YearMeta | None]:
+    *,
+    zip_prefix: str = "tse",
+) -> tuple[Path | None, dict[str, Any] | None]:
     """Download ZIP from TSE CDN for a given year, trying multiple URL patterns.
 
     Returns (zip_path, meta) on success, (None, None) on failure.
-    """
-    # Skip download if remote file unchanged since last run
-    if checkpoint and year in checkpoint.completed_years:
-        if _remote_unchanged(year, checkpoint, timeout):
-            logger.info("TSE %d: unchanged on server, skipping download", year)
-            return None, None
+    Use ``zip_prefix`` to isolate download paths between donation and expense
+    runners, preventing race conditions when both run concurrently.
 
+    The returned meta dict has keys: ``url``, ``content_length``, ``etag``.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = output_dir / f"tse_{year}.zip"
+    zip_path = output_dir / f"{zip_prefix}_{year}.zip"
 
     for url in _build_zip_urls(year):
         logger.info("Trying TSE %d: %s", year, url)
@@ -109,7 +100,7 @@ def _download_year_zip(
                     max_download_bytes=_TSE_MAX_DOWNLOAD_BYTES,
                 )
             logger.info("Downloaded %s (%d bytes)", zip_path.name, actual_size)
-            meta = _YearMeta(url=url, content_length=content_length or actual_size, etag=etag)
+            meta: dict[str, Any] = {"url": url, "content_length": content_length or actual_size, "etag": etag}
             return zip_path, meta
         except ValueError as exc:
             logger.warning("Failed to download TSE %d: %s", year, exc)
@@ -200,61 +191,6 @@ def _extract_zip(zip_path: Path, extract_dir: Path) -> Path | None:
     return extract_dir
 
 
-@dataclass
-class _YearMeta:
-    """HTTP metadata from a successful download, used to skip re-downloads."""
-
-    url: str
-    content_length: int
-    etag: str
-
-    def matches(self, headers: httpx.Headers) -> bool:
-        """Return True if remote file has not changed since last download."""
-        remote_etag = headers.get("etag", "")
-        remote_size = int(headers.get("content-length", "-1"))
-        if self.etag and remote_etag:
-            return self.etag == remote_etag
-        if self.content_length > 0 and remote_size > 0:
-            return self.content_length == remote_size
-        return False
-
-    def to_dict(self) -> dict[str, Any]:
-        return {"url": self.url, "content_length": self.content_length, "etag": self.etag}
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> _YearMeta:
-        return cls(url=data.get("url", ""), content_length=data.get("content_length", 0), etag=data.get("etag", ""))
-
-
-@dataclass
-class _Checkpoint:
-    """Persistent state across TSE fetch runs."""
-
-    completed_years: set[int] = field(default_factory=set)
-    year_meta: dict[int, _YearMeta] = field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "completed_years": sorted(self.completed_years),
-            "year_meta": {str(y): m.to_dict() for y, m in self.year_meta.items()},
-        }
-
-    @classmethod
-    def load(cls, output_dir: Path) -> _Checkpoint:
-        path = output_dir / "_checkpoint.json"
-        if not path.exists():
-            return cls()
-        data = json.loads(path.read_text(encoding="utf-8"))
-        meta = {}
-        for k, v in data.get("year_meta", {}).items():
-            meta[int(k)] = _YearMeta.from_dict(v)
-        return cls(completed_years=set(data.get("completed_years", [])), year_meta=meta)
-
-    def save(self, output_dir: Path) -> None:
-        path = output_dir / "_checkpoint.json"
-        path.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
-
-
 def _record_content_hash(record: dict[str, Any]) -> str:
     """Compute SHA-256 hash of the normalized record content (21 fields).
 
@@ -287,6 +223,17 @@ def _iter_year_records(
     for csv_path in files:
         logger.info("Parsing %s for year %d", csv_path.name, year)
         relative_path = str(csv_path.relative_to(extract_dir))
+        try:
+            manifest = capture_csv_manifest(
+                csv_path,
+                source="tse",
+                year_or_cycle=str(year),
+                origin_url=source_url,
+                parser_version="2.0",
+            )
+            write_manifest(manifest, csv_path.parent / "_source_manifests")
+        except Exception:
+            logger.warning("Failed to capture manifest for %s — continuing", csv_path.name)
         for raw in _iter_receitas_csv(csv_path):
             normalized = normalize_donation_record(raw, year)
             normalized["record_hash"] = _record_content_hash(normalized)
@@ -312,137 +259,161 @@ def fetch_donation_data(
             logger.info("[dry-run] %s", _build_zip_urls(year)[0])
         return config.output_dir
 
-    checkpoint = _Checkpoint.load(config.output_dir)
-    if config.force_refresh:
-        logger.info("TSE: force-refresh enabled — clearing checkpoint for requested years")
-        for year in config.years:
-            checkpoint.completed_years.discard(year)
-            checkpoint.year_meta.pop(year, None)
-        checkpoint.save(config.output_dir)
+    with FetchLock(config.output_dir, "tse_donations"):
+        return _fetch_donation_data_locked(config, on_progress=on_progress)
 
-    output_path = config.output_dir / "donations_raw.jsonl"
-    total_record_count = 0
 
-    pending_years = [y for y in config.years if y not in checkpoint.completed_years]
-    total_years = len(config.years)
+def _fetch_donation_data_locked(
+    config: TseFetchConfig,
+    *,
+    on_progress: Callable[[int, int, str], None] | None = None,
+) -> Path:
+    """Inner implementation guarded by FetchLock."""
+    timer = FetchTimer("tse_donations")
+    timer.start()
+    try:
+        manifest = load_manifest("tse_donations", config.output_dir) or SourceManifest(source="tse_donations")
 
-    if on_progress:
-        cached = total_years - len(pending_years)
-        if cached:
-            on_progress(cached, total_years, f"TSE: {cached} anos em cache")
+        if config.force_refresh:
+            logger.info("TSE: force-refresh enabled — clearing manifest for requested years")
+            for year in config.years:
+                uid = build_unit_id("tse_donations", str(year))
+                manifest.units.pop(uid, None)
 
-    # Download ZIPs in parallel (I/O-bound — threads are ideal)
-    # Each thread does a HEAD check first; skips if server file unchanged.
-    max_downloads = min(4, len(pending_years)) if pending_years else 1
-    downloaded: dict[int, tuple[Path, _YearMeta]] = {}
-    skipped = 0
+        output_path = config.output_dir / "donations_raw.jsonl"
+        total_record_count = 0
 
-    if pending_years:
-        logger.info("Checking/downloading %d years in parallel (%d threads)", len(pending_years), max_downloads)
-        with ThreadPoolExecutor(max_workers=max_downloads) as pool:
-            futures = {
-                pool.submit(
-                    _download_year_zip,
-                    year,
-                    config.output_dir,
-                    config.timeout_seconds,
-                    checkpoint,
-                ): year
-                for year in pending_years
-            }
-            for future in as_completed(futures):
-                year = futures[future]
-                zip_path, meta = future.result()
-                if zip_path is not None and meta is not None:
-                    downloaded[year] = (zip_path, meta)
-                else:
-                    skipped += 1
-                if on_progress:
-                    done = (total_years - len(pending_years)) + len(downloaded) + skipped
-                    on_progress(done, total_years, f"TSE: Baixou {year}")
+        committed_years = {
+            int(uid.split(":")[-1])
+            for uid, u in manifest.units.items()
+            if u.status == "committed"
+        }
+        pending_years = [y for y in config.years if y not in committed_years]
+        total_years = len(config.years)
 
-    # Provenance metadata: shared across all records in this run
-    run_id = str(uuid.uuid4())
-    run_collected_at = datetime.now(timezone.utc).isoformat()
+        if on_progress:
+            cached = total_years - len(pending_years)
+            if cached:
+                on_progress(cached, total_years, f"TSE: {cached} anos em cache")
 
-    # Stream results to disk incrementally (avoids loading all records in RAM).
-    # Keep existing records from completed years, append new ones.
-    # IMPORTANT: records from years being re-downloaded must be excluded
-    # to prevent duplication (e.g. force-refresh or remote-change scenarios).
-    years_being_replaced = set(downloaded.keys())
-    tmp_path = output_path.with_suffix(".jsonl.tmp")
-    with tmp_path.open("w", encoding="utf-8") as out:
-        # Copy existing records, excluding years that will be re-processed
-        if output_path.exists() and checkpoint.completed_years:
-            existing_count = 0
-            excluded_count = 0
-            with output_path.open("r", encoding="utf-8") as fh:
-                for line in fh:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if years_being_replaced:
-                        try:
-                            record = json.loads(line)
-                            if record.get("election_year") in years_being_replaced:
-                                excluded_count += 1
-                                continue
-                        except json.JSONDecodeError:
-                            pass
-                    out.write(line + "\n")
-                    existing_count += 1
-            total_record_count += existing_count
+        # Download ZIPs in parallel (I/O-bound — threads are ideal)
+        max_downloads = min(4, len(pending_years)) if pending_years else 1
+        downloaded: dict[int, tuple[Path, dict[str, Any]]] = {}
+        skipped = 0
+
+        if pending_years:
             logger.info(
-                "Copied %d existing records from %d completed years (excluded %d from refreshed years)",
-                existing_count,
-                len(checkpoint.completed_years),
-                excluded_count,
+                "Checking/downloading %d years in parallel (%d threads)", len(pending_years), max_downloads
             )
+            with ThreadPoolExecutor(max_workers=max_downloads) as pool:
+                futures = {
+                    pool.submit(
+                        _download_year_zip,
+                        year,
+                        config.output_dir,
+                        config.timeout_seconds,
+                    ): year
+                    for year in pending_years
+                }
+                for future in as_completed(futures):
+                    year = futures[future]
+                    zip_path, meta = future.result()
+                    if zip_path is not None and meta is not None:
+                        downloaded[year] = (zip_path, meta)
+                    else:
+                        skipped += 1
+                    if on_progress:
+                        done = (total_years - len(pending_years)) + len(downloaded) + skipped
+                        on_progress(done, total_years, f"TSE: Baixou {year}")
 
-        # Process downloaded ZIPs one by one, writing directly to disk.
-        # Checkpoint updates are collected but NOT persisted until after the
-        # atomic rename — this prevents the checkpoint from getting ahead of
-        # the data file if the process crashes mid-write.
-        checkpoint_pending: list[tuple[int, _YearMeta]] = []
-        for year in config.years:
-            if year not in downloaded:
-                continue
+        # Provenance metadata: shared across all records in this run
+        run_id = str(uuid.uuid4())
+        run_collected_at = datetime.now(timezone.utc).isoformat()
 
-            zip_path, meta = downloaded[year]
-            extract_dir = config.output_dir / f"extracted_{year}"
-            year_count = 0
-            try:
-                for record in _iter_year_records(year, zip_path, extract_dir, source_url=meta.url):
-                    record["collected_at"] = run_collected_at
-                    record["ingest_run_id"] = run_id
-                    out.write(json.dumps(record, ensure_ascii=False) + "\n")
-                    year_count += 1
-            finally:
-                zip_path.unlink(missing_ok=True)
-                shutil.rmtree(extract_dir, ignore_errors=True)
+        # Stream results to disk incrementally (avoids loading all records in RAM).
+        # IMPORTANT: records from years being re-downloaded must be excluded
+        # to prevent duplication (e.g. force-refresh or remote-change scenarios).
+        years_being_replaced = set(downloaded.keys())
+        tmp_path = output_path.with_suffix(".jsonl.tmp")
+        with tmp_path.open("w", encoding="utf-8") as out:
+            if output_path.exists() and committed_years:
+                existing_count = 0
+                excluded_count = 0
+                with output_path.open("r", encoding="utf-8") as fh:
+                    for line in fh:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        if years_being_replaced:
+                            try:
+                                record = json.loads(line)
+                                if record.get("election_year") in years_being_replaced:
+                                    excluded_count += 1
+                                    continue
+                            except json.JSONDecodeError:
+                                pass
+                        out.write(line + "\n")
+                        existing_count += 1
+                total_record_count += existing_count
+                logger.info(
+                    "Copied %d existing records from %d completed years (excluded %d from refreshed years)",
+                    existing_count,
+                    len(committed_years),
+                    excluded_count,
+                )
 
-            if year_count:
-                total_record_count += year_count
-                logger.info("Wrote %d records for year %d", year_count, year)
-                checkpoint_pending.append((year, meta))
-            else:
-                logger.warning("Year %d returned 0 records — not marking as completed", year)
+            manifest_pending: list[tuple[int, dict[str, Any]]] = []
+            for year in config.years:
+                if year not in downloaded:
+                    continue
 
-    # Atomic rename — only after this succeeds do we persist the checkpoint.
-    tmp_path.replace(output_path)
+                zip_path, meta = downloaded[year]
+                extract_dir = config.output_dir / f"extracted_{year}"
+                year_count = 0
+                try:
+                    for record in _iter_year_records(year, zip_path, extract_dir, source_url=meta["url"]):
+                        record["collected_at"] = run_collected_at
+                        record["ingest_run_id"] = run_id
+                        out.write(json.dumps(record, ensure_ascii=False) + "\n")
+                        year_count += 1
+                finally:
+                    zip_path.unlink(missing_ok=True)
+                    shutil.rmtree(extract_dir, ignore_errors=True)
 
-    for year, meta in checkpoint_pending:
-        checkpoint.completed_years.add(year)
-        checkpoint.year_meta[year] = meta
-    if checkpoint_pending:
-        checkpoint.save(config.output_dir)
+                if year_count:
+                    total_record_count += year_count
+                    logger.info("Wrote %d records for year %d", year_count, year)
+                    manifest_pending.append((year, meta))
+                else:
+                    logger.warning("Year %d returned 0 records — not marking as completed", year)
 
-    if on_progress:
-        on_progress(total_years, total_years, "TSE: Concluído")
+        # Atomic rename — only after this succeeds do we persist the manifest.
+        tmp_path.replace(output_path)
 
-    logger.info(
-        "TSE fetch complete: %d donation records written to %s",
-        total_record_count,
-        output_path,
-    )
-    return config.output_dir
+        for year, meta in manifest_pending:
+            uid = build_unit_id("tse_donations", str(year))
+            manifest.units[uid] = FetchUnit(
+                unit_id=uid,
+                source="tse_donations",
+                label=f"TSE donations {year}",
+                remote_url=meta["url"],
+                remote_state=RemoteState(
+                    url=meta["url"],
+                    etag=meta.get("etag", ""),
+                    content_length=meta.get("content_length", 0),
+                ),
+                status="committed",
+                fetch_date=datetime.now(timezone.utc).isoformat(),
+            )
+        if manifest_pending:
+            manifest.last_updated = datetime.now(timezone.utc).isoformat()
+            write_manifest_unlocked(manifest, config.output_dir)
+
+        if on_progress:
+            on_progress(total_years, total_years, "TSE: Concluído")
+
+        timer.log_success(records_written=total_record_count)
+        return config.output_dir
+    except Exception as exc:
+        timer.log_failure(exc)
+        raise

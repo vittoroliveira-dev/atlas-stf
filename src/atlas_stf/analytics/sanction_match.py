@@ -137,6 +137,7 @@ def build_sanction_matches(
     )
 
     matches: list[dict[str, Any]] = []
+    seen_matches: set[str] = set()
     matched_party_names: set[str] = set()
     ambiguous_candidate_count = 0
     match_strategy_counts: dict[str, int] = defaultdict(int)
@@ -195,7 +196,10 @@ def build_sanction_matches(
         confidence = red_flag_confidence_label(power)
 
         for sanction in sanction_list:
-            match_id = stable_id("sm-", f"{party_id}:{sanction.get('sanction_id', '')}")
+            match_id = stable_id("sm-", f"{party_id}:{norm_name}:{sanction.get('sanction_id', '')}")
+            if match_id in seen_matches:
+                continue
+            seen_matches.add(match_id)
             matches.append(
                 {
                     "match_id": match_id,
@@ -315,7 +319,10 @@ def build_sanction_matches(
         confidence = red_flag_confidence_label(power)
 
         for sanction in sanction_list:
-            match_id = stable_id("sm-", f"counsel:{counsel_id}:{sanction.get('sanction_id', '')}")
+            match_id = stable_id("sm-", f"counsel:{counsel_id}:{norm_name}:{sanction.get('sanction_id', '')}")
+            if match_id in seen_matches:
+                continue
+            seen_matches.add(match_id)
             matches.append(
                 {
                     "match_id": match_id,

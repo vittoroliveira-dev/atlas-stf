@@ -94,10 +94,22 @@ class TestBuildServingDatabaseWithEconomicGroups:
             curated_dir / "decision_event.jsonl",
             [{"decision_event_id": "evt_1", "process_id": "proc_1", "decision_date": "2026-01-05"}],
         )
-        _write_jsonl(curated_dir / "party.jsonl", [])
-        _write_jsonl(curated_dir / "process_party_link.jsonl", [])
-        _write_jsonl(curated_dir / "counsel.jsonl", [])
-        _write_jsonl(curated_dir / "process_counsel_link.jsonl", [])
+        _write_jsonl(
+            curated_dir / "party.jsonl",
+            [{"party_id": "party_1", "party_name_raw": "AUTOR A", "party_name_normalized": "AUTOR A", "notes": None}],
+        )
+        _write_jsonl(
+            curated_dir / "process_party_link.jsonl",
+            [{"link_id": "pp_1", "process_id": "proc_1", "party_id": "party_1", "role_in_case": "REQTE.(S)"}],
+        )
+        _write_jsonl(
+            curated_dir / "counsel.jsonl",
+            [{"counsel_id": "coun_1", "counsel_name_raw": "ADV A", "counsel_name_normalized": "ADV A", "notes": None}],
+        )
+        _write_jsonl(
+            curated_dir / "process_counsel_link.jsonl",
+            [{"link_id": "pc_1", "process_id": "proc_1", "counsel_id": "coun_1", "side_in_case": "REQTE.(S)"}],
+        )
         _write_jsonl(
             analytics_dir / "outlier_alert.jsonl",
             [
@@ -173,10 +185,22 @@ class TestBuildServingDatabaseWithEconomicGroups:
             curated_dir / "decision_event.jsonl",
             [{"decision_event_id": "evt_1", "process_id": "proc_1", "decision_date": "2026-01-05"}],
         )
-        _write_jsonl(curated_dir / "party.jsonl", [])
-        _write_jsonl(curated_dir / "process_party_link.jsonl", [])
-        _write_jsonl(curated_dir / "counsel.jsonl", [])
-        _write_jsonl(curated_dir / "process_counsel_link.jsonl", [])
+        _write_jsonl(
+            curated_dir / "party.jsonl",
+            [{"party_id": "party_1", "party_name_raw": "AUTOR A", "party_name_normalized": "AUTOR A", "notes": None}],
+        )
+        _write_jsonl(
+            curated_dir / "process_party_link.jsonl",
+            [{"link_id": "pp_1", "process_id": "proc_1", "party_id": "party_1", "role_in_case": "REQTE.(S)"}],
+        )
+        _write_jsonl(
+            curated_dir / "counsel.jsonl",
+            [{"counsel_id": "coun_1", "counsel_name_raw": "ADV A", "counsel_name_normalized": "ADV A", "notes": None}],
+        )
+        _write_jsonl(
+            curated_dir / "process_counsel_link.jsonl",
+            [{"link_id": "pc_1", "process_id": "proc_1", "counsel_id": "coun_1", "side_in_case": "REQTE.(S)"}],
+        )
         _write_jsonl(
             analytics_dir / "outlier_alert.jsonl",
             [

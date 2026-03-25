@@ -16,6 +16,17 @@ export function isApiFetchError(error: unknown): error is ApiClientError | TypeE
   return error instanceof ApiClientError || error instanceof TypeError;
 }
 
+/**
+ * Return true only when the error is an HTTP 404 (entity not found).
+ * All other API/network errors and programming bugs are re-thrown so they
+ * propagate to the error boundary instead of degrading to "no data".
+ */
+export function isNotFoundError(error: unknown): error is ApiClientError {
+  if (error instanceof ApiClientError && error.status === 404) return true;
+  // Programming bugs (TypeError, ReferenceError, etc.) must never be swallowed.
+  throw error;
+}
+
 function getApiBaseUrl(): string {
   const raw = process.env.ATLAS_STF_API_BASE_URL ?? DEFAULT_API_BASE_URL;
   return raw.endsWith("/") ? raw.slice(0, -1) : raw;
@@ -34,6 +45,17 @@ function buildUrl(pathname: string, query?: Record<string, QueryValue>): string 
   return url.toString();
 }
 
+const DEFAULT_TIMEOUT_MS = 15_000;
+
+function getTimeoutMs(): number {
+  const raw = process.env.ATLAS_STF_API_TIMEOUT_MS;
+  if (raw) {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return DEFAULT_TIMEOUT_MS;
+}
+
 export async function fetchApiJson<T>(
   pathname: string,
   query?: Record<string, QueryValue>,
@@ -43,6 +65,7 @@ export async function fetchApiJson<T>(
     headers: {
       Accept: "application/json",
     },
+    signal: AbortSignal.timeout(getTimeoutMs()),
   });
 
   if (!response.ok) {

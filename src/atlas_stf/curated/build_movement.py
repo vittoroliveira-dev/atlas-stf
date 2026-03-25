@@ -42,7 +42,7 @@ def _build_movement_from_andamento(
     has_match = category != "outros"
 
     return {
-        "movement_id": stable_id("mov_", f"{process_number}:{date}:{description}"),
+        "movement_id": stable_id("mov_", f"{process_number}:{date}:{description}:{detail or ''}"),
         "process_id": process_id,
         "source_system": "stf_portal",
         "tpu_code": None,
@@ -80,7 +80,7 @@ def _build_movement_from_deslocamento(
     has_match = True  # deslocamentos always have a category
 
     return {
-        "movement_id": stable_id("mov_", f"{process_number}:{date}:{description}"),
+        "movement_id": stable_id("mov_", f"{process_number}:{date}:{description}:"),
         "process_id": process_id,
         "source_system": "stf_portal",
         "tpu_code": None,

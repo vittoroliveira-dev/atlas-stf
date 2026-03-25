@@ -37,12 +37,10 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
         return 0
 
     if args.command == "datajud" and args.datajud_target == "fetch":
-        from ..datajud._config import DATAJUD_API_KEY_ENV, DatajudFetchConfig
+        from ..datajud._config import DATAJUD_API_KEY_ENV, DATAJUD_DEFAULT_API_KEY, DatajudFetchConfig
         from ..datajud._runner import fetch_origin_data
 
-        api_key = args.api_key or os.getenv(DATAJUD_API_KEY_ENV)
-        if not api_key:
-            parser.error(f"--api-key is required when {DATAJUD_API_KEY_ENV} is not set.")
+        api_key = args.api_key or os.getenv(DATAJUD_API_KEY_ENV) or DATAJUD_DEFAULT_API_KEY
         config = DatajudFetchConfig(
             api_key=api_key,
             process_path=args.process_path,
@@ -73,6 +71,7 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
             api_key=api_key,
             party_path=args.party_path,
             dry_run=args.dry_run,
+            force_refresh=getattr(args, "force_refresh", False),
         )
         if config.dry_run:
             fetch_sanctions_data(config)
@@ -204,7 +203,11 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
         from ..cvm._runner import fetch_cvm_data
         from ._progress import cli_progress
 
-        config = CvmFetchConfig(output_dir=args.output_dir, dry_run=args.dry_run)
+        config = CvmFetchConfig(
+            output_dir=args.output_dir,
+            dry_run=args.dry_run,
+            force_refresh=getattr(args, "force_refresh", False),
+        )
         if config.dry_run:
             fetch_cvm_data(config)
         else:
@@ -225,7 +228,11 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
         from ..rfb._runner import fetch_rfb_data
         from ._progress import cli_progress
 
-        config = RfbFetchConfig(output_dir=args.output_dir, dry_run=args.dry_run)
+        config = RfbFetchConfig(
+            output_dir=args.output_dir,
+            dry_run=args.dry_run,
+            force_refresh=getattr(args, "force_refresh", False),
+        )
         if config.dry_run:
             fetch_rfb_data(config)
         else:

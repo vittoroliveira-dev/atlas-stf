@@ -33,3 +33,4 @@ class RfbFetchConfig:
     donations_path: Path = field(default_factory=lambda: Path("data/raw/tse/donations_raw.jsonl"))
     timeout_seconds: int = 300
     dry_run: bool = False
+    force_refresh: bool = False

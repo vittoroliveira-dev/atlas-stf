@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+from hashlib import sha256
 from pathlib import Path
 
 from ._builder_loaders_analytics_common import match_confidence
@@ -13,6 +15,8 @@ from .models import (
     ServingSanctionCorporateLink,
     ServingSanctionMatch,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def load_sanction_matches(
@@ -244,15 +248,39 @@ def load_donation_matches(
     return donation_matches, counsel_donation_profiles
 
 
+def _record_content_hash(record: dict[str, object], exclude_key: str) -> str:
+    """Hash record content excluding a specific key, for duplicate classification."""
+    filtered = {k: v for k, v in sorted(record.items()) if k != exclude_key}
+    return sha256(json.dumps(filtered, ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:16]
+
+
 def load_donation_events(analytics_dir: Path) -> list[ServingDonationEvent]:
     de_path = analytics_dir / "donation_event.jsonl"
     if not de_path.exists():
         return []
     events: list[ServingDonationEvent] = []
+    seen: dict[str, str] = {}
+    exact_dupes = 0
+    conflicts = 0
     for record in _read_jsonl(de_path):
+        eid = str(record.get("event_id", ""))
+        if not eid:
+            continue
+        content_hash = _record_content_hash(record, exclude_key="event_id")
+        if eid in seen:
+            if seen[eid] == content_hash:
+                exact_dupes += 1
+            else:
+                conflicts += 1
+                logger.warning(
+                    "Donation event conflict: event_id=%s has divergent content (kept first occurrence)",
+                    eid,
+                )
+            continue
+        seen[eid] = content_hash
         events.append(
             ServingDonationEvent(
-                event_id=str(record.get("event_id", "")),
+                event_id=eid,
                 match_id=str(record.get("match_id", "")),
                 election_year=_coerce_int(record.get("election_year")),
                 donation_date=_parse_date(record.get("donation_date")),
@@ -276,5 +304,12 @@ def load_donation_events(analytics_dir: Path) -> list[ServingDonationEvent]:
                 ingest_run_id=record.get("ingest_run_id"),
                 record_hash=record.get("record_hash"),
             )
+        )
+    if exact_dupes > 0 or conflicts > 0:
+        logger.info(
+            "Donation events: %d loaded, %d exact duplicates skipped, %d conflicts (kept first)",
+            len(events),
+            exact_dupes,
+            conflicts,
         )
     return events

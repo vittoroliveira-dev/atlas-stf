@@ -12,19 +12,19 @@ data/raw/{stf_portal,agenda,deoab,oab_sp,datajud}/  fontes complementares (opcio
         ↓  staging
 data/staging/transparencia/    CSVs limpos + _audit.jsonl
         ↓  curated builders
-data/curated/                  16 entidades: process, decision_event, subject, party,
+data/curated/                  18 entidades: process, decision_event, subject, party,
                                counsel, links, minister_bio, movement, session_event,
                                lawyer_entity, law_firm_entity, representation_edge,
-                               representation_event, source_evidence, agenda_event,
-                               agenda_coverage
-        ↓  analytics builders (~50, independentes, paralelizáveis -j6)
-data/analytics/                ~30 artefatos JSONL + summaries JSON
+                               representation_event, source_evidence, entity_identifier,
+                               entity_identifier_reconciliation, agenda_event, agenda_coverage
+        ↓  analytics builders (35, independentes, paralelizáveis -j6)
+data/analytics/                35 artefatos JSONL + summaries JSON
         ↓  evidence builder
 data/evidence/                 JSON bundles por alerta
         ↓  serving builder
-data/serving/atlas_stf.db      SQLite (41 tabelas, schema v16)
+data/serving/atlas_stf.db      SQLite (48 tabelas, schema v19)
         ↓  FastAPI (uvicorn)
-API                            73 endpoints GET-only
+API                            86 GET + 1 POST endpoints
         ↓  Next.js SSR
 web/                           Dashboard (26 Server Components)
 ```
@@ -35,7 +35,7 @@ web/                           Dashboard (26 Server Components)
 
 | Módulo | Responsabilidade |
 |--------|-----------------|
-| `core/` | Lógica de domínio pura: identity, parsers, rules, stats, origin_mapping, tpu |
+| `core/` | Lógica de domínio pura: identity, parsers, rules, stats, origin_mapping, tpu, constants, http_stream_safety, zip_safety, fetch_lock, fetch_result, progress |
 
 ### Ingestão
 
@@ -65,17 +65,19 @@ web/                           Dashboard (26 Server Components)
 
 | Módulo | Responsabilidade | Depende de |
 |--------|-----------------|------------|
-| `curated/` | Entity builders (16 entidades) | core (via common.py) |
-| `analytics/` | ~50 builders estatísticos independentes | core, curated (identity helpers) |
+| `curated/` | Entity builders (18 entidades) | core (via common.py) |
+| `analytics/` | 35 builders estatísticos independentes | core, curated (identity + I/O helpers) |
 | `evidence/` | Bundles de evidência por alerta | curated, analytics |
 
 ### Serving e API
 
 | Módulo | Responsabilidade | Depende de |
 |--------|-----------------|------------|
-| `serving/` | SQLAlchemy models (41 tabelas) + builder JSONL→SQLite | core, curated, analytics |
-| `api/` | FastAPI 73 endpoints, 8 route registrars | serving (queries ORM) |
+| `serving/` | SQLAlchemy models (48 tabelas) + builder JSONL→SQLite | core, curated, analytics |
+| `api/` | FastAPI 86 GET + 1 POST, 9 route registrars | serving (queries ORM) |
 | `cli/` | Orquestrador de comandos (lazy imports) | todos |
+| `fetch/` | Manifesto unificado de downloads (discovery, plan, execute, migrate) | core |
+| `contracts/` | Schema inspection e drift analysis por fonte | core |
 
 ## Módulos do frontend (`web/src/`)
 
@@ -111,9 +113,9 @@ app/alertas/page.tsx
 
 ```
 app/representacao/page.tsx
-  → lib/representation-data.ts: fetchApiJson<RepresentationOverview>("/representation/overview")
-    → api/_routes_representation.py: @app.get("/representation/overview")
-      → api/_service_representation.py: get_representation_overview(session, ...)
+  → lib/representation-data.ts: fetchApiJson<RepresentationSummary>("/representation/summary")
+    → api/_routes_representation.py: @app.get("/representation/summary")
+      → api/_service_representation.py: get_representation_summary(session, ...)
         → ORM: ServingLawyerEntity + ServingLawFirmEntity
 ```
 
@@ -148,7 +150,7 @@ app/representacao/page.tsx
    rfb,datajud,...)       │       │ │                        │
     │                     │       │ │                        │
     ▼                     ▼       ▼ ▼                        ▼
-  core/ ◄─────────────────┘       serving/ ◄─────────────────┘
+  fetch/ ──► core/ ◄─────┘       serving/ ◄─────────────────┘
   (stdlib only)                   │
                                   ▼
                                 api/
@@ -163,4 +165,6 @@ Documentadas em `docs/adr/`:
 - [ADR-001](adr/001-sqlite-serving-database.md) — SQLite materializado como serving DB
 - [ADR-002](adr/002-independent-builders-jsonl.md) — Builders independentes com JSONL
 - [ADR-003](adr/003-ssr-only-frontend.md) — Frontend SSR-only com Server Components
-- [ADR-004](adr/004-get-only-read-only-api.md) — API GET-only read-only
+- [ADR-004](adr/004-get-only-read-only-api.md) — API GET-only read-only (1 exceção POST)
+- [ADR-005](adr/005-unified-fetch-manifest.md) — Manifesto unificado de fetch
+- [ADR-006](adr/006-graph-review-post-endpoint.md) — Endpoint POST para graph review
