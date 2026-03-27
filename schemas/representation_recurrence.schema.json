@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/representation_recurrence.schema.json",
+  "title": "RepresentationRecurrence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recurrence_id",
+    "lawyer_id",
+    "party_id",
+    "lawyer_name",
+    "party_name",
+    "process_count",
+    "edge_count",
+    "span_days",
+    "process_classes",
+    "role_types",
+    "generated_at"
+  ],
+  "properties": {
+    "recurrence_id": {
+      "type": "string"
+    },
+    "lawyer_id": {
+      "type": "string"
+    },
+    "party_id": {
+      "type": "string"
+    },
+    "lawyer_name": {
+      "type": "string"
+    },
+    "party_name": {
+      "type": "string"
+    },
+    "process_count": {
+      "type": "integer"
+    },
+    "edge_count": {
+      "type": "integer"
+    },
+    "first_seen_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "last_seen_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "span_days": {
+      "type": "integer"
+    },
+    "process_classes": {
+      "type": "object"
+    },
+    "role_types": {
+      "type": "object"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

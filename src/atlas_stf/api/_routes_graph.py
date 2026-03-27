@@ -20,6 +20,7 @@ from ._schemas_graph import (
     GraphEdgeItem,
     GraphNeighborResponse,
     GraphNodeItem,
+    InvestigationDetailResponse,
     InvestigationSummary,
     PaginatedInvestigationsResponse,
     PaginatedNodesResponse,
@@ -187,8 +188,8 @@ def register_graph_routes(
         with factory() as session:
             return get_top_investigations(session, mode, min_signals, page, page_size)
 
-    @app.get("/investigations/entity/{entity_id}")
-    def investigation_entity_detail(entity_id: str) -> dict:
+    @app.get("/investigations/entity/{entity_id}", response_model=InvestigationDetailResponse)
+    def investigation_entity_detail(entity_id: str) -> InvestigationDetailResponse:
         from ._service_graph_review import get_investigation_by_entity
 
         with factory() as session:

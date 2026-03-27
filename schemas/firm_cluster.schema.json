@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/firm_cluster.schema.json",
+  "title": "FirmCluster",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cluster_id",
+    "firm_ids",
+    "firm_names",
+    "shared_party_count",
+    "shared_process_count",
+    "process_classes",
+    "cluster_size",
+    "generated_at"
+  ],
+  "properties": {
+    "cluster_id": {
+      "type": "string"
+    },
+    "firm_ids": {
+      "type": "array"
+    },
+    "firm_names": {
+      "type": "array"
+    },
+    "shared_party_count": {
+      "type": "integer"
+    },
+    "shared_process_count": {
+      "type": "integer"
+    },
+    "process_classes": {
+      "type": "object"
+    },
+    "cluster_size": {
+      "type": "integer"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

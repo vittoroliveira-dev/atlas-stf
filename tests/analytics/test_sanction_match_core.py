@@ -126,7 +126,8 @@ class TestBuildSanctionMatches:
             process_counsel_link_path=curated_dir / "process_counsel_link.jsonl",
             output_dir=output_dir,
         )
-        assert result == output_dir
+        assert result == output_dir / "sanction_match.jsonl"
+        assert result.exists()
 
     def test_cvm_source_records_flow_through(self, tmp_path: Path) -> None:
         """CVM sanction records should flow through the builder with source preserved."""

@@ -227,6 +227,12 @@ def _add_curate_parsers(subparsers: Any) -> None:
         help="STF portal JSONL directory",
     )
     curate_session_event.add_argument(
+        "--decision-event-path",
+        type=Path,
+        default=Path("data/curated/decision_event.jsonl"),
+        help="Decision event JSONL path (for rapporteur enrichment)",
+    )
+    curate_session_event.add_argument(
         "--output",
         type=Path,
         default=Path("data/curated/session_event.jsonl"),

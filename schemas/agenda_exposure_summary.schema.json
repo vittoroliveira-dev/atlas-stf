@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/agenda_exposure_summary.schema.json",
+  "title": "AgendaExposureSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_relevant_events",
+    "total_exposures",
+    "track_a_events",
+    "track_b_events_stored",
+    "exposures_by_minister",
+    "exposures_by_window",
+    "exposures_by_priority",
+    "coverage_scope",
+    "coverage_minister_set",
+    "coverage_start_date",
+    "within_minister_only",
+    "cross_minister_allowed",
+    "historical_claims_pre_2024",
+    "methodology_note",
+    "generated_at"
+  ],
+  "properties": {
+    "total_relevant_events": {
+      "type": "integer"
+    },
+    "total_exposures": {
+      "type": "integer"
+    },
+    "track_a_events": {
+      "type": "integer"
+    },
+    "track_b_events_stored": {
+      "type": "integer"
+    },
+    "exposures_by_minister": {
+      "type": "object"
+    },
+    "exposures_by_window": {
+      "type": "object"
+    },
+    "exposures_by_priority": {
+      "type": "object"
+    },
+    "coverage_scope": {
+      "type": "string"
+    },
+    "coverage_minister_set": {
+      "type": "array"
+    },
+    "coverage_start_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "within_minister_only": {
+      "type": "boolean"
+    },
+    "cross_minister_allowed": {
+      "type": "boolean"
+    },
+    "historical_claims_pre_2024": {
+      "type": "boolean"
+    },
+    "methodology_note": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

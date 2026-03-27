@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/sanction_match_summary.schema.json",
+  "title": "SanctionMatchSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_sanctions_raw",
+    "sources",
+    "matched_party_count",
+    "matched_counsel_count",
+    "sanction_match_count",
+    "party_match_count",
+    "counsel_match_count",
+    "party_red_flag_count",
+    "counsel_direct_red_flag_count",
+    "counsel_profile_count",
+    "counsel_red_flag_count",
+    "matched_by_tax_id_count",
+    "matched_by_alias_count",
+    "matched_by_similarity_count",
+    "ambiguous_candidate_count",
+    "generated_at"
+  ],
+  "properties": {
+    "total_sanctions_raw": {
+      "type": "integer"
+    },
+    "sources": {
+      "type": "object"
+    },
+    "matched_party_count": {
+      "type": "integer"
+    },
+    "matched_counsel_count": {
+      "type": "integer"
+    },
+    "sanction_match_count": {
+      "type": "integer"
+    },
+    "party_match_count": {
+      "type": "integer"
+    },
+    "counsel_match_count": {
+      "type": "integer"
+    },
+    "party_red_flag_count": {
+      "type": "integer"
+    },
+    "counsel_direct_red_flag_count": {
+      "type": "integer"
+    },
+    "counsel_profile_count": {
+      "type": "integer"
+    },
+    "counsel_red_flag_count": {
+      "type": "integer"
+    },
+    "matched_by_tax_id_count": {
+      "type": "integer"
+    },
+    "matched_by_alias_count": {
+      "type": "integer"
+    },
+    "matched_by_similarity_count": {
+      "type": "integer"
+    },
+    "ambiguous_candidate_count": {
+      "type": "integer"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

@@ -11,10 +11,14 @@ from pathlib import Path
 from typing import Any
 
 from ..core.identity import stable_id
+from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import read_jsonl
 
 logger = logging.getLogger(__name__)
+
+SCHEMA_PATH = Path("schemas/economic_group.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/economic_group_summary.schema.json")
 
 
 class _UnionFind:
@@ -89,9 +93,12 @@ def build_economic_groups(
     companies_path = rfb_dir / "companies_raw.jsonl"
     establishments_path = rfb_dir / "establishments_raw.jsonl"
 
+    output_path = output_dir / "economic_group.jsonl"
     if not partners_path.exists():
         logger.warning("No partners_raw.jsonl found in %s", rfb_dir)
-        return output_dir
+        with AtomicJsonlWriter(output_path):
+            pass
+        return output_path
 
     # Load all data
     partners: list[dict[str, Any]] = list(read_jsonl(partners_path))
@@ -276,7 +283,7 @@ def build_economic_groups(
         )
 
     # Write groups
-    output_path = output_dir / "economic_group.jsonl"
+    validate_records(groups, SCHEMA_PATH)
     with AtomicJsonlWriter(output_path) as fh:
         for g in groups:
             fh.write(json.dumps(g, ensure_ascii=False) + "\n")
@@ -292,6 +299,7 @@ def build_economic_groups(
         "law_firm_groups": sum(1 for g in groups if g["is_law_firm_group"]),
         "generated_at": now_iso,
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "economic_group_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

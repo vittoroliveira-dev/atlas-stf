@@ -74,12 +74,22 @@ def _load_minister_names(minister_bio_path: Path) -> dict[str, str]:
 
 
 def _build_counsel_index(counsel_path: Path) -> dict[str, dict[str, Any]]:
-    """Index counsels by normalized name -> counsel record."""
+    """Index counsels by normalized name -> counsel record.
+
+    When multiple counsels share the same normalized name, keeps the first
+    and logs a warning with the collision count.
+    """
     index: dict[str, dict[str, Any]] = {}
+    collisions = 0
     for record in read_jsonl(counsel_path):
         norm = normalize_entity_name(record.get("counsel_name_normalized") or record.get("counsel_name_raw", ""))
         if norm:
-            index.setdefault(norm, record)
+            if norm in index:
+                collisions += 1
+            else:
+                index[norm] = record
+    if collisions:
+        logger.warning("_build_counsel_index: %d name collisions (first record kept)", collisions)
     return index
 
 
@@ -163,10 +173,13 @@ def _compute_conflict(
     minister_norm: str,
     cnpj: str,
     entity_name: str,
+    entity_display_name: str,
     entity_type: str,
     entity_record: dict[str, Any],
     link_degree: int,
     link_chain: str,
+    evidence_type: str,
+    entity_qualification: str | None,
 ) -> dict[str, Any]:
     """Compute a single conflict record with outcome stats."""
     entity_id = entity_record.get("party_id" if entity_type == "party" else "counsel_id", "")
@@ -278,9 +291,11 @@ def _compute_conflict(
     eg = ctx.eg_index.get(cnpj, {})
 
     # Evidence provenance
-    evidence_type = "partner_pf"
     source_dataset = "socios"
     evidence_strength = "direct" if link_degree == 1 else "indirect"
+
+    # Qualification label
+    entity_qual_label = ctx.qualificacoes.get(entity_qualification, "") if entity_qualification else None
 
     return {
         "conflict_id": conflict_id,
@@ -290,8 +305,8 @@ def _compute_conflict(
         "minister_qualification": minister_qual,
         "linked_entity_type": entity_type,
         "linked_entity_id": entity_id,
-        "linked_entity_name": entity_name,
-        "entity_qualification": None,
+        "linked_entity_name": entity_display_name,
+        "entity_qualification": entity_qualification,
         "shared_process_ids": list(seen_pids),
         "shared_process_count": len(seen_pids),
         "favorable_rate": favorable_rate,
@@ -310,7 +325,7 @@ def _compute_conflict(
         "generated_at": ctx.now_iso,
         # Decoded labels
         "minister_qualification_label": minister_qual_label,
-        "entity_qualification_label": None,
+        "entity_qualification_label": entity_qual_label,
         "company_natureza_juridica_label": company_nj_label,
         # Multi-establishment
         "establishment_count": len(establishments),

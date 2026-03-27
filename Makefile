@@ -2,7 +2,7 @@
        lint format format-check lint-fix typecheck deadcode check \
        test ci web-ci reproduce \
        manifest-raw profile-staging validate-staging \
-       audit-stage audit-curated audit-analytics audit \
+       audit-stage audit-curated audit-analytics audit audit-builder-validation validate-pipeline \
        staging curate \
        curate-process curate-decision-event curate-subject curate-party \
        curate-counsel curate-representation curate-entity-identifier curate-entity-reconciliation curate-links \
@@ -132,6 +132,12 @@ audit-analytics: ## Auditoria do analytics
 
 audit: audit-stage audit-curated audit-analytics ## Auditoria completa (stage + curated + analytics)
 
+audit-builder-validation: ## Audita cobertura de schema validation nos builders analytics
+	python3 scripts/audit_builder_validation.py --scope analytics
+
+validate-pipeline: ## Valida integridade referencial e cobertura dos artefatos do pipeline
+	uv run python -m atlas_stf.validation.pipeline_integrity --scope all
+
 # ===========================
 # Staging e Curated
 # ===========================
@@ -256,7 +262,7 @@ _ag-compound-risk: _ag-alerts _ag-counsel _ag-velocity _ag-rapporteur-change
 	$(CLI) analytics compound-risk
 
 _ag-light: ## Analytics leves (paralelizaveis com -j4)
-_ag-light: _ag-groups _ag-rapporteur _ag-assignment _ag-sequential _ag-temporal _ag-counsel \
+_ag-light: _ag-groups _ag-rapporteur _ag-assignment _ag-sequential _ag-counsel \
            _ag-baseline _ag-alerts _ag-ml-outlier _ag-velocity _ag-rapporteur-change \
            _ag-counsel-network _ag-procedural-timeline _ag-pauta-anomaly \
            _ag-representation-graph _ag-representation-recurrence _ag-representation-windows \
@@ -266,7 +272,7 @@ _ag-heavy: _ag-alerts _ag-counsel _ag-velocity _ag-rapporteur-change ## Analytic
 _ag-heavy: _ag-compound-risk
 
 analytics: ## Todos os builders analiticos (use -j6)
-analytics: _ag-light _ag-heavy
+analytics: _ag-light _ag-temporal _ag-heavy
 
 evidence: ## Bundles de evidencia para alertas
 	$(CLI) evidence build-all
@@ -347,7 +353,7 @@ datajud-context: ## Build contexto de origem DataJud (requer datajud-fetch já e
 datajud: datajud-fetch datajud-context ## Pipeline DataJud completo
 
 stf-portal-fetch: ## Baixa linha do tempo portal STF
-	$(CLI) stf-portal fetch --ignore-tls
+	$(CLI) stf-portal fetch --ignore-tls --rate-limit 0.8 --tab-concurrency 3
 
 stf-portal: stf-portal-fetch ## Pipeline portal STF
 
@@ -377,7 +383,7 @@ external-data: cgu tse cvm rfb ## Pipeline completo de fontes externas
 # ===========================
 
 define _PY_CHECK_ENV
-import sys, subprocess
+import os, sys, subprocess
 lines = open('/proc/meminfo').readlines()
 info = {l.split(':')[0]: int(l.split()[1]) for l in lines if len(l.split()) >= 2}
 avail_gb = info.get('MemAvailable', 0) / 1048576
@@ -385,9 +391,10 @@ swap_free_gb = info.get('SwapFree', 0) / 1048576
 swap_total_gb = info.get('SwapTotal', 0) / 1048576
 print(f'RAM disponivel: {avail_gb:.1f} GB')
 print(f'Swap: {swap_free_gb:.1f} / {swap_total_gb:.1f} GB livre')
+my_pid = str(os.getpid())
 result = subprocess.run(['pgrep', '-af', 'stf-portal.*fetch|curate.*all'], capture_output=True, text=True)
 for p in result.stdout.strip().splitlines():
-    if p:
+    if p and not p.startswith(my_pid + ' '):
         print(f'Processo pesado: {p}')
 if avail_gb < 10:
     print('RAM disponivel < 10 GB. Pare processos pesados antes de continuar.')
@@ -397,12 +404,13 @@ endef
 export _PY_CHECK_ENV
 
 define _PY_ENSURE_NO_HEAVY_FETCH
-import subprocess, sys
+import os, subprocess, sys
+my_pid = str(os.getpid())
 result = subprocess.run(['pgrep', '-af', 'stf-portal.*fetch'], capture_output=True, text=True)
-out = result.stdout.strip()
-if out:
+lines = [l for l in result.stdout.strip().splitlines() if l and not l.startswith(my_pid + ' ')]
+if lines:
     print('Portal fetch ativo — pare antes de rodar pipeline-safe:')
-    print(out)
+    print('\n'.join(lines))
     print('Use: make _stop-portal-fetch')
     sys.exit(1)
 print('Nenhum portal fetch ativo.')
@@ -442,7 +450,7 @@ _stop-portal-fetch: ## Para o portal fetch de forma segura (valida PID + cmdline
 # ===========================
 # Serving e Pipeline — rode com: make pipeline -j6
 # ===========================
-serving-build: ## Materializa banco SQLite para API
+serving-build: ## Materializa banco SQLite para API (ATLAS_FLOW_WORKERS=N para override, default=min(4,cpus))
 	$(CLI) serving build --database-url "$(ATLAS_STF_DB_URL)"
 
 pipeline-safe: _check-env _ensure-no-heavy-fetch ## Pipeline seguro (staging -> serving, com isolamento de memoria)
@@ -450,8 +458,16 @@ pipeline-safe: _check-env _ensure-no-heavy-fetch ## Pipeline seguro (staging -> 
 	$(MAKE) staging
 	@echo "=== Fase 2: Curate ==="
 	$(MAKE) curate
-	@echo "=== Fase 3: Analytics leves (-j4) ==="
-	$(MAKE) -j4 _ag-light
+	@echo "=== Fase 3: Analytics leves (-j4) + temporal (se RAM > 20 GB) ==="
+	@avail=$$(awk '/MemAvailable/ {print int($$2/1048576)}' /proc/meminfo); \
+	if [ "$$avail" -ge 20 ]; then \
+		echo "RAM $$avail GB — temporal roda em paralelo com leves"; \
+		$(MAKE) -j4 _ag-light _ag-temporal; \
+	else \
+		echo "RAM $$avail GB < 20 GB — temporal roda sequencial apos leves"; \
+		$(MAKE) -j4 _ag-light; \
+		$(MAKE) _ag-temporal; \
+	fi
 	@echo "=== Fase 4: Analytics pesados (sequencial) ==="
 	$(MAKE) _ag-heavy
 	@echo "=== Fase 5: Matches externos ==="

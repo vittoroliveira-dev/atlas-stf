@@ -12,11 +12,14 @@ from typing import Any
 
 from ..core.identity import stable_id
 from ..curated.common import read_jsonl_records, write_jsonl
+from ..schema_validate import validate_records
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CURATED_DIR = Path("data/curated")
 DEFAULT_OUTPUT_DIR = Path("data/analytics")
+SCHEMA_PATH = Path("schemas/amicus_network.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/amicus_network_summary.schema.json")
 
 _AMICUS_ROLE_TYPES: frozenset[str] = frozenset(
     {
@@ -68,7 +71,7 @@ def build_amicus_network(
     lawyer_lookup: dict[str, str] = {}
     for rec in lawyers:
         lid = rec.get("lawyer_id")
-        name = rec.get("lawyer_name_normalized") or rec.get("lawyer_name_raw", "")
+        name = rec.get("lawyer_name_raw") or rec.get("lawyer_name_normalized", "")
         if lid:
             lawyer_lookup[lid] = name
 
@@ -177,6 +180,7 @@ def build_amicus_network(
     tick("Amicus: Escrevendo resultados...")
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    validate_records(records, SCHEMA_PATH)
     output_path = write_jsonl(records, output_dir / "amicus_network.jsonl")
 
     all_process_ids: set[str] = set()
@@ -191,6 +195,7 @@ def build_amicus_network(
         "generated_at": timestamp,
     }
 
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "amicus_network_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

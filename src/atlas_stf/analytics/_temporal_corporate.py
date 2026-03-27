@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,8 @@ from ._match_helpers import (
     read_jsonl,
 )
 from ._temporal_utils import _parse_rfb_date, _round
+
+logger = logging.getLogger(__name__)
 
 
 def _enrichment_fields(
@@ -56,10 +59,16 @@ def _minister_aliases(minister_bio_path: Path) -> dict[str, str]:
 
 def _counsel_index(counsel_path: Path) -> dict[str, dict[str, Any]]:
     index: dict[str, dict[str, Any]] = {}
+    collisions = 0
     for record in read_jsonl(counsel_path):
         normalized = normalize_entity_name(record.get("counsel_name_normalized") or record.get("counsel_name_raw"))
         if normalized:
-            index.setdefault(normalized, record)
+            if normalized in index:
+                collisions += 1
+            else:
+                index[normalized] = record
+    if collisions:
+        logger.warning("_counsel_index: %d name collisions (first record kept)", collisions)
     return index
 
 

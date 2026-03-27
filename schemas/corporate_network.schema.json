@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/corporate_network.schema.json",
+  "title": "CorporateNetwork",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "conflict_id",
+    "minister_name",
+    "company_cnpj_basico",
+    "company_name",
+    "minister_qualification",
+    "linked_entity_type",
+    "linked_entity_id",
+    "linked_entity_name",
+    "entity_qualification",
+    "shared_process_ids",
+    "shared_process_count",
+    "favorable_rate",
+    "favorable_rate_substantive",
+    "substantive_decision_count",
+    "baseline_favorable_rate",
+    "favorable_rate_delta",
+    "risk_score",
+    "decay_factor",
+    "red_flag",
+    "red_flag_substantive",
+    "red_flag_power",
+    "red_flag_confidence",
+    "link_chain",
+    "link_degree",
+    "generated_at",
+    "minister_qualification_label",
+    "entity_qualification_label",
+    "company_natureza_juridica_label",
+    "establishment_count",
+    "active_establishment_count",
+    "headquarters_uf",
+    "headquarters_municipio_label",
+    "headquarters_cnae_fiscal",
+    "headquarters_cnae_label",
+    "headquarters_situacao_cadastral",
+    "headquarters_motivo_situacao_label",
+    "establishment_ufs",
+    "establishment_cnaes",
+    "establishment_cnae_labels",
+    "key_establishments",
+    "economic_group_id",
+    "economic_group_member_count",
+    "economic_group_razoes_sociais",
+    "evidence_type",
+    "source_dataset",
+    "source_snapshot",
+    "evidence_strength"
+  ],
+  "properties": {
+    "conflict_id": {
+      "type": "string"
+    },
+    "minister_name": {
+      "type": "string"
+    },
+    "company_cnpj_basico": {
+      "type": "string"
+    },
+    "company_name": {
+      "type": "string"
+    },
+    "minister_qualification": {
+      "type": ["string", "null"]
+    },
+    "linked_entity_type": {
+      "type": "string"
+    },
+    "linked_entity_id": {
+      "type": "string"
+    },
+    "linked_entity_name": {
+      "type": "string"
+    },
+    "entity_qualification": {
+      "type": ["string", "null"]
+    },
+    "shared_process_ids": {
+      "type": "array"
+    },
+    "shared_process_count": {
+      "type": "integer"
+    },
+    "favorable_rate": {
+      "type": ["number", "null"]
+    },
+    "favorable_rate_substantive": {
+      "type": ["number", "null"]
+    },
+    "substantive_decision_count": {
+      "type": "integer"
+    },
+    "baseline_favorable_rate": {
+      "type": ["number", "null"]
+    },
+    "favorable_rate_delta": {
+      "type": ["number", "null"]
+    },
+    "risk_score": {
+      "type": ["number", "null"]
+    },
+    "decay_factor": {
+      "type": "number"
+    },
+    "red_flag": {
+      "type": "boolean"
+    },
+    "red_flag_substantive": {
+      "type": ["boolean", "null"]
+    },
+    "red_flag_power": {
+      "type": ["number", "null"]
+    },
+    "red_flag_confidence": {
+      "type": ["string", "null"]
+    },
+    "link_chain": {
+      "type": "string"
+    },
+    "link_degree": {
+      "type": "integer"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "minister_qualification_label": {
+      "type": ["string", "null"]
+    },
+    "entity_qualification_label": {
+      "type": ["string", "null"]
+    },
+    "company_natureza_juridica_label": {
+      "type": ["string", "null"]
+    },
+    "establishment_count": {
+      "type": "integer"
+    },
+    "active_establishment_count": {
+      "type": "integer"
+    },
+    "headquarters_uf": {
+      "type": ["string", "null"]
+    },
+    "headquarters_municipio_label": {
+      "type": ["string", "null"]
+    },
+    "headquarters_cnae_fiscal": {
+      "type": ["string", "null"]
+    },
+    "headquarters_cnae_label": {
+      "type": ["string", "null"]
+    },
+    "headquarters_situacao_cadastral": {
+      "type": ["string", "null"]
+    },
+    "headquarters_motivo_situacao_label": {
+      "type": ["string", "null"]
+    },
+    "establishment_ufs": {
+      "type": "array"
+    },
+    "establishment_cnaes": {
+      "type": "array"
+    },
+    "establishment_cnae_labels": {
+      "type": "array"
+    },
+    "key_establishments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cnpj_full": {"type": "string"},
+          "matriz_filial": {"type": "string"},
+          "nome_fantasia": {"type": "string"},
+          "uf": {"type": "string"},
+          "municipio_label": {"type": "string"},
+          "cnae_fiscal": {"type": "string"},
+          "cnae_label": {"type": "string"},
+          "situacao_cadastral": {"type": "string"},
+          "data_inicio_atividade": {"type": "string"}
+        }
+      }
+    },
+    "economic_group_id": {
+      "type": ["string", "null"]
+    },
+    "economic_group_member_count": {
+      "type": ["integer", "null"]
+    },
+    "economic_group_razoes_sociais": {
+      "type": "array"
+    },
+    "evidence_type": {
+      "type": "string"
+    },
+    "source_dataset": {
+      "type": "string"
+    },
+    "source_snapshot": {
+      "type": ["string", "null"]
+    },
+    "evidence_strength": {
+      "type": "string"
+    }
+  }
+}

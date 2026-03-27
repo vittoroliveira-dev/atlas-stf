@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/counsel_affinity.schema.json",
+  "title": "CounselAffinity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "affinity_id",
+    "rapporteur",
+    "counsel_id",
+    "counsel_name_normalized",
+    "shared_case_count",
+    "favorable_count",
+    "unfavorable_count",
+    "pair_favorable_rate",
+    "substantive_decision_count",
+    "minister_baseline_favorable_rate",
+    "counsel_baseline_favorable_rate",
+    "pair_delta_vs_minister",
+    "pair_delta_vs_counsel",
+    "red_flag",
+    "top_process_classes",
+    "generated_at"
+  ],
+  "properties": {
+    "affinity_id": {
+      "type": "string"
+    },
+    "rapporteur": {
+      "type": "string"
+    },
+    "counsel_id": {
+      "type": "string"
+    },
+    "counsel_name_normalized": {
+      "type": "string"
+    },
+    "shared_case_count": {
+      "type": "integer"
+    },
+    "favorable_count": {
+      "type": "integer"
+    },
+    "unfavorable_count": {
+      "type": "integer"
+    },
+    "pair_favorable_rate": {
+      "type": "number"
+    },
+    "pair_favorable_rate_substantive": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "substantive_decision_count": {
+      "type": "integer"
+    },
+    "minister_baseline_favorable_rate": {
+      "type": "number"
+    },
+    "counsel_baseline_favorable_rate": {
+      "type": "number"
+    },
+    "pair_delta_vs_minister": {
+      "type": "number"
+    },
+    "pair_delta_vs_counsel": {
+      "type": "number"
+    },
+    "red_flag": {
+      "type": "boolean"
+    },
+    "red_flag_substantive": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "top_process_classes": {
+      "type": "array"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

@@ -167,3 +167,12 @@ class PaginatedInvestigationsResponse(BaseModel):
     page: int
     page_size: int
     items: list[InvestigationSummary]
+
+
+class InvestigationDetailResponse(BaseModel):
+    entity_id: str
+    node: GraphNodeItem
+    score: GraphScoreItem | None = None
+    bundles: list[EvidenceBundleItem] = []
+    edges: list[GraphEdgeItem] = []
+    paths: list[GraphPathItem] = []

@@ -87,4 +87,5 @@ class TestBuildOriginContext:
             process_path=process_path,
             output_dir=output_dir,
         )
-        assert result == output_dir
+        assert result == output_dir / "origin_context.jsonl"
+        assert result.exists()

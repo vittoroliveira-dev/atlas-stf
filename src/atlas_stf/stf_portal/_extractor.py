@@ -11,6 +11,7 @@ import logging
 import random
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -37,6 +38,7 @@ from ._parser import (
     parse_peticoes_html,
 )
 from ._proxy import ProxyManager
+from ._result import ResolveResult
 
 logger = logging.getLogger(__name__)
 
@@ -212,10 +214,18 @@ class PortalExtractor:
             return parts[0], parts[1]
         return "", process_number
 
-    def _resolve_incidente(self, process_number: str) -> tuple[str | None, bool]:
-        """Resolve incidente ID from the 302 Location header."""
+    def _resolve_incidente(self, process_number: str) -> ResolveResult:
+        """Resolve incidente ID from the 302 Location header.
+
+        Returns a ``ResolveResult`` with explicit status:
+        - ``resolved``: incidente found.
+        - ``not_found_permanent``: HTTP 200 without match, or 400/401/404.
+        - ``transient_failure``: SSL, timeout, network error after retries.
+        - ``blocked_403``: WAF block after retries.
+        """
         classe, numero = self._split_process_number(process_number)
         params = {"classe": classe, "numeroProcesso": numero}
+        got_403 = False
 
         for attempt in range(self._max_retries):
             try:
@@ -228,16 +238,17 @@ class PortalExtractor:
                     if match:
                         if self._proxy_manager:
                             self._proxy_manager.record_success(proxy)
-                        return match.group(1), False
+                        return ResolveResult(status="resolved", incidente=match.group(1))
 
                 if resp.status_code == 200 and resp.text:
                     match = INCIDENTE_RE.search(resp.text)
                     if match:
                         if self._proxy_manager:
                             self._proxy_manager.record_success(proxy)
-                        return match.group(1), False
+                        return ResolveResult(status="resolved", incidente=match.group(1))
 
                 if resp.status_code == 403:
+                    got_403 = True
                     if self._proxy_manager:
                         self._proxy_manager.record_403(proxy)
                     self._pool.rotate_for_proxy(proxy)
@@ -246,13 +257,21 @@ class PortalExtractor:
                     time.sleep(wait)
                     continue
 
+                if resp.status_code in (400, 401, 404):
+                    logger.warning(
+                        "Permanent failure resolving %s (HTTP %d)",
+                        process_number,
+                        resp.status_code,
+                    )
+                    return ResolveResult(status="not_found_permanent")
+
                 logger.warning(
                     "No incidente found for %s (status=%d, location=%s)",
                     process_number,
                     resp.status_code,
                     resp.headers.get("location", ""),
                 )
-                return None, False
+                return ResolveResult(status="not_found_permanent")
             except Exception as exc:
                 if attempt < self._max_retries - 1:
                     wait = self._retry_delay * (2**attempt)
@@ -266,15 +285,33 @@ class PortalExtractor:
                     time.sleep(wait)
                 else:
                     logger.warning("Resolve %s failed after %d attempts", process_number, self._max_retries)
-                    return None, False
-        return None, True
+                    return ResolveResult(status="transient_failure")
+        # All retries exhausted on 403
+        return ResolveResult(status="blocked_403" if got_403 else "transient_failure")
 
-    def _fetch_tabs_concurrent(self, incidente: str) -> TabsBatchResult:
-        """Fetch all tabs concurrently (mirrors real browser behavior)."""
+    def _fetch_tabs_concurrent(
+        self,
+        incidente: str,
+        *,
+        tabs_to_fetch: tuple[str, ...] = TABS,
+        on_tab_success: Callable[[str, str], None] | None = None,
+    ) -> TabsBatchResult:
+        """Fetch tabs concurrently (mirrors real browser behavior).
+
+        Parameters
+        ----------
+        tabs_to_fetch:
+            Subset of tabs to download (default: all 5).
+        on_tab_success:
+            Optional callback ``(tab_name, html)`` invoked immediately after
+            each successful download, *before* the full batch returns.  Used
+            by the runner to persist partial HTML to disk.
+        """
         results: dict[str, str] = {}
         got_403 = threading.Event()
         tabs_failed: set[str] = set()
         any_retryable = threading.Event()
+        any_permanent = threading.Event()
 
         def _fetch_one(tab: str) -> TabFetchResult:
             if got_403.is_set():
@@ -300,6 +337,9 @@ class PortalExtractor:
                         self._pool.rotate_for_proxy(proxy)
                         got_403.set()
                         return TabFetchResult(tab=tab, html="", success=False, blocked=True, retryable=False)
+                    if status in (400, 401, 404):
+                        logger.warning("Tab %s permanent failure for incidente %s (HTTP %d)", tab, incidente, status)
+                        return TabFetchResult(tab=tab, html="", success=False, blocked=False, retryable=False)
                     if attempt < self._max_retries - 1:
                         time.sleep(self._retry_delay * (2**attempt))
                     else:
@@ -315,13 +355,17 @@ class PortalExtractor:
             return TabFetchResult(tab=tab, html="", success=False, blocked=True, retryable=False)
 
         with ThreadPoolExecutor(max_workers=self._tab_concurrency) as pool:
-            for result in pool.map(_fetch_one, TABS):
+            for result in pool.map(_fetch_one, tabs_to_fetch):
                 if result.success:
                     results[result.tab] = result.html
+                    if on_tab_success:
+                        on_tab_success(result.tab, result.html)
                 else:
                     tabs_failed.add(result.tab)
                     if result.retryable:
                         any_retryable.set()
+                    elif not result.blocked:
+                        any_permanent.set()
 
         return TabsBatchResult(
             tabs=results,
@@ -330,44 +374,29 @@ class PortalExtractor:
             tabs_failed=tabs_failed,
         )
 
-    # --- Orchestration ---
+    # --- Assembly (pure, no I/O) ---
 
-    def extract_process(self, process_number: str, incidente: str | None = None) -> dict[str, Any] | None:
-        """Extract full timeline data for a single process."""
+    def assemble_document(
+        self,
+        process_number: str,
+        incidente: str,
+        tab_htmls: dict[str, str],
+    ) -> dict[str, Any] | None:
+        """Parse cached tab HTMLs and build the final process document.
+
+        Pure function (no network I/O).  Returns ``None`` on parse failure.
+        """
         try:
-            if not incidente:
-                incidente, blocked = self._resolve_incidente(process_number)
-                if not incidente:
-                    if blocked:
-                        logger.warning("403 block on resolve for %s — will retry later", process_number)
-                    else:
-                        logger.warning("Could not resolve incidente for %s — skipping", process_number)
-                    return None
-
             source_url = f"{PROCESS_DETAIL_URL}?incidente={incidente}"
-            batch = self._fetch_tabs_concurrent(incidente)
-
-            if batch.blocked:
-                logger.warning("403 block on tabs for %s — will retry later", process_number)
-                return None
-            if batch.tabs_failed:
-                failed_names = ", ".join(sorted(batch.tabs_failed))
-                if batch.retryable:
-                    logger.warning("Retryable failure on %s for %s — will retry later", failed_names, process_number)
-                else:
-                    logger.warning("Non-retryable failure on %s for %s — skipping", failed_names, process_number)
-                return None
-
-            tabs = batch.tabs
-            andamentos = parse_andamentos_html(tabs.get("abaAndamentos", ""))
-            deslocamentos = parse_deslocamentos_html(tabs.get("abaDeslocamentos", ""))
-            peticoes = parse_peticoes_html(tabs.get("abaPeticoes", ""))
-            informacoes = parse_informacoes_html(tabs.get("abaInformacoes", ""))
-            representantes = parse_partes_representantes_html(tabs.get("abaPartes", ""))
-            peticoes_detailed = parse_peticoes_detailed_html(tabs.get("abaPeticoes", ""))
+            andamentos = parse_andamentos_html(tab_htmls.get("abaAndamentos", ""))
+            deslocamentos = parse_deslocamentos_html(tab_htmls.get("abaDeslocamentos", ""))
+            peticoes = parse_peticoes_html(tab_htmls.get("abaPeticoes", ""))
+            informacoes = parse_informacoes_html(tab_htmls.get("abaInformacoes", ""))
+            representantes = parse_partes_representantes_html(tab_htmls.get("abaPartes", ""))
+            peticoes_detailed = parse_peticoes_detailed_html(tab_htmls.get("abaPeticoes", ""))
 
             tab_order = ("abaAndamentos", "abaPartes", "abaPeticoes", "abaDeslocamentos", "abaInformacoes")
-            combined_html = "\n".join(tabs.get(t, "") for t in tab_order)
+            combined_html = "\n".join(tab_htmls.get(t, "") for t in tab_order)
 
             doc = build_process_document(
                 process_number=process_number,
@@ -392,6 +421,40 @@ class PortalExtractor:
                 len(representantes),
             )
             return doc
+        except Exception:
+            logger.exception("Failed to assemble document for %s", process_number)
+            return None
+
+    # --- Orchestration (backward-compat facade) ---
+
+    def extract_process(self, process_number: str, incidente: str | None = None) -> dict[str, Any] | None:
+        """Extract full timeline data for a single process.
+
+        Original all-or-nothing facade preserved for backward compatibility.
+        The runner uses ``_fetch_process_incremental`` for partial persistence.
+        """
+        try:
+            if not incidente:
+                resolve = self._resolve_incidente(process_number)
+                if resolve.status != "resolved" or not resolve.incidente:
+                    logger.warning("Resolve failed for %s: %s", process_number, resolve.status)
+                    return None
+                incidente = resolve.incidente
+
+            batch = self._fetch_tabs_concurrent(incidente)
+
+            if batch.blocked:
+                logger.warning("403 block on tabs for %s — will retry later", process_number)
+                return None
+            if batch.tabs_failed:
+                failed_names = ", ".join(sorted(batch.tabs_failed))
+                if batch.retryable:
+                    logger.warning("Retryable failure on %s for %s — will retry later", failed_names, process_number)
+                else:
+                    logger.warning("Non-retryable failure on %s for %s — skipping", failed_names, process_number)
+                return None
+
+            return self.assemble_document(process_number, incidente, batch.tabs)
         except Exception:
             logger.exception("Failed to extract process %s", process_number)
             return None

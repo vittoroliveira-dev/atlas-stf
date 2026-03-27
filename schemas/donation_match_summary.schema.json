@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/donation_match_summary.schema.json",
+  "title": "DonationMatchSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_donations_raw",
+    "unique_donors",
+    "matched_party_count",
+    "matched_counsel_count",
+    "donation_match_count",
+    "party_match_count",
+    "counsel_match_count",
+    "party_red_flag_count",
+    "counsel_direct_red_flag_count",
+    "counsel_profile_count",
+    "counsel_red_flag_count",
+    "total_donated_brl_matched",
+    "matched_by_tax_id_count",
+    "matched_by_alias_count",
+    "matched_by_similarity_count",
+    "party_ambiguous_candidate_count",
+    "counsel_ambiguous_candidate_count",
+    "total_ambiguous_candidate_count",
+    "ambiguous_records_written",
+    "corporate_links_present",
+    "economic_groups_present",
+    "corporate_network_present",
+    "corporate_enriched_count",
+    "donation_event_count",
+    "election_years_covered",
+    "resource_category_counts",
+    "resource_subtype_counts",
+    "resource_classification_unknown_count",
+    "resource_classification_empty_count",
+    "resource_classification_coverage_rate",
+    "resource_classification_nonempty_coverage_rate",
+    "generated_at"
+  ],
+  "properties": {
+    "total_donations_raw": {
+      "type": "integer"
+    },
+    "unique_donors": {
+      "type": "integer"
+    },
+    "matched_party_count": {
+      "type": "integer"
+    },
+    "matched_counsel_count": {
+      "type": "integer"
+    },
+    "donation_match_count": {
+      "type": "integer"
+    },
+    "party_match_count": {
+      "type": "integer"
+    },
+    "counsel_match_count": {
+      "type": "integer"
+    },
+    "party_red_flag_count": {
+      "type": "integer"
+    },
+    "counsel_direct_red_flag_count": {
+      "type": "integer"
+    },
+    "counsel_profile_count": {
+      "type": "integer"
+    },
+    "counsel_red_flag_count": {
+      "type": "integer"
+    },
+    "total_donated_brl_matched": {
+      "type": "number"
+    },
+    "matched_by_tax_id_count": {
+      "type": "integer"
+    },
+    "matched_by_alias_count": {
+      "type": "integer"
+    },
+    "matched_by_similarity_count": {
+      "type": "integer"
+    },
+    "party_ambiguous_candidate_count": {
+      "type": "integer"
+    },
+    "counsel_ambiguous_candidate_count": {
+      "type": "integer"
+    },
+    "total_ambiguous_candidate_count": {
+      "type": "integer"
+    },
+    "ambiguous_records_written": {
+      "type": "integer"
+    },
+    "corporate_links_present": {
+      "type": "boolean"
+    },
+    "economic_groups_present": {
+      "type": "boolean"
+    },
+    "corporate_network_present": {
+      "type": "boolean"
+    },
+    "corporate_enriched_count": {
+      "type": "integer"
+    },
+    "donation_event_count": {
+      "type": "integer"
+    },
+    "election_years_covered": {
+      "type": "array"
+    },
+    "resource_category_counts": {
+      "type": "object"
+    },
+    "resource_subtype_counts": {
+      "type": "object"
+    },
+    "resource_classification_unknown_count": {
+      "type": "integer"
+    },
+    "resource_classification_empty_count": {
+      "type": "integer"
+    },
+    "resource_classification_coverage_rate": {
+      "type": "number"
+    },
+    "resource_classification_nonempty_coverage_rate": {
+      "type": "number"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

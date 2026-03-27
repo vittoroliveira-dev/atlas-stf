@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import cast
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -18,6 +18,7 @@ from atlas_stf.serving._models_graph import (
 )
 
 from ._schemas_graph import (
+    InvestigationDetailResponse,
     InvestigationSummary,
     PaginatedInvestigationsResponse,
     PaginatedReviewResponse,
@@ -111,7 +112,7 @@ def get_top_investigations(
 def get_investigation_by_entity(
     session: Session,
     entity_id: str,
-) -> dict[str, Any] | None:
+) -> InvestigationDetailResponse | None:
     """Full investigation detail: node, score, bundle, paths, edges."""
     node = cast(
         ServingGraphNode | None,
@@ -167,14 +168,14 @@ def get_investigation_by_entity(
         ).all(),
     )
 
-    return {
-        "entity_id": entity_id,
-        "node": _node_to_item(node),
-        "score": _score_to_item(score_row) if score_row else None,
-        "bundles": [_bundle_to_item(b) for b in bundle_rows],
-        "edges": [_edge_to_item(e) for e in edges],
-        "paths": [_path_to_item(p) for p in paths],
-    }
+    return InvestigationDetailResponse(
+        entity_id=entity_id,
+        node=_node_to_item(node),
+        score=_score_to_item(score_row) if score_row else None,
+        bundles=[_bundle_to_item(b) for b in bundle_rows],
+        edges=[_edge_to_item(e) for e in edges],
+        paths=[_path_to_item(p) for p in paths],
+    )
 
 
 # ---------------------------------------------------------------------------

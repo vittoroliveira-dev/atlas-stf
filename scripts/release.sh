@@ -345,11 +345,10 @@ step "10/10 — Publicacao"
 # ===========================================================================
 
 info "Commitando..."
-git add pyproject.toml src/atlas_stf/__init__.py CHANGELOG.md README.md web/package.json
-git add CLAUDE.md 2>/dev/null || true
-git add src/ tests/ web/src/ Makefile schemas/ docs/ .github/ .gitignore .nvmrc data/curated/minister_bio.json
-git add uv.lock web/package-lock.json web/eslint.config.mjs Dockerfile docker-compose.yml 2>/dev/null || true
-git add scripts/ 2>/dev/null || true
+# Stage tudo que está tracked (modified + deleted) e arquivos novos relevantes.
+# git add -A captura deletes que listagem explícita perdia (ex: ui-spec/).
+# .gitignore já protege data/, .env, __pycache__, node_modules, etc.
+git add -A
 git diff --cached --quiet && error "Nada para commitar."
 git commit -m "Atlas STF v${VERSION}"
 info "Commit: $(git rev-parse --short HEAD)"

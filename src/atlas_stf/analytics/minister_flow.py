@@ -12,6 +12,7 @@ from typing import Any
 
 from ..core.rules import derive_thematic_key
 from ..schema_validate import validate_records
+from ._match_io import read_jsonl as _read_jsonl
 
 FLOW_SCHEMA = Path("schemas/minister_flow.schema.json")
 DEFAULT_DECISION_EVENT_PATH = Path("data/curated/decision_event.jsonl")
@@ -79,11 +80,6 @@ class MinisterFlowRecord:
     judging_body_flow: list[dict[str, Any]]
     process_class_flow: list[dict[str, Any]]
     thematic_flow: list[dict[str, Any]]
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    with path.open("r", encoding="utf-8") as fh:
-        return [json.loads(line) for line in fh if line.strip()]
 
 
 def _slugify(value: str) -> str:

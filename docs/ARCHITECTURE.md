@@ -17,8 +17,8 @@ data/curated/                  18 entidades: process, decision_event, subject, p
                                lawyer_entity, law_firm_entity, representation_edge,
                                representation_event, source_evidence, entity_identifier,
                                entity_identifier_reconciliation, agenda_event, agenda_coverage
-        ↓  analytics builders (35, independentes, paralelizáveis -j6)
-data/analytics/                35 artefatos JSONL + summaries JSON
+        ↓  analytics builders (32, independentes, paralelizáveis -j6)
+data/analytics/                32 artefatos JSONL + summaries JSON
         ↓  evidence builder
 data/evidence/                 JSON bundles por alerta
         ↓  serving builder
@@ -66,7 +66,7 @@ web/                           Dashboard (26 Server Components)
 | Módulo | Responsabilidade | Depende de |
 |--------|-----------------|------------|
 | `curated/` | Entity builders (18 entidades) | core (via common.py) |
-| `analytics/` | 35 builders estatísticos independentes | core, curated (identity + I/O helpers) |
+| `analytics/` | 32 builders estatísticos independentes | core, curated (identity + I/O helpers) |
 | `evidence/` | Bundles de evidência por alerta | curated, analytics |
 
 ### Serving e API
@@ -78,12 +78,13 @@ web/                           Dashboard (26 Server Components)
 | `cli/` | Orquestrador de comandos (lazy imports) | todos |
 | `fetch/` | Manifesto unificado de downloads (discovery, plan, execute, migrate) | core |
 | `contracts/` | Schema inspection e drift analysis por fonte | core |
+| `validation/` | Integridade referencial cross-artefato | stdlib only |
 
 ## Módulos do frontend (`web/src/`)
 
 | Diretório | Responsabilidade |
 |-----------|-----------------|
-| `app/` | 26 páginas (async Server Components) + 3 subpáginas dinâmicas |
+| `app/` | 26 páginas (async Server Components) + 7 subpáginas dinâmicas |
 | `lib/` | 14 data files (*-data.ts), api-client, types, mappers, filter-context, ui-copy |
 | `components/dashboard/` | Componentes reutilizáveis (AppShell, charts, tables, cards, filters) |
 

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/compound_risk_summary.schema.json",
+  "title": "CompoundRiskSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "pair_count",
+    "red_flag_count",
+    "signal_frequency",
+    "top_pairs"
+  ],
+  "properties": {
+    "generated_at": {
+      "type": "string"
+    },
+    "pair_count": {
+      "type": "integer"
+    },
+    "red_flag_count": {
+      "type": "integer"
+    },
+    "signal_frequency": {
+      "type": "object"
+    },
+    "top_pairs": {
+      "type": "array"
+    }
+  }
+}

@@ -386,8 +386,8 @@ class TestFetchRfbData:
         result = fetch_rfb_data(config)
         assert result == config.output_dir
 
-    @patch("atlas_stf.rfb._runner.httpx.head")
-    @patch("atlas_stf.rfb._runner._download_zip")
+    @patch("atlas_stf.rfb._runner_orchestrate.httpx.head")
+    @patch("atlas_stf.rfb._runner_orchestrate._download_zip")
     def test_full_run(self, mock_download, mock_head, tmp_path: Path) -> None:
         bio = tmp_path / "minister_bio.json"
         bio.write_text(json.dumps({"m1": {"minister_name": "JOSE DA SILVA"}}), encoding="utf-8")

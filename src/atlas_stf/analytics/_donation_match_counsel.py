@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ from ._match_helpers import (
 )
 from ._parallel import match_entities_parallel
 
+logger = logging.getLogger(__name__)
+
 __all__ = [
     "build_counsel_match_context",
     "match_donors_to_counsel",
@@ -39,13 +42,19 @@ def build_counsel_match_context(
     counsel_records = read_jsonl(counsel_path)
     counsel_index: dict[str, dict[str, Any]] = {}
     counsel_id_to_name: dict[str, str] = {}
+    collisions = 0
     for record in counsel_records:
         norm = normalize_entity_name(record.get("counsel_name_normalized") or record.get("counsel_name_raw", ""))
         if norm:
-            counsel_index.setdefault(norm, record)
+            if norm in counsel_index:
+                collisions += 1
+            else:
+                counsel_index[norm] = record
             cid = record.get("counsel_id", "")
             if cid:
                 counsel_id_to_name[cid] = norm
+    if collisions:
+        logger.warning("build_counsel_match_context: %d name collisions (first record kept)", collisions)
 
     counsel_match_index = build_entity_match_index(
         counsel_records,

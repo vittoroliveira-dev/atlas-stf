@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/economic_group_summary.schema.json",
+  "title": "EconomicGroupSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_groups",
+    "singleton_count",
+    "multi_member_count",
+    "avg_member_count",
+    "max_member_count",
+    "law_firm_groups",
+    "generated_at"
+  ],
+  "properties": {
+    "total_groups": {
+      "type": "integer"
+    },
+    "singleton_count": {
+      "type": "integer"
+    },
+    "multi_member_count": {
+      "type": "integer"
+    },
+    "avg_member_count": {
+      "type": "number"
+    },
+    "max_member_count": {
+      "type": "integer"
+    },
+    "law_firm_groups": {
+      "type": "integer"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

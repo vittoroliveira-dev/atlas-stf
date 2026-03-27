@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/representation_graph.schema.json",
+  "title": "RepresentationGraph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "edge_id",
+    "representative_entity_id",
+    "representative_kind",
+    "lawyer_id",
+    "process_id",
+    "event_count",
+    "event_types",
+    "active_span_days",
+    "evidence_count",
+    "co_lawyer_ids",
+    "generated_at"
+  ],
+  "properties": {
+    "edge_id": {
+      "type": "string"
+    },
+    "representative_entity_id": {
+      "type": "string"
+    },
+    "representative_kind": {
+      "type": "string"
+    },
+    "lawyer_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "firm_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "party_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "process_id": {
+      "type": "string"
+    },
+    "event_count": {
+      "type": "integer"
+    },
+    "event_types": {
+      "type": "object"
+    },
+    "first_event_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "last_event_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "active_span_days": {
+      "type": "integer"
+    },
+    "evidence_count": {
+      "type": "integer"
+    },
+    "co_lawyer_ids": {
+      "type": "array"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

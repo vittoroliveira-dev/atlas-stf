@@ -127,6 +127,8 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         return 0
 
     if args.command == "curate" and args.curate_target == "all":
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         from ._progress import cli_progress
 
         portal_dir = Path("data/raw/stf_portal")
@@ -136,123 +138,143 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         process_path = output_dir / "process.jsonl"
 
         # Each builder runs as a subprocess for memory isolation.
-        # When the subprocess exits, the OS reclaims all its memory.
-        builders: list[tuple[str, list[str]]] = [
-            (
-                "Construindo processos",
-                [
-                    "curate",
-                    "process",
-                    "--staging-dir",
-                    str(staging_dir),
-                    "--output",
-                    str(process_path),
-                    "--juris-dir",
-                    str(juris_dir),
-                ],
-            ),
-            (
-                "Construindo decisões",
-                [
-                    "curate",
-                    "decision-event",
-                    "--staging-file",
-                    str(staging_dir / "decisoes.csv"),
-                    "--output",
-                    str(output_dir / "decision_event.jsonl"),
-                    "--juris-dir",
-                    str(juris_dir),
-                ],
-            ),
-            (
-                "Construindo assuntos",
-                [
-                    "curate",
-                    "subject",
-                    "--process-path",
-                    str(process_path),
-                    "--output",
-                    str(output_dir / "subject.jsonl"),
-                ],
-            ),
-            (
-                "Construindo partes",
-                ["curate", "party", "--process-path", str(process_path), "--output", str(output_dir / "party.jsonl")],
-            ),
-            (
-                "Construindo advogados",
-                [
-                    "curate",
-                    "counsel",
-                    "--process-path",
-                    str(process_path),
-                    "--output",
-                    str(output_dir / "counsel.jsonl"),
-                ],
-            ),
-            (
-                "Construindo vínculos",
-                [
-                    "curate",
-                    "links",
-                    "--process-path",
-                    str(process_path),
-                    "--party-output",
-                    str(output_dir / "process_party_link.jsonl"),
-                    "--counsel-output",
-                    str(output_dir / "process_counsel_link.jsonl"),
-                ],
-            ),
-            (
-                "Identificadores de entidade",
-                [
-                    "curate",
-                    "entity-identifier",
-                    "--process-path",
-                    str(process_path),
-                    "--juris-dir",
-                    str(juris_dir),
-                    "--output",
-                    str(output_dir / "entity_identifier.jsonl"),
-                ],
-            ),
-            (
-                "Reconciliação de entidades",
-                [
-                    "curate",
-                    "entity-reconciliation",
-                    "--entity-identifier-path",
-                    str(output_dir / "entity_identifier.jsonl"),
-                    "--party-path",
-                    str(output_dir / "party.jsonl"),
-                    "--counsel-path",
-                    str(output_dir / "counsel.jsonl"),
-                    "--process-party-link-path",
-                    str(output_dir / "process_party_link.jsonl"),
-                    "--process-counsel-link-path",
-                    str(output_dir / "process_counsel_link.jsonl"),
-                    "--output",
-                    str(output_dir / "entity_identifier_reconciliation.jsonl"),
-                ],
-            ),
-            (
-                "Construindo rede de representação",
-                [
-                    "curate",
-                    "representation",
-                    "--process-path",
-                    str(process_path),
-                    "--portal-dir",
-                    str(portal_dir),
-                    "--curated-dir",
-                    str(output_dir),
-                ],
-            ),
+        # Waves encode the dependency graph:
+        #   Wave 1: process + decision-event + movement (all read raw, independent)
+        #   Wave 2: subject + party + counsel + links + entity-id (all depend on process)
+        #   Wave 3: entity-reconciliation + representation (depend on wave 2 outputs)
+        #   Wave 4: session-event (depends on movement + decision-event)
+        waves: list[list[tuple[str, list[str]]]] = [
+            # Wave 1: independent raw readers
+            [
+                (
+                    "Construindo processos",
+                    [
+                        "curate",
+                        "process",
+                        "--staging-dir",
+                        str(staging_dir),
+                        "--output",
+                        str(process_path),
+                        "--juris-dir",
+                        str(juris_dir),
+                    ],
+                ),
+                (
+                    "Construindo decisões",
+                    [
+                        "curate",
+                        "decision-event",
+                        "--staging-file",
+                        str(staging_dir / "decisoes.csv"),
+                        "--output",
+                        str(output_dir / "decision_event.jsonl"),
+                        "--juris-dir",
+                        str(juris_dir),
+                    ],
+                ),
+            ],
+            # Wave 2: depend on process.jsonl
+            [
+                (
+                    "Construindo assuntos",
+                    [
+                        "curate",
+                        "subject",
+                        "--process-path",
+                        str(process_path),
+                        "--output",
+                        str(output_dir / "subject.jsonl"),
+                    ],
+                ),
+                (
+                    "Construindo partes",
+                    [
+                        "curate",
+                        "party",
+                        "--process-path",
+                        str(process_path),
+                        "--output",
+                        str(output_dir / "party.jsonl"),
+                    ],
+                ),
+                (
+                    "Construindo advogados",
+                    [
+                        "curate",
+                        "counsel",
+                        "--process-path",
+                        str(process_path),
+                        "--output",
+                        str(output_dir / "counsel.jsonl"),
+                    ],
+                ),
+                (
+                    "Construindo vínculos",
+                    [
+                        "curate",
+                        "links",
+                        "--process-path",
+                        str(process_path),
+                        "--party-output",
+                        str(output_dir / "process_party_link.jsonl"),
+                        "--counsel-output",
+                        str(output_dir / "process_counsel_link.jsonl"),
+                    ],
+                ),
+                (
+                    "Identificadores de entidade",
+                    [
+                        "curate",
+                        "entity-identifier",
+                        "--process-path",
+                        str(process_path),
+                        "--juris-dir",
+                        str(juris_dir),
+                        "--output",
+                        str(output_dir / "entity_identifier.jsonl"),
+                    ],
+                ),
+            ],
+            # Wave 3: depend on wave 2 outputs
+            [
+                (
+                    "Reconciliação de entidades",
+                    [
+                        "curate",
+                        "entity-reconciliation",
+                        "--entity-identifier-path",
+                        str(output_dir / "entity_identifier.jsonl"),
+                        "--party-path",
+                        str(output_dir / "party.jsonl"),
+                        "--counsel-path",
+                        str(output_dir / "counsel.jsonl"),
+                        "--process-party-link-path",
+                        str(output_dir / "process_party_link.jsonl"),
+                        "--process-counsel-link-path",
+                        str(output_dir / "process_counsel_link.jsonl"),
+                        "--output",
+                        str(output_dir / "entity_identifier_reconciliation.jsonl"),
+                    ],
+                ),
+                (
+                    "Construindo rede de representação",
+                    [
+                        "curate",
+                        "representation",
+                        "--process-path",
+                        str(process_path),
+                        "--portal-dir",
+                        str(portal_dir),
+                        "--curated-dir",
+                        str(output_dir),
+                    ],
+                ),
+            ],
         ]
 
-        # Movement and session-event are conditional on portal data
+        # Wave 1 also includes movement (independent, reads portal only)
         if portal_dir.exists():
-            builders.append(
+            waves[0].append(
                 (
                     "Construindo movimentações",
                     [
@@ -265,32 +287,70 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
                     ],
                 )
             )
-            builders.append(
-                (
-                    "Construindo sessões",
-                    [
-                        "curate",
-                        "session-event",
-                        "--movement-path",
-                        str(output_dir / "movement.jsonl"),
-                        "--portal-dir",
-                        str(portal_dir),
-                        "--output",
-                        str(output_dir / "session_event.jsonl"),
-                    ],
-                )
+            # Wave 4: session-event depends on movement + decision-event
+            waves.append(
+                [
+                    (
+                        "Construindo sessões",
+                        [
+                            "curate",
+                            "session-event",
+                            "--movement-path",
+                            str(output_dir / "movement.jsonl"),
+                            "--portal-dir",
+                            str(portal_dir),
+                            "--decision-event-path",
+                            str(output_dir / "decision_event.jsonl"),
+                            "--output",
+                            str(output_dir / "session_event.jsonl"),
+                        ],
+                    ),
+                ]
             )
 
-        total = len(builders)
+        total_builders = sum(len(w) for w in waves)
+        completed = 0
+
+        def _run_builder(desc: str, cli_args: list[str]) -> tuple[str, int]:
+            """Run a single builder subprocess. Returns (desc, returncode)."""
+            cmd = [sys.executable, "-m", "atlas_stf"] + cli_args
+            try:
+                result = subprocess.run(cmd, check=False, timeout=1800)
+            except subprocess.TimeoutExpired:
+                logger.error("Builder '%s' excedeu timeout de 30 minutos", desc)
+                return desc, 1
+            return desc, result.returncode
+
         with cli_progress("Curate") as on_progress:
-            for step, (desc, cli_args) in enumerate(builders):
-                on_progress(step, total, f"Curate: {desc}...")
-                cmd = [sys.executable, "-m", "atlas_stf"] + cli_args
-                result = subprocess.run(cmd, check=False)
-                if result.returncode != 0:
-                    logger.error("Builder '%s' falhou com exit code %d", desc, result.returncode)
-                    return result.returncode
-            on_progress(total, total, "Curate: Concluído")
+            for wave_idx, wave in enumerate(waves):
+                wave_descs = ", ".join(d for d, _ in wave)
+                on_progress(completed, total_builders, f"Curate: Onda {wave_idx + 1} ({wave_descs})...")
+
+                if len(wave) == 1:
+                    # Single builder — run directly (no pool overhead)
+                    desc, cli_args = wave[0]
+                    desc, rc = _run_builder(desc, cli_args)
+                    if rc != 0:
+                        logger.error("Builder '%s' falhou com exit code %d", desc, rc)
+                        return rc
+                    completed += 1
+                else:
+                    # Multiple builders — run in parallel via thread pool.
+                    # Threads wait on subprocess.run(); on first failure we stop
+                    # collecting results and return early.  Already-running
+                    # subprocesses will finish in the background (not killed),
+                    # but no new wave is started.
+                    with ThreadPoolExecutor(max_workers=min(len(wave), 3)) as pool:
+                        futures = {pool.submit(_run_builder, desc, cli_args): desc for desc, cli_args in wave}
+                        for future in as_completed(futures):
+                            desc, rc = future.result()
+                            if rc != 0:
+                                logger.error("Builder '%s' falhou com exit code %d", desc, rc)
+                                return rc
+                            completed += 1
+                            on_progress(completed, total_builders, f"Curate: {desc} concluído")
+
+            on_progress(total_builders, total_builders, "Curate: Concluído")
         return 0
 
     if args.command == "curate" and args.curate_target == "subject":
@@ -370,6 +430,7 @@ def dispatch_data(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
             movement_path=args.movement_path,
             portal_dir=args.portal_dir,
             output_path=args.output,
+            decision_event_path=args.decision_event_path,
         )
         return 0
 

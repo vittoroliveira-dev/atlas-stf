@@ -146,13 +146,13 @@ Observações contratuais já comprovadas no código:
 
 Os arquivos de resumo atualmente presentes em `data/analytics/` mostram o seguinte estado materializado:
 
-- grupos comparáveis: `5.153` grupos totais e `1.463` grupos válidos em `2026-03-07T02:10:47+00:00`;
-- baselines: `1.463` em `2026-03-07T02:17:16+00:00`;
-- alertas: `487` em `2026-03-07T02:39:36+00:00`;
-- sanções: `1.854` matches em `2026-03-08T16:52:36+00:00`;
-- doações: `11.972` matches em `2026-03-08T17:01:09+00:00`;
-- afinidade ministro-advogado: `20.644` pares analisados em `2026-03-08T22:16:50+00:00`;
-- rede corporativa: `12` vínculos materializados em `2026-03-09T00:37:26+00:00`.
+- grupos comparáveis: `9.916` grupos totais e `2.978` grupos válidos em `2026-03-26T12:55:41+00:00`;
+- baselines: `2.978` em `2026-03-26T13:13:54+00:00`;
+- alertas: `239.448` em `2026-03-26T13:14:10+00:00`;
+- sanções: `3.566` matches em `2026-03-24T02:22:04+00:00`;
+- doações: `499.590` matches em `2026-03-24T04:07:38+00:00`;
+- afinidade ministro-advogado: `21.393` pares analisados em `2026-03-26T12:56:42+00:00`;
+- rede corporativa: `0` vínculos materializados em `2026-03-18T06:26:36+00:00`.
 
 Esses números representam o snapshot derivado atualmente versionado no workspace. Eles não demonstram completude do universo do STF.
 

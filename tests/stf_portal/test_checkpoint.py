@@ -174,3 +174,22 @@ def test_incidente_cache_thread_safety():
     for tid in range(n_threads):
         for i in range(n_per_thread):
             assert cp.get_incidente(f"T{tid}-P{i}") == str(tid * 1000 + i)
+
+
+# --- mark_pending tests ---
+
+
+def test_mark_pending_removes_from_failed():
+    cp = PortalCheckpoint()
+    cp.mark_failed("ADI 100")
+    cp.mark_failed("HC 200")
+    assert cp.is_failed("ADI 100") is True
+
+    cp.mark_pending("ADI 100")
+    assert cp.is_failed("ADI 100") is False
+    assert cp.is_failed("HC 200") is True  # untouched
+
+
+def test_mark_pending_nonexistent_no_error():
+    cp = PortalCheckpoint()
+    cp.mark_pending("NONEXISTENT")  # should not raise

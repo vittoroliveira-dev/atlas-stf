@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/representation_graph_summary.schema.json",
+  "title": "RepresentationGraphSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_edges",
+    "total_lawyers",
+    "total_firms",
+    "total_events",
+    "edges_with_events",
+    "generated_at"
+  ],
+  "properties": {
+    "total_edges": {
+      "type": "integer"
+    },
+    "total_lawyers": {
+      "type": "integer"
+    },
+    "total_firms": {
+      "type": "integer"
+    },
+    "total_events": {
+      "type": "integer"
+    },
+    "edges_with_events": {
+      "type": "integer"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

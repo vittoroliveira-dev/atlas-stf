@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/payment_counterparty.schema.json",
+  "title": "PaymentCounterparty",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "counterparty_id",
+    "counterparty_identity_key",
+    "identity_basis",
+    "counterparty_name",
+    "counterparty_tax_id",
+    "counterparty_tax_id_normalized",
+    "counterparty_document_type",
+    "total_received_brl",
+    "payment_count",
+    "election_years",
+    "payer_parties",
+    "payer_actor_type",
+    "first_payment_date",
+    "last_payment_date",
+    "states",
+    "cnae_codes",
+    "provenance",
+    "generated_at"
+  ],
+  "properties": {
+    "counterparty_id": {
+      "type": "string"
+    },
+    "counterparty_identity_key": {
+      "type": "string"
+    },
+    "identity_basis": {
+      "type": "string"
+    },
+    "counterparty_name": {
+      "type": "string"
+    },
+    "counterparty_tax_id": {
+      "type": "string"
+    },
+    "counterparty_tax_id_normalized": {
+      "type": "string"
+    },
+    "counterparty_document_type": {
+      "type": "string"
+    },
+    "total_received_brl": {
+      "type": "number"
+    },
+    "payment_count": {
+      "type": "integer"
+    },
+    "election_years": {
+      "type": "array"
+    },
+    "payer_parties": {
+      "type": "array"
+    },
+    "payer_actor_type": {
+      "type": "string"
+    },
+    "first_payment_date": {
+      "type": "string"
+    },
+    "last_payment_date": {
+      "type": "string"
+    },
+    "states": {
+      "type": "array"
+    },
+    "cnae_codes": {
+      "type": "array"
+    },
+    "provenance": {
+      "type": "object"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

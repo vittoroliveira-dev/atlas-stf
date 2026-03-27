@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from ..rfb._reference import load_all_reference_tables
+from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._corporate_network_context import (
     CorporateNetworkContext,
@@ -34,6 +35,8 @@ from ._match_helpers import (
 
 logger = logging.getLogger(__name__)
 
+SCHEMA_PATH = Path("schemas/corporate_network.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/corporate_network_summary.schema.json")
 DEFAULT_MAX_LINK_DEGREE = 3
 
 
@@ -57,9 +60,12 @@ def build_corporate_network(
     partner_index = _build_partner_index(rfb_dir)
     company_index = _build_company_index(rfb_dir)
 
+    output_path = output_dir / "corporate_network.jsonl"
     if not partner_index:
         logger.warning("No partners_raw.jsonl found in %s", rfb_dir)
-        return output_dir
+        with AtomicJsonlWriter(output_path):
+            pass  # write empty file
+        return output_path
 
     # Load optional enrichment data
     estab_index: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -153,16 +159,21 @@ def build_corporate_network(
             cnpj, degree, chain = queue.popleft()
             co_partners = partner_index.get(cnpj, [])
             for co_partner in co_partners:
-                for name_key, display_name, qualification in (
+                repr_raw = co_partner.get("representative_name") or co_partner.get(
+                    "representative_name_normalized", ""
+                )
+                for name_key, display_name, qualification, ev_type in (
                     (
                         co_partner.get("partner_name_normalized", ""),
-                        co_partner.get("partner_name_normalized", ""),
+                        co_partner.get("partner_name") or co_partner.get("partner_name_normalized", ""),
                         co_partner.get("qualification_code"),
+                        "partner_pf",
                     ),
                     (
                         co_partner.get("representative_name_normalized", ""),
-                        f"(repr.) {co_partner.get('representative_name_normalized', '')}",
+                        f"(repr.) {repr_raw}",
                         None,
+                        "representative",
                     ),
                 ):
                     if not name_key or name_key == minister_norm:
@@ -182,14 +193,13 @@ def build_corporate_network(
                         minister_norm,
                         cnpj,
                         name_key,
+                        display_name,
                         entity_type,
                         entity_record,
                         degree,
                         link_chain,
-                    )
-                    conflict["entity_qualification"] = qualification
-                    conflict["entity_qualification_label"] = (
-                        qualificacoes.get(qualification, "") if qualification else None
+                        ev_type,
+                        qualification,
                     )
                     conflicts.append(conflict)
 
@@ -212,7 +222,7 @@ def build_corporate_network(
                     queue.append((next_cnpj, next_degree, [*chain, company_label(next_cnpj)]))
 
     # Write conflicts
-    output_path = output_dir / "corporate_network.jsonl"
+    validate_records(conflicts, SCHEMA_PATH)
     with AtomicJsonlWriter(output_path) as fh:
         for c in conflicts:
             fh.write(json.dumps(c, ensure_ascii=False) + "\n")
@@ -232,6 +242,7 @@ def build_corporate_network(
     }
     for degree in range(1, max_link_degree + 1):
         summary[f"degree_{degree}_count"] = degree_counts.get(degree, 0)
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "corporate_network_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

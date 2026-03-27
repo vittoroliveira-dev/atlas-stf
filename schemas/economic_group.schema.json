@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/economic_group.schema.json",
+  "title": "EconomicGroup",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "group_id",
+    "member_cnpjs",
+    "razoes_sociais",
+    "member_count",
+    "total_capital_social",
+    "cnae_labels",
+    "ufs",
+    "active_establishment_count",
+    "total_establishment_count",
+    "is_law_firm_group",
+    "law_firm_member_count",
+    "law_firm_member_ratio",
+    "has_minister_partner",
+    "has_party_partner",
+    "has_counsel_partner",
+    "generated_at"
+  ],
+  "properties": {
+    "group_id": {
+      "type": "string"
+    },
+    "member_cnpjs": {
+      "type": "array"
+    },
+    "razoes_sociais": {
+      "type": "array"
+    },
+    "member_count": {
+      "type": "integer"
+    },
+    "total_capital_social": {
+      "type": "number"
+    },
+    "cnae_labels": {
+      "type": "array"
+    },
+    "ufs": {
+      "type": "array"
+    },
+    "active_establishment_count": {
+      "type": "integer"
+    },
+    "total_establishment_count": {
+      "type": "integer"
+    },
+    "is_law_firm_group": {
+      "type": "boolean"
+    },
+    "law_firm_member_count": {
+      "type": "integer"
+    },
+    "law_firm_member_ratio": {
+      "type": "number"
+    },
+    "has_minister_partner": {
+      "type": "boolean"
+    },
+    "has_party_partner": {
+      "type": "boolean"
+    },
+    "has_counsel_partner": {
+      "type": "boolean"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

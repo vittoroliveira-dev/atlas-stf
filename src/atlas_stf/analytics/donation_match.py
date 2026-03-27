@@ -12,6 +12,7 @@ from typing import Any
 
 from ..core.identity import stable_id
 from ..core.stats import red_flag_confidence_label, red_flag_power
+from ..schema_validate import validate_records
 from ..tse._resource_classifier import classify_resource_type
 from ._atomic_io import AtomicJsonlWriter
 from ._donation_aggregator import (
@@ -44,6 +45,8 @@ from ._run_context import RunContext
 
 logger = logging.getLogger(__name__)
 
+SCHEMA_PATH = Path("schemas/donation_match.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/donation_match_summary.schema.json")
 DEFAULT_TSE_DIR = Path("data/raw/tse")
 DEFAULT_PARTY_PATH = Path("data/curated/party.jsonl")
 DEFAULT_COUNSEL_PATH = Path("data/curated/counsel.jsonl")
@@ -79,9 +82,12 @@ def build_donation_matches(  # noqa: C901
     ctx = RunContext("donation-match", output_dir, total_steps=11, on_progress=on_progress)
 
     donations_path = tse_dir / "donations_raw.jsonl"
+    match_path = output_dir / "donation_match.jsonl"
     if not donations_path.exists():
         logger.warning("No donations_raw.jsonl found in %s", tse_dir)
-        return output_dir
+        with AtomicJsonlWriter(match_path):
+            pass
+        return match_path
 
     # --- Step 0: Scan metadata (1 pass, ~540 MB for identity_key set) ---
     ctx.start_step(0, "Scanning metadados...")
@@ -343,7 +349,7 @@ def build_donation_matches(  # noqa: C901
 
     # --- Step 7: Write outputs ---
     ctx.start_step(7, "Escrevendo matches...")
-    match_path = output_dir / "donation_match.jsonl"
+    validate_records(matches, SCHEMA_PATH)
     with AtomicJsonlWriter(match_path) as fh:
         for m in matches:
             fh.write(json.dumps(m, ensure_ascii=False) + "\n")
@@ -505,6 +511,7 @@ def build_donation_matches(  # noqa: C901
         ),
         "generated_at": now_iso,
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "donation_match_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

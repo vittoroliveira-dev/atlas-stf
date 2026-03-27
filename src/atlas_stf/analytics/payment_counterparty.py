@@ -10,12 +10,15 @@ from pathlib import Path
 from typing import Any
 
 from ..core.identity import build_identity_key, normalize_tax_id, stable_id
+from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_TSE_DIR = Path("data/raw/tse")
 DEFAULT_OUTPUT_DIR = Path("data/analytics")
+SCHEMA_PATH = Path("schemas/payment_counterparty.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/payment_counterparty_summary.schema.json")
 
 
 def _infer_document_type(tax_id: str) -> str:
@@ -200,44 +203,49 @@ def build_payment_counterparties(
     by_tax_id = 0
     by_name = 0
     total_brl = 0.0
+    rows: list[dict[str, Any]] = []
 
+    for key, acc in accumulators.items():
+        counterparty_id = stable_id("pc-", key)
+        normalized_tid = normalize_tax_id(acc.tax_id_raw)
+        doc_type = _infer_document_type(acc.tax_id_raw)
+
+        if acc.identity_basis == "tax_id":
+            by_tax_id += 1
+        else:
+            by_name += 1
+        total_brl += acc.total_received_brl
+
+        row: dict[str, Any] = {
+            "counterparty_id": counterparty_id,
+            "counterparty_identity_key": key,
+            "identity_basis": acc.identity_basis,
+            "counterparty_name": acc.best_name,
+            "counterparty_tax_id": acc.tax_id_raw,
+            "counterparty_tax_id_normalized": normalized_tid or "",
+            "counterparty_document_type": doc_type,
+            "total_received_brl": acc.total_received_brl,
+            "payment_count": acc.payment_count,
+            "election_years": sorted(acc.election_years),
+            "payer_parties": sorted(acc.payer_parties),
+            "payer_actor_type": "party_org",
+            "first_payment_date": acc.min_date,
+            "last_payment_date": acc.max_date,
+            "states": sorted(acc.states),
+            "cnae_codes": sorted(acc.cnae_codes),
+            "provenance": {
+                "source_file_count": len(acc.source_files_seen),
+                "ingest_run_count": len(acc.ingest_runs_seen),
+                "first_collected_at": acc.min_collected_at,
+                "last_collected_at": acc.max_collected_at,
+            },
+            "generated_at": now_iso,
+        }
+        rows.append(row)
+
+    validate_records(rows, SCHEMA_PATH)
     with AtomicJsonlWriter(out_path) as fh:
-        for key, acc in accumulators.items():
-            counterparty_id = stable_id("pc-", key)
-            normalized_tid = normalize_tax_id(acc.tax_id_raw)
-            doc_type = _infer_document_type(acc.tax_id_raw)
-
-            if acc.identity_basis == "tax_id":
-                by_tax_id += 1
-            else:
-                by_name += 1
-            total_brl += acc.total_received_brl
-
-            row: dict[str, Any] = {
-                "counterparty_id": counterparty_id,
-                "counterparty_identity_key": key,
-                "identity_basis": acc.identity_basis,
-                "counterparty_name": acc.best_name,
-                "counterparty_tax_id": acc.tax_id_raw,
-                "counterparty_tax_id_normalized": normalized_tid or "",
-                "counterparty_document_type": doc_type,
-                "total_received_brl": acc.total_received_brl,
-                "payment_count": acc.payment_count,
-                "election_years": sorted(acc.election_years),
-                "payer_parties": sorted(acc.payer_parties),
-                "payer_actor_type": "party_org",
-                "first_payment_date": acc.min_date,
-                "last_payment_date": acc.max_date,
-                "states": sorted(acc.states),
-                "cnae_codes": sorted(acc.cnae_codes),
-                "provenance": {
-                    "source_file_count": len(acc.source_files_seen),
-                    "ingest_run_count": len(acc.ingest_runs_seen),
-                    "first_collected_at": acc.min_collected_at,
-                    "last_collected_at": acc.max_collected_at,
-                },
-                "generated_at": now_iso,
-            }
+        for row in rows:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     summary = {
@@ -250,6 +258,7 @@ def build_payment_counterparties(
         "total_received_brl": total_brl,
         "generated_at": now_iso,
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "payment_counterparty_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

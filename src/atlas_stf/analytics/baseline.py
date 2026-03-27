@@ -14,6 +14,7 @@ from ..core.rules import classify_outcome_raw
 from ..core.stats import beta_binomial_posterior_mean
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
+from ._match_io import read_jsonl as _read_jsonl
 
 BASELINE_SCHEMA = Path("schemas/baseline.schema.json")
 SUMMARY_SCHEMA = Path("schemas/baseline_summary.schema.json")
@@ -45,11 +46,6 @@ class BaselineRecord:
     generated_at: str
     notes: str | None
     loo_rapporteur_distributions: dict[str, dict[str, Any]] | None = None
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    with path.open("r", encoding="utf-8") as fh:
-        return [json.loads(line) for line in fh if line.strip()]
 
 
 def _stable_baseline_id(group_id: str) -> str:

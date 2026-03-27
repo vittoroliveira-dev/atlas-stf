@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/sanction_corporate_link_summary.schema.json",
+  "title": "SanctionCorporateLinkSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_links",
+    "red_flag_count",
+    "sanctions_scanned",
+    "degree_counts",
+    "source_counts",
+    "truncated_sanctions",
+    "truncated_sanctions_count",
+    "cache_stats",
+    "total_match_calls",
+    "unique_groups_touched",
+    "total_group_touches",
+    "total_partners_scanned",
+    "total_cnpjs_scanned",
+    "generated_at"
+  ],
+  "properties": {
+    "total_links": {
+      "type": "integer"
+    },
+    "red_flag_count": {
+      "type": "integer"
+    },
+    "sanctions_scanned": {
+      "type": "integer"
+    },
+    "degree_counts": {
+      "type": "object"
+    },
+    "source_counts": {
+      "type": "object"
+    },
+    "truncated_sanctions": {
+      "type": "array"
+    },
+    "truncated_sanctions_count": {
+      "type": "integer"
+    },
+    "cache_stats": {
+      "type": "object"
+    },
+    "total_match_calls": {
+      "type": "integer"
+    },
+    "unique_groups_touched": {
+      "type": "integer"
+    },
+    "total_group_touches": {
+      "type": "integer"
+    },
+    "total_partners_scanned": {
+      "type": "integer"
+    },
+    "total_cnpjs_scanned": {
+      "type": "integer"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

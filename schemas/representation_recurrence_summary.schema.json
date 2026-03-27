@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/representation_recurrence_summary.schema.json",
+  "title": "RepresentationRecurrenceSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_pairs",
+    "total_lawyers",
+    "total_parties",
+    "max_process_count",
+    "generated_at"
+  ],
+  "properties": {
+    "total_pairs": {
+      "type": "integer"
+    },
+    "total_lawyers": {
+      "type": "integer"
+    },
+    "total_parties": {
+      "type": "integer"
+    },
+    "max_process_count": {
+      "type": "integer"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

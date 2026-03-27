@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/match_calibration_review.schema.json",
+  "title": "MatchCalibrationReview",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "entity_type",
+    "query_name",
+    "query_tax_id",
+    "best_jaccard_score",
+    "best_jaccard_candidate",
+    "best_levenshtein_distance",
+    "best_levenshtein_candidate",
+    "accent_affected",
+    "current_winning_strategy",
+    "configs_that_match",
+    "configs_that_reject",
+    "review_reason"
+  ],
+  "properties": {
+    "entity_type": {
+      "type": "string"
+    },
+    "query_name": {
+      "type": "string"
+    },
+    "query_tax_id": {
+      "type": ["string", "null"]
+    },
+    "best_jaccard_score": {
+      "type": ["number", "null"]
+    },
+    "best_jaccard_candidate": {
+      "type": ["string", "null"]
+    },
+    "best_levenshtein_distance": {
+      "type": ["integer", "null"]
+    },
+    "best_levenshtein_candidate": {
+      "type": ["string", "null"]
+    },
+    "accent_affected": {
+      "type": "boolean"
+    },
+    "current_winning_strategy": {
+      "type": ["string", "null"]
+    },
+    "configs_that_match": {
+      "type": "array"
+    },
+    "configs_that_reject": {
+      "type": "array"
+    },
+    "review_reason": {
+      "type": "string"
+    }
+  }
+}

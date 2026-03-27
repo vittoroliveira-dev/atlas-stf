@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/sanction_match.schema.json",
+  "title": "SanctionMatch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "match_id",
+    "entity_type",
+    "entity_id",
+    "entity_name_normalized",
+    "sanction_source",
+    "sanction_id",
+    "match_strategy",
+    "match_score",
+    "sanctioning_body",
+    "sanction_type",
+    "sanction_start_date",
+    "sanction_description",
+    "stf_case_count",
+    "substantive_decision_count",
+    "red_flag",
+    "matched_at"
+  ],
+  "properties": {
+    "match_id": {
+      "type": "string"
+    },
+    "entity_type": {
+      "type": "string"
+    },
+    "entity_id": {
+      "type": "string"
+    },
+    "entity_name_normalized": {
+      "type": "string"
+    },
+    "party_id": {
+      "type": "string"
+    },
+    "party_name_normalized": {
+      "type": "string"
+    },
+    "sanction_source": {
+      "type": "string"
+    },
+    "sanction_id": {
+      "type": "string"
+    },
+    "match_strategy": {
+      "type": "string"
+    },
+    "match_score": {
+      "type": "number"
+    },
+    "matched_alias": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "matched_tax_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "uncertainty_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sanctioning_body": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sanction_type": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sanction_start_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sanction_end_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sanction_description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stf_case_count": {
+      "type": "integer"
+    },
+    "favorable_rate": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "favorable_rate_substantive": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "substantive_decision_count": {
+      "type": "integer"
+    },
+    "baseline_favorable_rate": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "favorable_rate_delta": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "red_flag": {
+      "type": "boolean"
+    },
+    "red_flag_substantive": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "red_flag_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "red_flag_confidence": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "matched_at": {
+      "type": "string"
+    }
+  }
+}

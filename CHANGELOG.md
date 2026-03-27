@@ -6,6 +6,41 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-03-27
+
+### Added
+
+- **validation/**: módulo de integridade referencial cross-artefato — verifica PKs, cardinalidade e cobertura entre JSONLs do pipeline. Zero imports do projeto, executável standalone via `python -m atlas_stf.validation.pipeline_integrity`
+- **schemas/**: 32 JSON schemas para validação de output dos builders analytics — 17 schemas de registros + 15 schemas de summaries. Builders agora validam records e summaries contra schemas antes da escrita via `validate_records()`
+- **stf_portal/_partial_cache.py**, **_metrics.py**, **_result.py**: infraestrutura para fetch incremental do portal STF — `PartialCache` (cache de incidente + tabs HTML por processo com retry counter), `ExtractionMetrics` (contadores de requests/403/completed/failed), `ProcessResult` (status enum: ok/not_found/transient/blocked/retry_exhausted)
+- **analytics/_scl_loaders.py**, **_scl_record_builder.py**, **_scl_resolver.py**, **_scl_traversal.py**: decomposição do `sanction_corporate_link.py` em 4 submódulos — loaders (sanções + RFB), record builder (construção de registros SCL), resolver (orquestração de resolução por sanção), traversal (caminhamento de grafo corporativo)
+- **rfb/_runner_checkpoint.py**, **_runner_orchestrate.py**: decomposição do `_runner.py` monolítico (711 → 37 linhas) em módulos com responsabilidade única — checkpoint (conversão de manifesto), orchestrate (fluxo principal de fetch)
+- **serving/_builder_graph_nodes.py**, **_builder_graph_meta.py**: decomposição do `_builder_graph.py` (678 → 44 linhas) em dois módulos — nodes (ID helpers + construtores de nós/arestas), meta (module availability, paths, bundles, review queue)
+- ~136 novos testes: validação de pipeline (tests/validation/), métricas e cache parcial do portal (tests/stf_portal/test_metrics.py, test_partial_cache.py, test_runner_incremental.py), auditoria de builders (tests/test_audit_builder_validation.py), checkpoint `mark_pending` (2 testes); total: ~2700
+
+### Changed
+
+- **analytics/ (17 builders)**: validação de output contra JSON schemas antes da escrita — `validate_records(records, SCHEMA_PATH)` adicionado em agenda_exposure, amicus_network, compound_risk, corporate_network, counsel_affinity, donation_match, donor_corporate_link, economic_group, firm_cluster, match_calibration, origin_context, payment_counterparty, representation_graph, representation_recurrence, representation_windows, sanction_match, sanction_corporate_link
+- **analytics/ (4 módulos)**: detecção de colisões em construção de índices por nome normalizado — `_build_counsel_index()`, `build_counsel_match_context()`, `build_party_index()`, `_counsel_index()` agora logam warning com contagem de colisões (comportamento inalterado: primeiro registro mantido)
+- **analytics/ (5 builders)**: `_read_jsonl()` local substituído por `from ._match_io import read_jsonl` — consolidação de função duplicada em assignment_audit, baseline, build_alerts, origin_context e ml_outlier
+- **analytics/corporate_network.py**: `_compute_conflict()` recebe `entity_display_name`, `evidence_type` e `entity_qualification` como parâmetros explícitos; registros de conflito agora incluem qualificação real e labels resolvidos (antes todos `None`) e distinguem partner vs representative
+- **analytics/representation_recurrence.py**: pares lawyer-party derivados via `process_party_link.jsonl` (antes dependia apenas de `party_id` direto na aresta); nomes raw priorizados sobre normalized
+- **analytics/counsel_affinity.py**: `_build_rapporteur_pids_index()` pré-computa lookup rapporteur→process_ids; `_compute_minister_baseline()` usa cache por `(rapporteur, frozenset[classes])` para evitar recomputação
+- **cli/_handlers_data.py**: curadoria paralelizada em 4 ondas com `ThreadPoolExecutor` — wave 1 (process + decision-event), wave 2 (subject/party/counsel/links/entity-id), wave 3 (reconciliation/representation), wave 4 (session-event); max 3 workers por onda
+- **cli/_parsers_external.py**: `stf-portal fetch` recebe 10 novos argumentos de configuração — `max_in_flight`, `tab_concurrency`, `max_retries`, `retry_delay`, `circuit_breaker_threshold/cooldown`, `max_process_retries`, `partial_dir`
+- **curated/_build_representation_edges.py**: `_find_process_id_by_number()` (O(n) por chamada) substituído por `_build_process_number_index()` (O(1) lookup via dict); índice reutilizado em edges e events
+- **curated/build_session_event.py**: enriquecimento de rapporteur via `decision_event.jsonl` quando ausente nos dados de movimentação; chave de petition usa `protocol` em vez de `petitioner_name` (determinístico); confiança de petições reduzida de 0.7 → 0.6
+- **evidence/build_bundle.py**: `build_all_evidence_bundles()` paralelizado com `ThreadPoolExecutor(max_workers=8)` e sliding window de futures (`window_size = max_workers * 4`) para memória bounded; output ordenado deterministicamente por `alert_id`
+- **stf_portal/_runner.py**: reescrito para fetch incremental — `_fetch_process_incremental()` persiste progresso por etapa (incidente → tabs → assemble); retry por processo com `max_process_retries`; `PartialCache` permite retomada após crash sem re-fetch de tabs já obtidos
+- **serving/_builder_flow.py**: default de workers alterado de 1 para `min(4, cpu_count)`
+- **Makefile**: `_ag-temporal` removido de `_ag-light` (memory-heavy); pipeline-safe condiciona temporal a RAM ≥ 20 GB; portal fetch com `--rate-limit 0.8 --tab-concurrency 3` por padrão; novos targets `audit-builder-validation` e `validate-pipeline`
+- **api/_schemas_graph.py**: novo schema `InvestigationDetailResponse` com campos tipados; `/investigations/entity/{entity_id}` usa `response_model` explícito
+- **docs/**: README (endpoints 85→87, testes ~2558→~2700, +validation/, escala e snapshot atualizados), ARCHITECTURE.md (builders 35→32, +validation/, subpáginas 3→7), 00-visao-geral e 06-metricas (snapshots 2026-03-26), 01-objetivos (18→26 páginas), 04-metodologia e 05-casos-comparaveis (`comparison-group-v1` → `v3`)
+
+### Fixed
+
+- **analytics/ (4 builders)**: builders que retornavam `output_dir` (diretório) em early exit agora retornam `output_path` (arquivo) e escrevem arquivo vazio via `AtomicJsonlWriter` — compound_risk, corporate_network, origin_context, sanction_corporate_link
+
 ## [1.1.0] - 2026-03-25
 
 ### Added

@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/agenda_exposure.schema.json",
+  "title": "AgendaExposure",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "exposure_id",
+    "agenda_event_id",
+    "minister_slug",
+    "minister_name",
+    "process_class",
+    "agenda_date",
+    "agenda_event_title",
+    "agenda_event_category",
+    "agenda_meeting_nature",
+    "window",
+    "is_own_process",
+    "institutional_role_bias_flag",
+    "priority_score",
+    "priority_tier",
+    "coverage_comparability",
+    "relevance_track",
+    "within_minister_only",
+    "generated_at"
+  ],
+  "properties": {
+    "exposure_id": {
+      "type": "string"
+    },
+    "agenda_event_id": {
+      "type": "string"
+    },
+    "minister_slug": {
+      "type": "string"
+    },
+    "minister_name": {
+      "type": "string"
+    },
+    "process_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "process_class": {
+      "type": "string"
+    },
+    "agenda_date": {
+      "type": "string"
+    },
+    "agenda_event_title": {
+      "type": "string"
+    },
+    "agenda_event_category": {
+      "type": "string"
+    },
+    "agenda_meeting_nature": {
+      "type": "string"
+    },
+    "decision_event_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "decision_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "decision_type": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "days_between": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "window": {
+      "type": "string"
+    },
+    "is_own_process": {
+      "type": "boolean"
+    },
+    "minister_case_role": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "institutional_role_bias_flag": {
+      "type": "boolean"
+    },
+    "baseline_rate": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "observed_rate": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "rate_ratio": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "priority_score": {
+      "type": "number"
+    },
+    "priority_tier": {
+      "type": "string"
+    },
+    "priority_tier_override_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "coverage_comparability": {
+      "type": "string"
+    },
+    "relevance_track": {
+      "type": "string"
+    },
+    "within_minister_only": {
+      "type": "boolean"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

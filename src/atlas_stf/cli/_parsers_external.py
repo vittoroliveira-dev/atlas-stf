@@ -376,7 +376,7 @@ def _add_external_parsers(subparsers: Any) -> None:
         "--workers",
         type=int,
         default=1,
-        help="Number of concurrent workers (default: 1, max: 16)",
+        help="Number of concurrent workers (default: 1)",
     )
     stf_portal_fetch.add_argument("--ignore-tls", action="store_true", help="Bypass TLS certificate verification")
     stf_portal_fetch.add_argument(
@@ -385,6 +385,54 @@ def _add_external_parsers(subparsers: Any) -> None:
         help="Comma-separated SOCKS5 proxy URLs for IP rotation (e.g. socks5://localhost:1080,socks5://localhost:1081)",
     )
     stf_portal_fetch.add_argument("--dry-run", action="store_true", help="List processes without fetching")
+    stf_portal_fetch.add_argument(
+        "--max-in-flight",
+        type=int,
+        default=4,
+        help="Max simultaneous HTTP requests across all workers (default: 4)",
+    )
+    stf_portal_fetch.add_argument(
+        "--tab-concurrency",
+        type=int,
+        default=2,
+        help="Max concurrent tab fetches per process (default: 2)",
+    )
+    stf_portal_fetch.add_argument(
+        "--max-retries",
+        type=int,
+        default=4,
+        help="HTTP retry attempts per request (default: 4)",
+    )
+    stf_portal_fetch.add_argument(
+        "--retry-delay",
+        type=float,
+        default=8.0,
+        help="Base retry backoff delay in seconds (default: 8.0)",
+    )
+    stf_portal_fetch.add_argument(
+        "--circuit-breaker-threshold",
+        type=int,
+        default=5,
+        help="Consecutive 403s to open circuit breaker (default: 5)",
+    )
+    stf_portal_fetch.add_argument(
+        "--circuit-breaker-cooldown",
+        type=float,
+        default=120.0,
+        help="Circuit breaker cooldown in seconds (default: 120.0)",
+    )
+    stf_portal_fetch.add_argument(
+        "--max-process-retries",
+        type=int,
+        default=10,
+        help="Max retries per process before permanent failure (default: 10)",
+    )
+    stf_portal_fetch.add_argument(
+        "--partial-dir",
+        type=Path,
+        default=None,
+        help="Directory for partial cache (default: {output_dir}/.partial)",
+    )
 
     oab = subparsers.add_parser("oab", help="Validate OAB numbers against CNA/CNSA")
     oab_sub = oab.add_subparsers(dest="oab_target", required=True)

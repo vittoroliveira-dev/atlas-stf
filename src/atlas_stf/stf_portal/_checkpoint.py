@@ -50,6 +50,11 @@ class PortalCheckpoint:
         with self._lock:
             self._failed.clear()
 
+    def mark_pending(self, process_number: str) -> None:
+        """Remove a single process from failed set, making it eligible for retry."""
+        with self._lock:
+            self._failed.discard(process_number)
+
     # --- Incidente cache (Phase 3) ---
 
     def get_incidente(self, process_number: str) -> str | None:

@@ -315,12 +315,13 @@ class TestBuildEconomicGroups:
         assert group["active_establishment_count"] == 2
 
     def test_no_partners_file_returns_early(self, tmp_path: Path) -> None:
-        """When partners_raw.jsonl does not exist, builder returns output_dir."""
+        """When partners_raw.jsonl does not exist, builder returns empty output file."""
         rfb_dir = tmp_path / "rfb"
         rfb_dir.mkdir(parents=True, exist_ok=True)
         output_dir = tmp_path / "analytics"
         result = build_economic_groups(rfb_dir=rfb_dir, output_dir=output_dir)
-        assert result == output_dir
+        assert result == output_dir / "economic_group.jsonl"
+        assert result.exists()
 
     def test_large_group_warning(self, tmp_path: Path, caplog) -> None:
         """Groups with > 200 members emit a warning."""

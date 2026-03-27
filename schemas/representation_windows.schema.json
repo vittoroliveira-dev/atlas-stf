@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/representation_windows.schema.json",
+  "title": "RepresentationWindows",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "window_id",
+    "lawyer_id",
+    "lawyer_name",
+    "window_type",
+    "event_count",
+    "process_count",
+    "first_date",
+    "last_date",
+    "generated_at"
+  ],
+  "properties": {
+    "window_id": {
+      "type": "string"
+    },
+    "lawyer_id": {
+      "type": "string"
+    },
+    "lawyer_name": {
+      "type": "string"
+    },
+    "window_type": {
+      "type": "string"
+    },
+    "event_count": {
+      "type": "integer"
+    },
+    "process_count": {
+      "type": "integer"
+    },
+    "first_date": {
+      "type": "string"
+    },
+    "last_date": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

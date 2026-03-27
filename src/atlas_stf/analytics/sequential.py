@@ -14,6 +14,7 @@ from ..core.rules import classify_outcome_raw
 from ..core.stats import autocorrelation_lag1
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
+from ._match_io import read_jsonl as _read_jsonl
 
 DEFAULT_DECISION_EVENT_PATH = Path("data/curated/decision_event.jsonl")
 DEFAULT_OUTPUT_DIR = Path("data/analytics")
@@ -36,11 +37,6 @@ class SequentialAnalysisRecord:
     post_streak_favorable_rate_3: float | None
     post_streak_favorable_rate_5: float | None
     sequential_bias_flag: bool
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    with path.open("r", encoding="utf-8") as fh:
-        return [json.loads(line) for line in fh if line.strip()]
 
 
 def _classify_outcome(decision_progress: str | None) -> int | None:

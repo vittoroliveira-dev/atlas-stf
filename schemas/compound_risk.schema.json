@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/compound_risk.schema.json",
+  "title": "CompoundRisk",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pair_id",
+    "minister_name",
+    "entity_type",
+    "entity_id",
+    "entity_name",
+    "signal_count",
+    "signals",
+    "red_flag",
+    "shared_process_count",
+    "shared_process_ids",
+    "alert_count",
+    "alert_ids",
+    "max_alert_score",
+    "max_rate_delta",
+    "sanction_match_count",
+    "sanction_sources",
+    "donation_match_count",
+    "donation_total_brl",
+    "corporate_conflict_count",
+    "corporate_conflict_ids",
+    "corporate_companies",
+    "affinity_count",
+    "affinity_ids",
+    "top_process_classes",
+    "supporting_party_ids",
+    "supporting_party_names",
+    "signal_details",
+    "earliest_year",
+    "latest_year",
+    "sanction_corporate_link_count",
+    "sanction_corporate_link_ids",
+    "adjusted_rate_delta",
+    "has_law_firm_group",
+    "donor_group_has_minister_partner",
+    "donor_group_has_party_partner",
+    "donor_group_has_counsel_partner",
+    "generated_at"
+  ],
+  "properties": {
+    "pair_id": {
+      "type": "string"
+    },
+    "minister_name": {
+      "type": "string"
+    },
+    "entity_type": {
+      "type": "string"
+    },
+    "entity_id": {
+      "type": "string"
+    },
+    "entity_name": {
+      "type": "string"
+    },
+    "signal_count": {
+      "type": "integer"
+    },
+    "signals": {
+      "type": "array"
+    },
+    "red_flag": {
+      "type": "boolean"
+    },
+    "shared_process_count": {
+      "type": "integer"
+    },
+    "shared_process_ids": {
+      "type": "array"
+    },
+    "alert_count": {
+      "type": "integer"
+    },
+    "alert_ids": {
+      "type": "array"
+    },
+    "max_alert_score": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "max_rate_delta": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sanction_match_count": {
+      "type": "integer"
+    },
+    "sanction_sources": {
+      "type": "array"
+    },
+    "donation_match_count": {
+      "type": "integer"
+    },
+    "donation_total_brl": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "corporate_conflict_count": {
+      "type": "integer"
+    },
+    "corporate_conflict_ids": {
+      "type": "array"
+    },
+    "corporate_companies": {
+      "type": "array"
+    },
+    "affinity_count": {
+      "type": "integer"
+    },
+    "affinity_ids": {
+      "type": "array"
+    },
+    "top_process_classes": {
+      "type": "array"
+    },
+    "supporting_party_ids": {
+      "type": "array"
+    },
+    "supporting_party_names": {
+      "type": "array"
+    },
+    "signal_details": {
+      "type": "object"
+    },
+    "earliest_year": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "latest_year": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "sanction_corporate_link_count": {
+      "type": "integer"
+    },
+    "sanction_corporate_link_ids": {
+      "type": "array"
+    },
+    "sanction_corporate_min_degree": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "adjusted_rate_delta": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "has_law_firm_group": {
+      "type": "boolean"
+    },
+    "donor_group_has_minister_partner": {
+      "type": "boolean"
+    },
+    "donor_group_has_party_partner": {
+      "type": "boolean"
+    },
+    "donor_group_has_counsel_partner": {
+      "type": "boolean"
+    },
+    "min_link_degree_to_minister": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

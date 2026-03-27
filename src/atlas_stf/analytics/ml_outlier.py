@@ -12,6 +12,7 @@ from typing import Any
 
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
+from ._match_io import read_jsonl as _read_jsonl
 
 DEFAULT_DECISION_EVENT_PATH = Path("data/curated/decision_event.jsonl")
 DEFAULT_BASELINE_PATH = Path("data/analytics/baseline.jsonl")
@@ -25,11 +26,6 @@ ENSEMBLE_WEIGHT_ALERT = 0.6
 ENSEMBLE_WEIGHT_ML = 0.4
 
 logger = logging.getLogger(__name__)
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    with path.open("r", encoding="utf-8") as fh:
-        return [json.loads(line) for line in fh if line.strip()]
 
 
 def _encode_categorical_frequencies(

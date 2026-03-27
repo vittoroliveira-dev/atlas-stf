@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/representation_windows_summary.schema.json",
+  "title": "RepresentationWindowsSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_records",
+    "total_lawyers",
+    "window_type_distribution",
+    "generated_at"
+  ],
+  "properties": {
+    "total_records": {
+      "type": "integer"
+    },
+    "total_lawyers": {
+      "type": "integer"
+    },
+    "window_type_distribution": {
+      "type": "object"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

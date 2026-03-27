@@ -10,7 +10,7 @@ Dois casos não são comparáveis apenas porque contêm palavras parecidas ou en
 
 ## Critérios mínimos do estágio atual
 
-No código atual (`comparison-group-v1`), o grupo comparável é construído com os seguintes critérios mínimos:
+No código atual (`comparison-group-v3`), o grupo comparável é construído com os seguintes critérios mínimos:
 
 - `process_class`
 - `thematic_key` derivado de `subjects_normalized` com fallback para `branch_of_law`
@@ -71,4 +71,4 @@ Todo grupo comparável usado em alerta deve:
 - poder ser explicado em linguagem simples;
 - apontar sua `rule_version`;
 - registrar `case_count`, `status` e `blocked_reason`, quando houver;
-- manter coerência com os limites `MIN_CASE_COUNT=5` e `MAX_CASE_COUNT=5000` enquanto a regra vigente for `comparison-group-v1`.
+- manter coerência com os limites `MIN_CASE_COUNT=5` e `MAX_CASE_COUNT=5000` enquanto a regra vigente for `comparison-group-v3`.

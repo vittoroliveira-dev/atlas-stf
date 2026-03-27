@@ -200,7 +200,8 @@ class TestBuildDonationMatches:
             process_counsel_link_path=curated_dir / "process_counsel_link.jsonl",
             output_dir=output_dir,
         )
-        assert result == output_dir
+        assert result == output_dir / "donation_match.jsonl"
+        assert result.exists()
 
     def test_no_matching_party(self, tmp_path: Path) -> None:
         tse_dir = tmp_path / "tse"

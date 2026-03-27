@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/donor_corporate_link.schema.json",
+  "title": "DonorCorporateLink",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "link_id",
+    "donor_identity_key",
+    "donor_name",
+    "donor_cpf_cnpj",
+    "donor_document_type",
+    "donor_tax_id_normalized",
+    "donor_tax_id_valid",
+    "donor_cnpj_basico",
+    "link_basis",
+    "company_cnpj_basico",
+    "company_name",
+    "company_natureza_juridica",
+    "company_capital_social",
+    "establishment_cnpj_full",
+    "establishment_uf",
+    "establishment_municipio",
+    "establishment_cnae_fiscal",
+    "establishment_situacao_cadastral",
+    "partner_name",
+    "partner_role",
+    "qualification_code",
+    "confidence",
+    "review_note",
+    "generated_at"
+  ],
+  "properties": {
+    "link_id": {
+      "type": "string"
+    },
+    "donor_identity_key": {
+      "type": "string"
+    },
+    "donor_name": {
+      "type": "string"
+    },
+    "donor_cpf_cnpj": {
+      "type": "string"
+    },
+    "donor_document_type": {
+      "type": "string"
+    },
+    "donor_tax_id_normalized": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "donor_tax_id_valid": {
+      "type": "boolean"
+    },
+    "donor_cnpj_basico": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "link_basis": {
+      "type": "string"
+    },
+    "company_cnpj_basico": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "company_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "company_natureza_juridica": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "company_capital_social": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "establishment_cnpj_full": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "establishment_uf": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "establishment_municipio": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "establishment_cnae_fiscal": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "establishment_situacao_cadastral": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "partner_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "partner_role": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "qualification_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "confidence": {
+      "type": "string"
+    },
+    "review_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

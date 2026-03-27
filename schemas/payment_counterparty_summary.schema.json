@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/payment_counterparty_summary.schema.json",
+  "title": "PaymentCounterpartySummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_expense_records",
+    "skipped_non_expense_records",
+    "skipped_no_identity_records",
+    "aggregated_counterparties",
+    "aggregated_by_tax_id_count",
+    "aggregated_by_name_fallback_count",
+    "total_received_brl",
+    "generated_at"
+  ],
+  "properties": {
+    "total_expense_records": {
+      "type": "integer"
+    },
+    "skipped_non_expense_records": {
+      "type": "integer"
+    },
+    "skipped_no_identity_records": {
+      "type": "integer"
+    },
+    "aggregated_counterparties": {
+      "type": "integer"
+    },
+    "aggregated_by_tax_id_count": {
+      "type": "integer"
+    },
+    "aggregated_by_name_fallback_count": {
+      "type": "integer"
+    },
+    "total_received_brl": {
+      "type": "number"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

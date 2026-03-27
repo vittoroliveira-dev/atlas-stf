@@ -12,11 +12,14 @@ from typing import Any
 
 from ..core.identity import stable_id
 from ..curated.common import read_jsonl_records, write_jsonl
+from ..schema_validate import validate_records
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CURATED_DIR = Path("data/curated")
 DEFAULT_OUTPUT_DIR = Path("data/analytics")
+SCHEMA_PATH = Path("schemas/firm_cluster.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/firm_cluster_summary.schema.json")
 
 # Minimum shared parties to form a cluster
 MIN_SHARED_PARTIES = 2
@@ -217,6 +220,7 @@ def build_firm_cluster(
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    validate_records(records, SCHEMA_PATH)
     output_path = write_jsonl(records, output_dir / "firm_cluster.jsonl")
 
     summary: dict[str, Any] = {
@@ -226,6 +230,7 @@ def build_firm_cluster(
         "max_cluster_size": max((r["cluster_size"] for r in records), default=0),
         "generated_at": timestamp,
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "firm_cluster_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

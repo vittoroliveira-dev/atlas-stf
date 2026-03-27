@@ -67,10 +67,16 @@ class EntityMatchIndex:
 def build_party_index(party_path: Path) -> dict[str, dict[str, Any]]:
     """Index parties by normalized name -> party record."""
     index: dict[str, dict[str, Any]] = {}
+    collisions = 0
     for record in read_jsonl(party_path):
         norm = normalize_entity_name(record.get("party_name_normalized") or record.get("party_name_raw", ""))
         if norm:
-            index.setdefault(norm, record)
+            if norm in index:
+                collisions += 1
+            else:
+                index[norm] = record
+    if collisions:
+        logger.warning("build_party_index: %d name collisions (first record kept)", collisions)
     return index
 
 

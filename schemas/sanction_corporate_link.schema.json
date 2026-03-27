@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/sanction_corporate_link.schema.json",
+  "title": "SanctionCorporateLink",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "link_id",
+    "sanction_id",
+    "sanction_source",
+    "sanction_entity_name",
+    "sanction_entity_tax_id",
+    "sanction_type",
+    "bridge_company_cnpj_basico",
+    "bridge_company_name",
+    "bridge_link_basis",
+    "bridge_confidence",
+    "bridge_qualification_code",
+    "bridge_qualification_label",
+    "economic_group_id",
+    "economic_group_member_count",
+    "is_law_firm_group",
+    "stf_entity_type",
+    "stf_entity_id",
+    "stf_entity_name",
+    "stf_match_strategy",
+    "stf_match_score",
+    "stf_match_confidence",
+    "link_degree",
+    "stf_process_count",
+    "favorable_rate",
+    "baseline_favorable_rate",
+    "favorable_rate_delta",
+    "risk_score",
+    "red_flag",
+    "red_flag_power",
+    "red_flag_confidence",
+    "evidence_chain",
+    "source_datasets",
+    "truncated",
+    "estimated_degree3_count",
+    "generated_at",
+    "record_hash"
+  ],
+  "properties": {
+    "link_id": {
+      "type": "string"
+    },
+    "sanction_id": {
+      "type": "string"
+    },
+    "sanction_source": {
+      "type": "string"
+    },
+    "sanction_entity_name": {
+      "type": "string"
+    },
+    "sanction_entity_tax_id": {
+      "type": "string"
+    },
+    "sanction_type": {
+      "type": "string"
+    },
+    "bridge_company_cnpj_basico": {
+      "type": "string"
+    },
+    "bridge_company_name": {
+      "type": "string"
+    },
+    "bridge_link_basis": {
+      "type": "string"
+    },
+    "bridge_confidence": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "bridge_partner_role": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "bridge_qualification_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "bridge_qualification_label": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "economic_group_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "economic_group_member_count": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "is_law_firm_group": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "stf_entity_type": {
+      "type": "string"
+    },
+    "stf_entity_id": {
+      "type": "string"
+    },
+    "stf_entity_name": {
+      "type": "string"
+    },
+    "stf_match_strategy": {
+      "type": "string"
+    },
+    "stf_match_score": {
+      "type": "number"
+    },
+    "stf_match_confidence": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "matched_alias": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "matched_tax_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "uncertainty_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "link_degree": {
+      "type": "integer"
+    },
+    "stf_process_count": {
+      "type": "integer"
+    },
+    "favorable_rate": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_favorable_rate": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "favorable_rate_delta": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "risk_score": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "red_flag": {
+      "type": "boolean"
+    },
+    "red_flag_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "red_flag_confidence": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "evidence_chain": {
+      "type": "array"
+    },
+    "source_datasets": {
+      "type": "array"
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "pre_truncation_cnpj_count": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "truncation_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "post_truncation_cnpj_count": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "estimated_degree3_count": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "record_hash": {
+      "type": "string"
+    }
+  }
+}

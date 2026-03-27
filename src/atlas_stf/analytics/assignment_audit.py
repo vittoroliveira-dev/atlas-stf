@@ -13,6 +13,7 @@ from typing import Any
 from ..core.stats import chi_square_p_value_approx, chi_square_statistic
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
+from ._match_io import read_jsonl as _read_jsonl
 
 DEFAULT_DECISION_EVENT_PATH = Path("data/curated/decision_event.jsonl")
 DEFAULT_PROCESS_PATH = Path("data/curated/process.jsonl")
@@ -34,11 +35,6 @@ class AssignmentAuditRecord:
     uniformity_flag: bool
     most_overrepresented_rapporteur: str | None
     most_underrepresented_rapporteur: str | None
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    with path.open("r", encoding="utf-8") as fh:
-        return [json.loads(line) for line in fh if line.strip()]
 
 
 def _process_class_by_process_id(path: Path) -> dict[str, str]:

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/corporate_network_summary.schema.json",
+  "title": "CorporateNetworkSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_conflicts",
+    "red_flag_count",
+    "ministers_involved",
+    "companies_involved",
+    "max_link_degree",
+    "degree_counts",
+    "generated_at"
+  ],
+  "properties": {
+    "total_conflicts": {
+      "type": "integer"
+    },
+    "red_flag_count": {
+      "type": "integer"
+    },
+    "ministers_involved": {
+      "type": "integer"
+    },
+    "companies_involved": {
+      "type": "integer"
+    },
+    "max_link_degree": {
+      "type": "integer"
+    },
+    "degree_counts": {
+      "type": "object"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "degree_1_count": {
+      "type": "integer"
+    },
+    "degree_2_count": {
+      "type": "integer"
+    },
+    "degree_3_count": {
+      "type": "integer"
+    }
+  }
+}

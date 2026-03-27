@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/match_calibration_summary.schema.json",
+  "title": "MatchCalibrationSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_donors_evaluated",
+    "entity_types",
+    "generated_at"
+  ],
+  "properties": {
+    "total_donors_evaluated": {
+      "type": "integer"
+    },
+    "entity_types": {
+      "type": "object"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

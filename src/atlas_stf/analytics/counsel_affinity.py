@@ -13,6 +13,7 @@ from typing import Any
 from ..core.identity import stable_id
 from ..core.progress import PhaseSpec, ProgressTracker
 from ..core.rules import classify_outcome_materiality, classify_outcome_raw
+from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import (
     build_process_class_map,
@@ -22,6 +23,8 @@ from ._match_helpers import (
 
 logger = logging.getLogger(__name__)
 
+SCHEMA_PATH = Path("schemas/counsel_affinity.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/counsel_affinity_summary.schema.json")
 RED_FLAG_DELTA_THRESHOLD = 0.15
 # Minimum shared cases to trigger a red flag.  Set to 5 (vs 3 in
 # sanction_match/donation_match) because counsel-affinity measures an
@@ -89,22 +92,36 @@ def _build_process_outcomes_map(
     return dict(result)
 
 
+def _build_rapporteur_pids_index(
+    rapporteur_map: dict[str, str],
+) -> dict[str, list[str]]:
+    """Invert rapporteur_map to rapporteur → list[process_id] (O(n) once)."""
+    index: dict[str, list[str]] = defaultdict(list)
+    for pid, rap in rapporteur_map.items():
+        index[rap].append(pid)
+    return dict(index)
+
+
 def _compute_minister_baseline(
     rapporteur: str,
-    rapporteur_map: dict[str, str],
+    rapporteur_pids: dict[str, list[str]],
     process_outcomes: dict[str, list[str]],
     process_class_map: dict[str, str],
-    target_classes: set[str],
+    target_classes: frozenset[str],
+    cache: dict[tuple[str, frozenset[str]], float | None],
 ) -> float | None:
     """Compute baseline favorable rate for a minister across given process classes."""
+    key = (rapporteur, target_classes)
+    if key in cache:
+        return cache[key]
     outcomes: list[str] = []
-    for pid, rap in rapporteur_map.items():
-        if rap != rapporteur:
-            continue
+    for pid in rapporteur_pids.get(rapporteur, ()):
         pc = process_class_map.get(pid)
         if pc and pc in target_classes:
             outcomes.extend(process_outcomes.get(pid, []))
-    return compute_favorable_rate(outcomes)
+    result = compute_favorable_rate(outcomes)
+    cache[key] = result
+    return result
 
 
 def _compute_counsel_baseline(
@@ -147,10 +164,12 @@ def build_counsel_affinity(
 
     tracker.begin_phase("Affinity: Carregando dados")
     rapporteur_map = _build_rapporteur_map(decision_event_path)
+    rapporteur_pids = _build_rapporteur_pids_index(rapporteur_map)
     counsel_id_to_name = _build_counsel_id_to_name(counsel_path)
     counsel_process_map = _build_counsel_process_map(process_counsel_link_path)
     process_outcomes = _build_process_outcomes_map(decision_event_path)
     process_class_map = build_process_class_map(process_path)
+    minister_baseline_cache: dict[tuple[str, frozenset[str]], float | None] = {}
     tracker.complete_phase()
 
     # Build pairs: (rapporteur, counsel_id) -> set of process_ids
@@ -208,7 +227,8 @@ def build_counsel_affinity(
             continue
 
         minister_baseline = _compute_minister_baseline(
-            rapporteur, rapporteur_map, process_outcomes, process_class_map, target_classes
+            rapporteur, rapporteur_pids, process_outcomes, process_class_map, frozenset(target_classes),
+            minister_baseline_cache,
         )
         counsel_baseline = _compute_counsel_baseline(
             counsel_id, counsel_process_map, process_outcomes, process_class_map, target_classes
@@ -267,6 +287,7 @@ def build_counsel_affinity(
     tracker.complete_phase()
 
     tracker.begin_phase("Affinity: Gravando resultados")
+    validate_records(affinities, SCHEMA_PATH)
     # Write affinity records
     output_path = output_dir / "counsel_affinity.jsonl"
     with AtomicJsonlWriter(output_path) as fh:
@@ -280,6 +301,7 @@ def build_counsel_affinity(
         "ministers_with_red_flags": len({a["rapporteur"] for a in affinities if a["red_flag"]}),
         "generated_at": now_iso,
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "counsel_affinity_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

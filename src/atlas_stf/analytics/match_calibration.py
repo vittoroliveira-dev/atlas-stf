@@ -18,6 +18,7 @@ from ..core.identity import (
     normalize_tax_id,
     strip_accents,
 )
+from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import (
     DEFAULT_MATCH_THRESHOLDS,
@@ -29,6 +30,9 @@ from ._match_helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+SCHEMA_PATH = Path("schemas/match_calibration_review.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/match_calibration_summary.schema.json")
 
 CALIBRATION_CONFIGS: tuple[tuple[str, MatchThresholds], ...] = (
     ("default", MatchThresholds()),
@@ -415,9 +419,11 @@ def run_match_calibration(
     from ._donation_aggregator import _stream_aggregate_donations
 
     donations_path = tse_dir / "donations_raw.jsonl"
+    summary_path = output_dir / "match_calibration_summary.json"
     if not donations_path.exists():
         logger.warning("No donations_raw.jsonl found in %s — cannot calibrate", tse_dir)
-        return output_dir
+        summary_path.write_text("{}", encoding="utf-8")
+        return summary_path
 
     donor_agg, raw_count, _ = _stream_aggregate_donations(donations_path)
     logger.info("Loaded %d unique donors from %d raw records", len(donor_agg), raw_count)
@@ -504,8 +510,9 @@ def run_match_calibration(
         "entity_types": entity_results,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
-    summary_path = output_dir / "match_calibration_summary.json"
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    validate_records(all_review, SCHEMA_PATH)
     review_path = output_dir / "match_calibration_review.jsonl"
     with AtomicJsonlWriter(review_path) as fh:
         for rec in all_review:

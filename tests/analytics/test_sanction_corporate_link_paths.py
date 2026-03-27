@@ -299,8 +299,10 @@ class TestNoSanctionFileGraceful:
             analytics_dir=analytics_dir,
             output_dir=out_dir,
         )
-        # Returns output_dir (not output_path) when no sanctions found
-        assert result == out_dir
+        # Returns empty output file when no sanctions found
+        assert result == out_dir / "sanction_corporate_link.jsonl"
+        assert result.exists()
+        assert result.read_text() == ""
 
 
 class TestNonRegressionSanctionMatch:

@@ -12,11 +12,14 @@ from typing import Any
 
 from ..core.identity import stable_id
 from ..curated.common import read_jsonl_records, utc_now_iso, write_jsonl
+from ..schema_validate import validate_records
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CURATED_DIR = Path("data/curated")
 DEFAULT_ANALYTICS_DIR = Path("data/analytics")
+SCHEMA_PATH = Path("schemas/agenda_exposure.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/agenda_exposure_summary.schema.json")
 
 _WINDOWS = [("7d", 7), ("14d", 14), ("30d", 30), ("60d", 60)]
 _W_SCORE = {"7d": 0.3, "14d": 0.2, "30d": 0.1, "60d": 0.05}
@@ -161,6 +164,7 @@ def build_agenda_exposure(
 
     tick("Exposicao: Escrevendo...")
     analytics_dir.mkdir(parents=True, exist_ok=True)
+    validate_records(records, SCHEMA_PATH)
     out = write_jsonl(records, analytics_dir / "agenda_exposure.jsonl")
 
     tb = sum(1 for e in aevs if e.get("owner_scope") == "ministerial" and e.get("relevance_track") == "B")
@@ -195,6 +199,7 @@ def build_agenda_exposure(
         "methodology_note": _NOTE,
         "generated_at": ts,
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     (analytics_dir / "agenda_exposure_summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
         encoding="utf-8",

@@ -71,14 +71,14 @@ O repositório combina quatro frentes operacionais:
 |---|---|
 | Decisões organizadas | 411 mil+ |
 | Processos conectados | 842 mil+ |
-| Sinais de atenção | 187 mil+ |
-| Relações priorizadas | 308 mil+ |
-| Representantes (advogados) | 187 mil+ |
-| Partes envolvidas | 447 mil+ |
-| Vínculos com doações eleitorais | 234 mil+ |
-| Conexões com sanções públicas | 5,9 mil+ |
+| Sinais de atenção | 239 mil+ |
+| Relações priorizadas | 676 mil+ |
+| Representantes (advogados) | 186 mil+ |
+| Partes envolvidas | 449 mil+ |
+| Vínculos com doações eleitorais | 499 mil+ |
+| Conexões com sanções públicas | 3,5 mil+ |
 | Registros temporais | 10,8 mil+ |
-| Áreas de consulta no painel | 18 |
+| Áreas de consulta no painel | 19 |
 
 ## Capacidades Atuais
 
@@ -93,7 +93,7 @@ O repositório combina quatro frentes operacionais:
 | `evidence` | Bundles técnicos por alerta | `src/atlas_stf/evidence/`, `tests/evidence/` |
 | `agenda` | Fetcher de agenda ministerial da API GraphQL do STF, builder de eventos e analytics de exposição | `src/atlas_stf/agenda/`, `tests/agenda/` |
 | `serving` | Banco de serving (48 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
-| `api` | Endpoints FastAPI (85: 84 GET + 1 POST) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
+| `api` | Endpoints FastAPI (87: 86 GET + 1 POST) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
 | `stf_portal` | Extrator de linha do tempo processual do portal STF (httpx) com proxy rotation per-IP | `src/atlas_stf/stf_portal/`, `tests/stf_portal/` |
 | `deoab` | Sociedades de advocacia do Diário Eletrônico da OAB (PDF público → JSONL) | `src/atlas_stf/deoab/`, `tests/deoab/` |
 | `oab_sp` | Consulta à OAB/SP — detalhes de sociedades e advogados inscritos (httpx + checkpoint) | `src/atlas_stf/oab_sp/`, `tests/oab_sp/` |
@@ -136,7 +136,7 @@ flowchart LR
     C --> F[Base de consulta<br/>Banco SQLite para API e painel]
     D --> F
     E --> F
-    F --> G[API HTTP<br/>85 endpoints — recortes, entidades, risco e grafo]
+    F --> G[API HTTP<br/>87 endpoints — recortes, entidades, risco e grafo]
     G --> H[Painel web<br/>18 áreas de consulta auditáveis]
 ```
 
@@ -156,7 +156,7 @@ flowchart LR
 | API | FastAPI + SQLAlchemy 2.x |
 | Serving database | SQLite (48 tabelas) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 + Recharts |
-| Qualidade | pytest (~2558 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
+| Qualidade | pytest (~2690 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
 | Infra | Docker, GitHub Actions, uv |
 
 ### Configuração operacional canônica
@@ -172,13 +172,13 @@ flowchart LR
 
 ```bash
 docker pull ghcr.io/vittoroliveira-dev/atlas-stf:latest
-docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.0
+docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.1
 ```
 
 ### Via wheel (release asset)
 
 ```bash
-pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.1.0-py3-none-any.whl
+pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.1.1-py3-none-any.whl
 ```
 
 Após a instalação, a CLI fica disponível:
@@ -523,12 +523,13 @@ atlas-stf/
 │   ├── doc_extractor/    # Extração seletiva de PDFs
 │   ├── transparencia/    # Portal de transparência STF (Playwright)
 │   ├── fetch/            # Manifesto unificado de downloads (discovery, plan, execute)
-│   └── contracts/        # Schema inspection e drift analysis por fonte
+│   ├── contracts/        # Schema inspection e drift analysis por fonte
+│   └── validation/       # Integridade referencial cross-artefato
 ├── web/                  # Dashboard Next.js 16 + React 19 + TypeScript
 │   ├── src/app/          # 26 páginas (App Router, async Server Components)
 │   ├── src/components/   # 19 componentes
 │   └── src/lib/          # 20 módulos (API client, types, mappers)
-├── tests/                # 198 arquivos, ~2558 testes (mirror da src/)
+├── tests/                # 203 arquivos, ~2690 testes (mirror da src/)
 ├── docs/                 # Documentação metodológica (14 documentos)
 ├── governance/           # Regras, decisões, auditoria e risco
 ├── schemas/              # Contratos JSON das entidades
@@ -547,7 +548,7 @@ make ci
 
 # Ou individualmente:
 make check           # Lint + typecheck + deadcode (Python)
-make test            # Testes (~2380, 83% cobertura mínima)
+make test            # Testes (~2700, 83% cobertura mínima)
 make format          # Formata código (ruff format)
 make format-check    # Verifica formatação sem alterar (para CI)
 make lint-fix        # Corrige problemas de lint auto-fixáveis
@@ -632,16 +633,16 @@ Os artefatos atualmente presentes descrevem o seguinte snapshot:
 
 | Artefato | Volume | Data |
 |---|---|---|
-| Grupos comparáveis | 5.153 (1.463 válidos) | 2026-03-07 |
-| Baselines | 1.463 (87.964 eventos) | 2026-03-07 |
-| Alertas | 487 (462 atipicidade, 25 inconclusivo) | 2026-03-07 |
-| Sanction matches | 1.854 | 2026-03-08 |
-| Donation matches | 11.972 | 2026-03-08 |
-| Counsel affinity | 20.858 pares | 2026-03-08 |
-| Corporate network | 12 vínculos | 2026-03-09 |
-| Decision velocity | 403.135 (18.751 fura-fila, 20.406 parados) | 2026-03-13 |
-| Rapporteur change | 311 mudanças (79 red flags) | 2026-03-13 |
-| Counsel network clusters | 8.028 clusters (124.190 advogados, 11 red flags) | 2026-03-13 |
+| Grupos comparáveis | 9.916 (2.978 válidos) | 2026-03-26 |
+| Baselines | 2.978 (248.913 eventos) | 2026-03-26 |
+| Alertas | 239.448 (121.841 atipicidade, 117.607 inconclusivo) | 2026-03-26 |
+| Sanction matches | 3.566 | 2026-03-24 |
+| Donation matches | 499.590 | 2026-03-24 |
+| Counsel affinity | 21.393 pares | 2026-03-26 |
+| Corporate network | 0 vínculos | 2026-03-18 |
+| Decision velocity | 403.139 (18.751 fura-fila, 20.406 parados) | 2026-03-26 |
+| Rapporteur change | 316 mudanças (83 red flags) | 2026-03-26 |
+| Counsel network clusters | 7.000 clusters (117.495 advogados, 7 red flags) | 2026-03-26 |
 
 Esses números descrevem o snapshot derivado atualmente versionado no workspace. Eles não demonstram completude do universo do STF.
 

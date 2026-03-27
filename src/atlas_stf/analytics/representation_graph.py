@@ -12,11 +12,14 @@ from pathlib import Path
 from typing import Any
 
 from ..curated.common import read_jsonl_records, write_jsonl
+from ..schema_validate import validate_records
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CURATED_DIR = Path("data/curated")
 DEFAULT_OUTPUT_DIR = Path("data/analytics")
+SCHEMA_PATH = Path("schemas/representation_graph.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/representation_graph_summary.schema.json")
 
 
 def build_representation_graph(
@@ -142,6 +145,7 @@ def build_representation_graph(
 
     tick("Grafo: Escrevendo resultados...")
     output_dir.mkdir(parents=True, exist_ok=True)
+    validate_records(graph_records, SCHEMA_PATH)
     output_path = write_jsonl(graph_records, output_dir / "representation_graph.jsonl")
 
     summary: dict[str, Any] = {
@@ -152,6 +156,7 @@ def build_representation_graph(
         "edges_with_events": sum(1 for r in graph_records if r["event_count"] > 0),
         "generated_at": timestamp,
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "representation_graph_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

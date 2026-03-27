@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 SCHEMA_PATH = Path("schemas/session_event.schema.json")
 DEFAULT_MOVEMENT_PATH = Path("data/curated/movement.jsonl")
+DEFAULT_DECISION_EVENT_PATH = Path("data/curated/decision_event.jsonl")
 DEFAULT_PORTAL_DIR = Path("data/raw/stf_portal")
 DEFAULT_OUTPUT_PATH = Path("data/curated/session_event.jsonl")
 
@@ -177,18 +178,47 @@ def _build_sessao_virtual_events(
     return records
 
 
+def _build_rapporteur_index(
+    decision_event_path: Path,
+) -> dict[str, str]:
+    """Build process_id → rapporteur lookup from decision events.
+
+    Uses the most recent decision per process to determine the rapporteur.
+    """
+    if not decision_event_path.exists():
+        return {}
+
+    latest: dict[str, tuple[str, str]] = {}  # process_id → (date, rapporteur)
+    for record in read_jsonl_records(decision_event_path):
+        rapporteur = record.get("current_rapporteur")
+        if not rapporteur:
+            continue
+        process_id = record.get("process_id", "")
+        event_date = record.get("decision_date") or ""
+        prev = latest.get(process_id)
+        if prev is None or event_date >= prev[0]:
+            latest[process_id] = (event_date, rapporteur)
+
+    return {pid: rapporteur for pid, (_, rapporteur) in latest.items()}
+
+
 def build_session_event_records(
     movement_path: Path = DEFAULT_MOVEMENT_PATH,
     portal_dir: Path = DEFAULT_PORTAL_DIR,
+    decision_event_path: Path = DEFAULT_DECISION_EVENT_PATH,
 ) -> list[dict[str, Any]]:
     """Build session event records from movements and portal data.
 
     Reads movements from *movement_path*, filters those with session-relevant
     categories, and also reads sessao_virtual entries from portal JSONs.
+    Enriches rapporteur_at_event from decision_event.jsonl when missing.
     """
     timestamp = utc_now_iso()
     records: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
+
+    rapporteur_index = _build_rapporteur_index(decision_event_path)
+    enriched_count = 0
 
     # Phase 1: session events from movements
     if movement_path.exists():
@@ -209,6 +239,12 @@ def build_session_event_records(
                 continue
             seen_ids.add(se_id)
 
+            rapporteur = movement.get("rapporteur_at_event")
+            if not rapporteur:
+                rapporteur = rapporteur_index.get(process_id)
+                if rapporteur:
+                    enriched_count += 1
+
             records.append(
                 {
                     "session_event_id": se_id,
@@ -218,16 +254,24 @@ def build_session_event_records(
                     "session_type": session_type,
                     "event_type": event_type,
                     "event_date": event_date,
-                    "rapporteur_at_event": movement.get("rapporteur_at_event"),
+                    "rapporteur_at_event": rapporteur,
                     "vista_duration_days": None,
                     "created_at": timestamp,
                 }
             )
 
     # Phase 2: session events from sessao_virtual portal entries
-    records.extend(
-        _build_sessao_virtual_events(portal_dir, timestamp, seen_ids),
-    )
+    portal_events = _build_sessao_virtual_events(portal_dir, timestamp, seen_ids)
+    for event in portal_events:
+        if not event.get("rapporteur_at_event"):
+            rapporteur = rapporteur_index.get(event["process_id"])
+            if rapporteur:
+                event["rapporteur_at_event"] = rapporteur
+                enriched_count += 1
+    records.extend(portal_events)
+
+    if enriched_count:
+        logger.info("Enriched %d session events with rapporteur from decision_event", enriched_count)
 
     # Phase 3: compute vista durations
     _compute_vista_durations(records)
@@ -241,10 +285,12 @@ def build_session_event_jsonl(
     movement_path: Path = DEFAULT_MOVEMENT_PATH,
     portal_dir: Path = DEFAULT_PORTAL_DIR,
     output_path: Path = DEFAULT_OUTPUT_PATH,
+    decision_event_path: Path = DEFAULT_DECISION_EVENT_PATH,
 ) -> Path:
     """Build and write session event records to JSONL."""
     records = build_session_event_records(
         movement_path=movement_path,
         portal_dir=portal_dir,
+        decision_event_path=decision_event_path,
     )
     return write_jsonl(records, output_path)

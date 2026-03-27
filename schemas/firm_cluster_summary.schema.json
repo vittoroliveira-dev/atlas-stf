@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/firm_cluster_summary.schema.json",
+  "title": "FirmClusterSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_clusters",
+    "total_firms_in_clusters",
+    "total_firms_analyzed",
+    "max_cluster_size",
+    "generated_at"
+  ],
+  "properties": {
+    "total_clusters": {
+      "type": "integer"
+    },
+    "total_firms_in_clusters": {
+      "type": "integer"
+    },
+    "total_firms_analyzed": {
+      "type": "integer"
+    },
+    "max_cluster_size": {
+      "type": "integer"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

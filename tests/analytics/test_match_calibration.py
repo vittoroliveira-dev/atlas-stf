@@ -317,7 +317,9 @@ class TestRunCalibration:
             output_dir=output_dir,
             alias_path=Path("/dev/null"),
         )
-        assert result == output_dir
+        assert result == output_dir / "match_calibration_summary.json"
+        assert result.exists()
+        assert result.read_text() == "{}"
 
     def test_counsel_entity_type_in_summary(self, calibration_setup: dict[str, Path]):
         result = run_match_calibration(

@@ -14,6 +14,7 @@ from ..core.rules import classify_outcome_raw, derive_thematic_key
 from ..core.stats import chi_square_p_value_approx, chi_square_statistic
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
+from ._match_io import read_jsonl as _read_jsonl
 
 # Process classes of Plenário original jurisdiction that should be collegiate
 EXPECTED_COLLEGIATE_CLASSES: frozenset[str] = frozenset({"ADI", "ADC", "ADPF", "ADO"})
@@ -50,11 +51,6 @@ class RapporteurProfileRecord:
     monocratic_favorable_rate: float | None = None
     collegiate_favorable_rate: float | None = None
     monocratic_blocking_flag: bool = False
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    with path.open("r", encoding="utf-8") as fh:
-        return [json.loads(line) for line in fh if line.strip()]
 
 
 def _load_process_context(path: Path) -> dict[str, dict[str, str]]:

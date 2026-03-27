@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/origin_context_summary.schema.json",
+  "title": "OriginContextSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "origin_count",
+    "total_datajud_processes",
+    "total_stf_mapped",
+    "generated_at"
+  ],
+  "properties": {
+    "origin_count": {"type": "integer"},
+    "total_datajud_processes": {"type": "integer"},
+    "total_stf_mapped": {"type": "integer"},
+    "generated_at": {"type": "string"}
+  }
+}

@@ -13,6 +13,7 @@ from typing import Any
 
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
+from ._match_io import read_jsonl as _read_jsonl
 from .score import ALERT_SCORE_THRESHOLD, score_event_against_baseline
 
 ALERT_SCHEMA = Path("schemas/outlier_alert.schema.json")
@@ -42,11 +43,6 @@ class OutlierAlertRecord:
     updated_at: str | None
     risk_signal_count: int = 0
     risk_signals: list[str] | None = None
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    with path.open("r", encoding="utf-8") as fh:
-        return [json.loads(line) for line in fh if line.strip()]
 
 
 def _stable_alert_id(decision_event_id: str, comparison_group_id: str) -> str:

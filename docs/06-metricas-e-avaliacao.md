@@ -88,40 +88,40 @@ Um alerta de qualidade mínima deve conter:
 Os resumos já presentes em `data/analytics/` permitem registrar, como fotografia operacional do workspace:
 
 - `comparison_group_summary.json`:
-  - `group_count = 5153`
-  - `valid_group_count = 1463`
-  - `linked_event_count = 87964`
-  - gerado em `2026-03-07T02:10:47+00:00`
+  - `group_count = 9916`
+  - `valid_group_count = 2978`
+  - `linked_event_count = 248913`
+  - gerado em `2026-03-26T12:55:41+00:00`
 - `baseline_summary.json`:
-  - `baseline_count = 1463`
-  - `event_count_linked = 87964`
-  - gerado em `2026-03-07T02:17:16+00:00`
+  - `baseline_count = 2978`
+  - `event_count_linked = 248913`
+  - gerado em `2026-03-26T13:13:54+00:00`
 - `outlier_alert_summary.json`:
-  - `alert_count = 487`
-  - `avg_score = 0.8224772833675565`
+  - `alert_count = 239448`
+  - `avg_score = 0.9463039491622398`
   - `threshold = 0.75`
-  - `skipped_below_threshold = 87477`
-  - gerado em `2026-03-07T02:39:36+00:00`
+  - `skipped_below_threshold = 9465`
+  - gerado em `2026-03-26T13:14:10+00:00`
 - `sequential_analysis_summary.json`:
-  - `total_analyses = 182`
-  - `bias_flagged_count = 151`
-  - gerado em `2026-03-08T15:32:22+00:00`
+  - `total_analyses = 285`
+  - `bias_flagged_count = 206`
+  - gerado em `2026-03-26T12:56:20+00:00`
 - `sanction_match_summary.json`:
-  - `sanction_match_count = 1854`
-  - `party_red_flag_count = 105`
-  - gerado em `2026-03-08T16:52:36+00:00`
+  - `sanction_match_count = 3575`
+  - `party_red_flag_count = 132`
+  - gerado em `2026-03-24T02:22:04+00:00`
 - `donation_match_summary.json`:
-  - `donation_match_count = 11972`
-  - `party_red_flag_count = 446`
-  - gerado em `2026-03-08T17:01:09+00:00`
+  - `donation_match_count = 499590`
+  - `party_red_flag_count = 19441`
+  - gerado em `2026-03-24T04:07:38+00:00`
 - `counsel_affinity_summary.json`:
-  - `total_pairs_analyzed = 20644`
-  - `red_flag_count = 719`
-  - gerado em `2026-03-08T22:16:50+00:00`
+  - `total_pairs_analyzed = 21393`
+  - `red_flag_count = 696`
+  - gerado em `2026-03-26T12:56:42+00:00`
 - `corporate_network_summary.json`:
-  - `total_conflicts = 12`
+  - `total_conflicts = 0`
   - `red_flag_count = 0`
-  - gerado em `2026-03-09T00:37:26+00:00`
+  - gerado em `2026-03-18T06:26:36+00:00`
 
 Esses números descrevem o material já derivado no repositório atual. Eles não devem ser tratados como cobertura total do universo de decisões ou entidades.
 

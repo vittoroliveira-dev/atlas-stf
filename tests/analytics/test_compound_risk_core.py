@@ -398,7 +398,8 @@ class TestBuildCompoundRiskCore:
             output_dir=output_dir,
         )
 
-        assert result == output_dir
+        assert result == output_dir / "compound_risk.jsonl"
+        assert result.exists()
 
     def test_adjusted_rate_delta_none_when_no_rate_delta(self, tmp_path: Path) -> None:
         """When there is no rate delta at all, adjusted_rate_delta is None."""

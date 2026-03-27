@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/amicus_network_summary.schema.json",
+  "title": "AmicusNetworkSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_amicus_lawyers",
+    "total_amicus_edges",
+    "total_processes",
+    "lawyers_multi_process",
+    "generated_at"
+  ],
+  "properties": {
+    "total_amicus_lawyers": {
+      "type": "integer"
+    },
+    "total_amicus_edges": {
+      "type": "integer"
+    },
+    "total_processes": {
+      "type": "integer"
+    },
+    "lawyers_multi_process": {
+      "type": "integer"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

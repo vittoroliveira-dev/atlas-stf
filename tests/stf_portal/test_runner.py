@@ -219,8 +219,8 @@ def _write_process_jsonl(curated_dir: Path, processes: list[dict[str, Any]]) -> 
     )
 
 
-def _fake_extract_process(process_number: str, incidente: str | None = None) -> dict[str, Any] | None:
-    """Fake extractor that returns a minimal doc."""
+def _fake_doc(process_number: str) -> dict[str, Any]:
+    """Minimal fake document for a process."""
     return {
         "process_number": process_number,
         "source_system": "stf_portal",
@@ -236,11 +236,57 @@ def _fake_extract_process(process_number: str, incidente: str | None = None) -> 
     }
 
 
+def _fake_extract_process(process_number: str, incidente: str | None = None) -> dict[str, Any] | None:
+    """Fake extractor that returns a minimal doc."""
+    return _fake_doc(process_number)
+
+
+_FAKE_TABS = {
+    "abaAndamentos": "<div>A</div>",
+    "abaPartes": "<div>P</div>",
+    "abaPeticoes": "<div>Pet</div>",
+    "abaDeslocamentos": "<div>D</div>",
+    "abaInformacoes": "<div>I</div>",
+}
+
+
 class _FakeExtractor:
-    """Fake PortalExtractor that returns deterministic results."""
+    """Fake PortalExtractor that returns deterministic results.
+
+    Implements the internal methods used by _fetch_process_incremental:
+    - _resolve_incidente
+    - _fetch_tabs_concurrent
+    - assemble_document
+    Plus the legacy extract_process facade.
+    """
 
     def __init__(self, **_kwargs: Any) -> None:
         pass
+
+    def _resolve_incidente(self, process_number: str) -> Any:
+        from atlas_stf.stf_portal._result import ResolveResult
+
+        return ResolveResult(status="resolved", incidente="999")
+
+    def _fetch_tabs_concurrent(
+        self,
+        incidente: str,
+        *,
+        tabs_to_fetch: tuple[str, ...] = (),
+        on_tab_success: Any = None,
+    ) -> Any:
+        from atlas_stf.stf_portal._http import TabsBatchResult
+
+        tabs = {t: _FAKE_TABS.get(t, "<div></div>") for t in tabs_to_fetch}
+        if on_tab_success:
+            for tab, html in tabs.items():
+                on_tab_success(tab, html)
+        return TabsBatchResult(tabs=tabs, blocked=False, retryable=False, tabs_failed=set())
+
+    def assemble_document(
+        self, process_number: str, incidente: str, tab_htmls: dict[str, str],
+    ) -> dict[str, Any] | None:
+        return _fake_doc(process_number)
 
     def extract_process(self, process_number: str, incidente: str | None = None) -> dict[str, Any] | None:
         return _fake_extract_process(process_number, incidente)
@@ -385,13 +431,26 @@ def test_run_extraction_dry_run(tmp_path: Path):
 
 
 class _FailingTabExtractor:
-    """Fake extractor that returns None (simulating tab failure)."""
+    """Fake extractor that simulates permanent resolve failure (incidente not found)."""
 
     def __init__(self, **_kwargs: Any) -> None:
         pass
 
+    def _resolve_incidente(self, process_number: str) -> Any:
+        from atlas_stf.stf_portal._result import ResolveResult
+
+        return ResolveResult(status="not_found_permanent")
+
+    def _fetch_tabs_concurrent(self, incidente: str, **_kw: Any) -> Any:
+        from atlas_stf.stf_portal._http import TabsBatchResult
+
+        return TabsBatchResult(tabs={}, blocked=False, retryable=False, tabs_failed=set())
+
+    def assemble_document(self, process_number: str, incidente: str, tab_htmls: dict[str, str]) -> None:
+        return None
+
     def extract_process(self, process_number: str, incidente: str | None = None) -> dict[str, Any] | None:
-        return None  # Simulates failed extraction
+        return None
 
     def close(self) -> None:
         pass
@@ -533,11 +592,32 @@ def test_run_extraction_sigterm_saves_checkpoint(tmp_path: Path):
         def __init__(self, **_kwargs: Any) -> None:
             pass
 
-        def extract_process(self, process_number: str, incidente: str | None = None) -> dict[str, Any] | None:
+        def _resolve_incidente(self, process_number: str) -> Any:
+            from atlas_stf.stf_portal._result import ResolveResult
+
             nonlocal call_count
             call_count += 1
             if call_count == 3:
                 os.kill(os.getpid(), signal.SIGTERM)
+            return ResolveResult(status="resolved", incidente="999")
+
+        def _fetch_tabs_concurrent(self, incidente: str, **_kw: Any) -> Any:
+            from atlas_stf.stf_portal._http import TabsBatchResult
+
+            tabs_to_fetch = _kw.get("tabs_to_fetch", _FAKE_TABS.keys())
+            tabs = {t: _FAKE_TABS.get(t, "<div></div>") for t in tabs_to_fetch}
+            on_tab_success = _kw.get("on_tab_success")
+            if on_tab_success:
+                for tab, html in tabs.items():
+                    on_tab_success(tab, html)
+            return TabsBatchResult(tabs=tabs, blocked=False, retryable=False, tabs_failed=set())
+
+        def assemble_document(
+            self, process_number: str, incidente: str, tab_htmls: dict[str, str],
+        ) -> dict[str, Any] | None:
+            return _fake_doc(process_number)
+
+        def extract_process(self, process_number: str, incidente: str | None = None) -> dict[str, Any] | None:
             return _fake_extract_process(process_number, incidente)
 
         def close(self) -> None:

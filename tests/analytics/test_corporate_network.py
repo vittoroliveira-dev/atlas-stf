@@ -39,7 +39,8 @@ class TestBuildCorporateNetwork:
         # Remove RFB data
         (paths["rfb_dir"] / "partners_raw.jsonl").unlink()
         result = build_corporate_network(**paths)
-        assert result == paths["output_dir"]
+        assert result == paths["output_dir"] / "corporate_network.jsonl"
+        assert result.exists()
 
     def test_no_match(self, tmp_path: Path) -> None:
         paths = corporate_network_setup(tmp_path)
@@ -134,7 +135,8 @@ class TestBuildCorporateNetwork:
         # Should find AUTOR A via representative
         rep_conflicts = [c for c in conflicts if "(repr.)" in c.get("link_chain", "")]
         assert len(rep_conflicts) >= 1
-        assert rep_conflicts[0]["linked_entity_name"] == "AUTOR A"
+        assert rep_conflicts[0]["linked_entity_name"] == "(repr.) AUTOR A"
+        assert rep_conflicts[0]["evidence_type"] == "representative"
 
     def test_counsel_conflict_gets_outcome_analysis(self, tmp_path: Path) -> None:
         """Counsel co-partner should get favorable_rate and red_flag analysis."""

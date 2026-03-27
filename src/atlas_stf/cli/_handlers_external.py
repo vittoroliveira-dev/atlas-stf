@@ -300,6 +300,14 @@ def dispatch_external(parser: argparse.ArgumentParser, args: argparse.Namespace)
             max_concurrent=getattr(args, "workers", 1),
             ignore_tls=args.ignore_tls,
             proxies=proxies,
+            max_in_flight=args.max_in_flight,
+            tab_concurrency=args.tab_concurrency,
+            max_retries=args.max_retries,
+            retry_delay_seconds=args.retry_delay,
+            circuit_breaker_threshold=args.circuit_breaker_threshold,
+            circuit_breaker_cooldown=args.circuit_breaker_cooldown,
+            max_process_retries=args.max_process_retries,
+            partial_dir=args.partial_dir,
         )
         if args.dry_run:
             run_extraction(config, dry_run=True)

@@ -50,7 +50,7 @@ Gerar sínteses assistidas por IA a partir de bundles já materializados, sem al
 
 ### Comparabilidade atualmente implementada
 
-O builder de grupos (`src/atlas_stf/analytics/build_groups.py`) usa a regra `comparison-group-v1`, definida sobre a chave:
+O builder de grupos (`src/atlas_stf/analytics/build_groups.py`) usa a regra `comparison-group-v3`, definida sobre a chave:
 
 - `process_class`
 - `thematic_key`

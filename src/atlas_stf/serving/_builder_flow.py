@@ -372,7 +372,10 @@ def _materialize_minister_flows(session: Session) -> list[ServingMinisterFlow]:
     _worker_cases = all_cases
     _worker_alert_ids = alert_event_ids
 
-    max_workers = min(os.cpu_count() or 4, int(os.environ.get("ATLAS_FLOW_WORKERS", "1")))
+    max_workers = min(
+        os.cpu_count() or 4,
+        int(os.environ.get("ATLAS_FLOW_WORKERS", str(min(4, os.cpu_count() or 1)))),
+    )
 
     # Log memory before pool creation so operators can diagnose OOM.
     try:

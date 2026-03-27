@@ -12,6 +12,7 @@ from typing import Any
 
 from ..core.identity import normalize_entity_name, stable_id
 from ..core.stats import red_flag_confidence_label, red_flag_power
+from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._match_helpers import (
     DEFAULT_ALIAS_PATH,
@@ -33,6 +34,8 @@ from ._run_context import RunContext
 
 logger = logging.getLogger(__name__)
 
+SCHEMA_PATH = Path("schemas/sanction_match.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/sanction_match_summary.schema.json")
 DEFAULT_CGU_DIR = Path("data/raw/cgu")
 DEFAULT_CVM_DIR = Path("data/raw/cvm")
 DEFAULT_PARTY_PATH = Path("data/curated/party.jsonl")
@@ -81,9 +84,12 @@ def build_sanction_matches(
         sanctions.extend(cvm_records)
         logger.info("Loaded %d CVM sanction records", len(cvm_records))
 
+    match_path = output_dir / "sanction_match.jsonl"
     if not sanctions:
         logger.warning("No sanctions_raw.jsonl found in %s or %s", cgu_dir, cvm_dir)
-        return output_dir
+        with AtomicJsonlWriter(match_path):
+            pass
+        return match_path
 
     logger.info("Total: %d raw sanction records from all sources", len(sanctions))
 
@@ -239,13 +245,22 @@ def build_sanction_matches(
     counsel_records = read_jsonl(counsel_path)
     counsel_index: dict[str, dict[str, Any]] = {}
     counsel_id_to_name: dict[str, str] = {}
+    counsel_name_collisions = 0
     for record in counsel_records:
         norm = normalize_entity_name(record.get("counsel_name_normalized") or record.get("counsel_name_raw", ""))
         if norm:
-            counsel_index.setdefault(norm, record)
+            if norm in counsel_index:
+                counsel_name_collisions += 1
+            else:
+                counsel_index[norm] = record
             cid = record.get("counsel_id", "")
             if cid:
                 counsel_id_to_name[cid] = norm
+    if counsel_name_collisions:
+        logger.warning(
+            "build_sanction_matches: %d counsel name collisions (first record kept)",
+            counsel_name_collisions,
+        )
 
     counsel_match_index = build_entity_match_index(
         counsel_records,
@@ -357,7 +372,7 @@ def build_sanction_matches(
 
     # Write all sanction matches (party + counsel)
     ctx.start_step(4, "Escrevendo matches...")
-    match_path = output_dir / "sanction_match.jsonl"
+    validate_records(matches, SCHEMA_PATH)
     with AtomicJsonlWriter(match_path) as fh:
         for m in matches:
             fh.write(json.dumps(m, ensure_ascii=False) + "\n")
@@ -426,6 +441,7 @@ def build_sanction_matches(
         "ambiguous_candidate_count": ambiguous_candidate_count,
         "generated_at": now_iso,
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "sanction_match_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

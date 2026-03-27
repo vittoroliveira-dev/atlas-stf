@@ -83,6 +83,7 @@ def build_representation_edge_records(
 
     processes = read_jsonl_records(process_path) if process_path.exists() else []
     portal_docs = _load_portal_docs(portal_dir)
+    number_to_id = _build_process_number_index(processes)
 
     edge_map: dict[str, dict[str, Any]] = {}
 
@@ -138,8 +139,7 @@ def build_representation_edge_records(
         process_number = doc.get("process_number")
         if not process_number:
             continue
-        # Match process_id from process records
-        process_id = _find_process_id_by_number(processes, process_number)
+        process_id = number_to_id.get(process_number)
         if not process_id:
             continue
         for rep in doc.get("representantes", []):
@@ -234,15 +234,15 @@ def _resolve_party_id(
     return None
 
 
-def _find_process_id_by_number(
+def _build_process_number_index(
     processes: list[dict[str, Any]],
-    process_number: str,
-) -> str | None:
-    """Find a process_id by process_number in the list."""
-    for proc in processes:
-        if proc.get("process_number") == process_number:
-            return proc["process_id"]
-    return None
+) -> dict[str, str]:
+    """Build process_number → process_id lookup dict (O(n) once)."""
+    return {
+        proc["process_number"]: proc["process_id"]
+        for proc in processes
+        if "process_number" in proc and "process_id" in proc
+    }
 
 
 def _load_portal_docs(portal_dir: Path) -> list[dict[str, Any]]:
@@ -302,13 +302,14 @@ def build_representation_event_records(
 
     portal_docs = _load_portal_docs(portal_dir)
     processes = read_jsonl_records(process_path) if process_path.exists() else []
+    number_to_id = _build_process_number_index(processes)
     records: list[dict[str, Any]] = []
 
     for doc in portal_docs:
         process_number = doc.get("process_number")
         if not process_number:
             continue
-        process_id = _find_process_id_by_number(processes, process_number)
+        process_id = number_to_id.get(process_number)
         if not process_id:
             continue
         source_url = doc.get("source_url", "")
@@ -379,17 +380,17 @@ def build_representation_event_records(
             )
 
         # Detailed petitions
+        # Data has: date, protocol, receiver (institutional dept), tab_name
         for pet in doc.get("peticoes_detailed", []):
-            petitioner_name = pet.get("petitioner_name")
             event_date = pet.get("date")
-            if not petitioner_name or not event_date:
-                continue
-            doc_type = pet.get("document_type")
             protocol = pet.get("protocol")
-            event_desc = f"Peticao: {petitioner_name}"
-            if doc_type:
-                event_desc += f" ({doc_type})"
-            composite = f"{process_id}:petition:{event_date}:{petitioner_name}"
+            if not event_date or not protocol:
+                continue
+            receiver = pet.get("receiver") or ""
+            event_desc = f"Peticao {protocol}"
+            if receiver:
+                event_desc += f" ({receiver})"
+            composite = f"{process_id}:petition:{event_date}:{protocol}"
             event_id = stable_id("evt_", composite)
             records.append(
                 {
@@ -402,11 +403,11 @@ def build_representation_event_records(
                     "event_date": event_date,
                     "event_description": event_desc,
                     "protocol_number": protocol,
-                    "document_type": doc_type,
+                    "document_type": None,
                     "source_system": "portal_stf",
                     "source_url": source_url,
                     "source_evidence_id": None,
-                    "confidence": 0.7,
+                    "confidence": 0.6,
                 }
             )
 

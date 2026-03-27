@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/amicus_network.schema.json",
+  "title": "AmicusNetwork",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "amicus_id",
+    "lawyer_id",
+    "lawyer_name",
+    "process_class_distribution",
+    "minister_distribution",
+    "process_count",
+    "edge_count",
+    "first_date",
+    "last_date",
+    "generated_at"
+  ],
+  "properties": {
+    "amicus_id": {
+      "type": "string"
+    },
+    "lawyer_id": {
+      "type": "string"
+    },
+    "lawyer_name": {
+      "type": "string"
+    },
+    "process_class_distribution": {
+      "type": "object"
+    },
+    "minister_distribution": {
+      "type": "object"
+    },
+    "process_count": {
+      "type": "integer"
+    },
+    "edge_count": {
+      "type": "integer"
+    },
+    "first_date": {
+      "type": ["string", "null"]
+    },
+    "last_date": {
+      "type": ["string", "null"]
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

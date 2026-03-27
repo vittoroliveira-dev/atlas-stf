@@ -13,23 +13,18 @@ from ..core.origin_mapping import (
     map_origin_to_datajud_indices,
     normalize_state_description,
 )
+from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
+from ._match_io import read_jsonl as _read_jsonl
 
 logger = logging.getLogger(__name__)
+
+SCHEMA_PATH = Path("schemas/origin_context.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/origin_context_summary.schema.json")
 
 DEFAULT_DATAJUD_DIR = Path("data/raw/datajud")
 DEFAULT_PROCESS_PATH = Path("data/curated/process.jsonl")
 DEFAULT_OUTPUT_DIR = Path("data/analytics")
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if line:
-                records.append(json.loads(line))
-    return records
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -69,10 +64,13 @@ def build_origin_context(
     output_dir.mkdir(parents=True, exist_ok=True)
     stf_counts = _count_stf_by_index(process_path)
 
+    output_path = output_dir / "origin_context.jsonl"
     datajud_files = sorted(datajud_dir.glob("api_publica_*.json"))
     if not datajud_files:
         logger.warning("No DataJud files found in %s", datajud_dir)
-        return output_dir
+        with AtomicJsonlWriter(output_path):
+            pass
+        return output_path
 
     records: list[dict[str, Any]] = []
     for path in datajud_files:
@@ -96,7 +94,7 @@ def build_origin_context(
         }
         records.append(record)
 
-    output_path = output_dir / "origin_context.jsonl"
+    validate_records(records, SCHEMA_PATH)
     with AtomicJsonlWriter(output_path) as fh:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -107,6 +105,7 @@ def build_origin_context(
         "total_stf_mapped": sum(r["stf_process_count"] for r in records),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "origin_context_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

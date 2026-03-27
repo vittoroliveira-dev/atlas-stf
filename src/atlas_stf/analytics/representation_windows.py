@@ -12,11 +12,14 @@ from typing import Any
 
 from ..core.identity import stable_id
 from ..curated.common import read_jsonl_records, write_jsonl
+from ..schema_validate import validate_records
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CURATED_DIR = Path("data/curated")
 DEFAULT_OUTPUT_DIR = Path("data/analytics")
+SCHEMA_PATH = Path("schemas/representation_windows.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/representation_windows_summary.schema.json")
 
 # Map movement/event types to procedural windows
 _WINDOW_TYPE_MAP: dict[str, str] = {
@@ -111,7 +114,7 @@ def build_representation_windows(
     lawyer_lookup: dict[str, str] = {}
     for rec in lawyers:
         lid = rec.get("lawyer_id")
-        name = rec.get("lawyer_name_normalized") or rec.get("lawyer_name_raw", "")
+        name = rec.get("lawyer_name_raw") or rec.get("lawyer_name_normalized", "")
         if lid:
             lawyer_lookup[lid] = name
 
@@ -202,6 +205,7 @@ def build_representation_windows(
     tick("Janelas: Escrevendo resultados...")
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    validate_records(records, SCHEMA_PATH)
     output_path = write_jsonl(records, output_dir / "representation_windows.jsonl")
 
     # Count per window type
@@ -215,6 +219,7 @@ def build_representation_windows(
         "window_type_distribution": dict(window_type_counts),
         "generated_at": timestamp,
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "representation_windows_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

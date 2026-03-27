@@ -12,7 +12,7 @@ class StfPortalConfig:
 
     output_dir: Path = field(default_factory=lambda: Path("data/raw/stf_portal"))
     curated_dir: Path = field(default_factory=lambda: Path("data/curated"))
-    checkpoint_file: Path = field(default_factory=lambda: Path("data/raw/stf_portal/.checkpoint.json"))
+    checkpoint_file: Path | None = None  # None = {output_dir}/.checkpoint.json
 
     # Rate limiting (conservative defaults to avoid WAF blocks)
     rate_limit_seconds: float = 3.0
@@ -50,5 +50,15 @@ class StfPortalConfig:
     # Proxy rotation (SOCKS5 URLs for SSH tunnels)
     proxies: list[str] = field(default_factory=list)
 
+    # Partial cache directory (None = {output_dir}/.partial)
+    partial_dir: Path | None = None
+
+    # Per-process retry limit before promoting to permanent_failure
+    max_process_retries: int = 10
+
     def __post_init__(self) -> None:
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        if self.checkpoint_file is None:
+            self.checkpoint_file = self.output_dir / ".checkpoint.json"
+        if self.partial_dir is None:
+            self.partial_dir = self.output_dir / ".partial"

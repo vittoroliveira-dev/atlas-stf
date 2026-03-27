@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -453,6 +455,8 @@ def build_all_evidence_bundles(
     rapporteur_profile_path: Path = DEFAULT_RAPPORTEUR_PROFILE_PATH,
     sequential_path: Path = DEFAULT_SEQUENTIAL_PATH,
     assignment_audit_path: Path = DEFAULT_ASSIGNMENT_AUDIT_PATH,
+    on_progress: Callable[[int, int], None] | None = None,
+    max_workers: int = 8,
 ) -> list[tuple[Path, Path]]:
     alerts, baselines, groups, events, processes = _resolve_bundle_inputs(
         alert_path=alert_path,
@@ -466,21 +470,70 @@ def build_all_evidence_bundles(
         sequential_path,
         assignment_audit_path,
     )
-    outputs: list[tuple[Path, Path]] = []
-    for alert_id in sorted(alerts):
-        outputs.append(
-            _build_evidence_bundle_from_maps(
-                alert_id,
-                alerts=alerts,
-                baselines=baselines,
-                groups=groups,
-                events=events,
-                processes=processes,
-                evidence_dir=evidence_dir,
-                report_dir=report_dir,
-                rp_index=rp_index,
-                seq_index=seq_index,
-                aa_index=aa_index,
-            )
+
+    alert_ids = sorted(alerts)
+    total = len(alert_ids)
+
+    def _write_one(alert_id: str) -> tuple[Path, Path]:
+        return _build_evidence_bundle_from_maps(
+            alert_id,
+            alerts=alerts,
+            baselines=baselines,
+            groups=groups,
+            events=events,
+            processes=processes,
+            evidence_dir=evidence_dir,
+            report_dir=report_dir,
+            rp_index=rp_index,
+            seq_index=seq_index,
+            aa_index=aa_index,
         )
-    return outputs
+
+    # Pre-create output directories once, before threads start, to avoid
+    # TOCTOU races on mkdir inside _build_evidence_bundle_from_maps.
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    report_dir.mkdir(parents=True, exist_ok=True)
+
+    results: dict[str, tuple[Path, Path]] = {}
+    completed = 0
+
+    # Bounded sliding window: submit at most `window_size` futures at a time
+    # to avoid holding 239k+ pending tasks in memory simultaneously.
+    window_size = max_workers * 4
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        pending: dict[Any, str] = {}  # future -> alert_id
+        it = iter(alert_ids)
+
+        # Seed the initial window
+        for aid in _take(it, window_size):
+            pending[executor.submit(_write_one, aid)] = aid
+
+        while pending:
+            done, _ = _wait_first(pending)
+            for future in done:
+                aid = pending.pop(future)
+                results[aid] = future.result()
+                completed += 1
+                if on_progress is not None:
+                    on_progress(completed, total)
+
+            # Refill window with new items
+            for aid in _take(it, len(done)):
+                pending[executor.submit(_write_one, aid)] = aid
+
+    # Return in deterministic sorted order, matching the original behaviour.
+    return [results[aid] for aid in alert_ids]
+
+
+def _take(it: Any, n: int) -> list[str]:
+    """Take up to n items from an iterator."""
+    import itertools
+
+    return list(itertools.islice(it, n))
+
+
+def _wait_first(pending: dict[Any, str]) -> tuple[set[Any], set[Any]]:
+    """Wait for at least one future to complete."""
+    from concurrent.futures import FIRST_COMPLETED, wait
+
+    return wait(pending, return_when=FIRST_COMPLETED)

@@ -15,11 +15,14 @@ from ..core.identity import (
     normalize_tax_id,
     stable_id,
 )
+from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._donor_identity import donor_identity_key
 
 logger = logging.getLogger(__name__)
 
+SCHEMA_PATH = Path("schemas/donor_corporate_link.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/donor_corporate_link_summary.schema.json")
 DEFAULT_TSE_DIR = Path("data/raw/tse")
 DEFAULT_RFB_DIR = Path("data/raw/rfb")
 DEFAULT_OUTPUT_DIR = Path("data/analytics")
@@ -186,10 +189,13 @@ def build_donor_corporate_links(
     Every donor_identity_key generates at least one output record.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "donor_corporate_link.jsonl"
     donations_path = tse_dir / "donations_raw.jsonl"
     if not donations_path.exists():
         logger.warning("No donations_raw.jsonl found in %s — skipping", tse_dir)
-        return output_dir
+        with AtomicJsonlWriter(output_path) as _fh:
+            pass
+        return output_path
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -348,7 +354,7 @@ def build_donor_corporate_links(
                 )
 
     # Write output
-    output_path = output_dir / "donor_corporate_link.jsonl"
+    validate_records(output_records, SCHEMA_PATH)
     with AtomicJsonlWriter(output_path) as fh:
         for rec in output_records:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -379,6 +385,7 @@ def build_donor_corporate_links(
         "counts_by_document_type": dict(counts_by_doc_type),
         "generated_at": now_iso,
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "donor_corporate_link_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

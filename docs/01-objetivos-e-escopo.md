@@ -28,7 +28,7 @@ Construir uma plataforma de análise empírica capaz de identificar padrões, de
 - bundles de evidência para alertas materializados;
 - serving database para consumo de produto;
 - API HTTP para consulta de recortes, entidades, origem, sanções, doações, vínculos corporativos, afinidade ministro-advogado, risco composto e análise temporal;
-- dashboard web para navegação auditável dessas superfícies já materializadas (18 páginas);
+- dashboard web para navegação auditável dessas superfícies já materializadas (26 páginas);
 - especificação e revisão contínua de painéis e relatórios;
 - regras do agente;
 - trilha de governança.

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/donor_corporate_link_summary.schema.json",
+  "title": "DonorCorporateLinkSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_donors",
+    "total_output_records",
+    "resolved_record_count",
+    "unresolved_record_count",
+    "counts_by_link_basis",
+    "counts_by_confidence",
+    "counts_by_document_type",
+    "generated_at"
+  ],
+  "properties": {
+    "total_donors": {
+      "type": "integer"
+    },
+    "total_output_records": {
+      "type": "integer"
+    },
+    "resolved_record_count": {
+      "type": "integer"
+    },
+    "unresolved_record_count": {
+      "type": "integer"
+    },
+    "counts_by_link_basis": {
+      "type": "object"
+    },
+    "counts_by_confidence": {
+      "type": "object"
+    },
+    "counts_by_document_type": {
+      "type": "object"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  }
+}

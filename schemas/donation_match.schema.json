@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/donation_match.schema.json",
+  "title": "DonationMatch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "match_id",
+    "entity_type",
+    "entity_id",
+    "entity_name_normalized",
+    "donor_cpf_cnpj",
+    "donor_name_normalized",
+    "donor_name_originator",
+    "donor_identity_key",
+    "match_strategy",
+    "match_score",
+    "total_donated_brl",
+    "donation_count",
+    "election_years",
+    "parties_donated_to",
+    "candidates_donated_to",
+    "positions_donated_to",
+    "active_election_year_count",
+    "max_single_donation_brl",
+    "avg_donation_brl",
+    "top_candidate_share",
+    "top_party_share",
+    "top_state_share",
+    "donation_year_span",
+    "recent_donation_flag",
+    "stf_case_count",
+    "substantive_decision_count",
+    "red_flag",
+    "resource_types_observed",
+    "matched_at"
+  ],
+  "properties": {
+    "match_id": {
+      "type": "string"
+    },
+    "entity_type": {
+      "type": "string"
+    },
+    "entity_id": {
+      "type": "string"
+    },
+    "entity_name_normalized": {
+      "type": "string"
+    },
+    "party_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "party_name_normalized": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "donor_cpf_cnpj": {
+      "type": "string"
+    },
+    "donor_name_normalized": {
+      "type": "string"
+    },
+    "donor_name_originator": {
+      "type": "string"
+    },
+    "donor_identity_key": {
+      "type": "string"
+    },
+    "match_strategy": {
+      "type": "string"
+    },
+    "match_score": {
+      "type": "number"
+    },
+    "matched_alias": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "matched_tax_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "uncertainty_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "total_donated_brl": {
+      "type": "number"
+    },
+    "donation_count": {
+      "type": "integer"
+    },
+    "election_years": {
+      "type": "array"
+    },
+    "parties_donated_to": {
+      "type": "array"
+    },
+    "candidates_donated_to": {
+      "type": "array"
+    },
+    "positions_donated_to": {
+      "type": "array"
+    },
+    "first_donation_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "last_donation_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "active_election_year_count": {
+      "type": "integer"
+    },
+    "max_single_donation_brl": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "avg_donation_brl": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "top_candidate_share": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "top_party_share": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "top_state_share": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "donation_year_span": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "recent_donation_flag": {
+      "type": "boolean"
+    },
+    "stf_case_count": {
+      "type": "integer"
+    },
+    "favorable_rate": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "favorable_rate_substantive": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "substantive_decision_count": {
+      "type": "integer"
+    },
+    "baseline_favorable_rate": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "favorable_rate_delta": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "red_flag": {
+      "type": "boolean"
+    },
+    "red_flag_substantive": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "red_flag_power": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "red_flag_confidence": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "resource_types_observed": {
+      "type": "array"
+    },
+    "matched_at": {
+      "type": "string"
+    },
+    "donor_document_type": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "donor_tax_id_normalized": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "donor_cnpj_basico": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "donor_company_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "economic_group_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "economic_group_member_count": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "is_law_firm_group": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "donor_group_has_minister_partner": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "donor_group_has_party_partner": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "donor_group_has_counsel_partner": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "min_link_degree_to_minister": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "corporate_link_red_flag": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

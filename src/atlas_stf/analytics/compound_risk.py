@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.identity import stable_id
+from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._compound_risk_evidence import (
     PairEvidence,
@@ -36,6 +37,8 @@ from ._run_context import RunContext
 
 logger = logging.getLogger(__name__)
 
+SCHEMA_PATH = Path("schemas/compound_risk.schema.json")
+SUMMARY_SCHEMA_PATH = Path("schemas/compound_risk_summary.schema.json")
 DEFAULT_CURATED_DIR = Path("data/curated")
 DEFAULT_ANALYTICS_DIR = Path("data/analytics")
 TOP_PAIR_LIMIT = 20
@@ -52,10 +55,13 @@ def build_compound_risk(
     output_dir.mkdir(parents=True, exist_ok=True)
     ctx = RunContext("compound-risk", output_dir, total_steps=4, on_progress=on_progress)
 
+    output_path = output_dir / "compound_risk.jsonl"
     if not _required_inputs_exist(curated_dir):
         logger.warning("Compound risk skipped: curated inputs missing under %s", curated_dir)
         ctx.finish(outputs=[])
-        return output_dir
+        with AtomicJsonlWriter(output_path):
+            pass
+        return output_path
 
     ctx.start_step(0, "Compound Risk: Carregando dados...")
     party_names = _party_name_map(curated_dir)
@@ -364,7 +370,7 @@ def build_compound_risk(
 
     rows = _sort_rows(rows)
     ctx.start_step(3, "Compound Risk: Gravando resultados...")
-    output_path = output_dir / "compound_risk.jsonl"
+    validate_records(rows, SCHEMA_PATH)
     with AtomicJsonlWriter(output_path) as handle:
         for row in rows:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -393,6 +399,7 @@ def build_compound_risk(
             for row in rows[:TOP_PAIR_LIMIT]
         ],
     }
+    validate_records([summary], SUMMARY_SCHEMA_PATH)
     (output_dir / "compound_risk_summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
         encoding="utf-8",
