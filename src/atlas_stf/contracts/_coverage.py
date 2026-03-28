@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..ingest_manifest import normalize_header_for_signature
+from ..core.schema_sig import normalize_header_for_signature
 
 FIELD_STATUS = {
     "source_absent": "Field does not exist in source file for this generation/year",

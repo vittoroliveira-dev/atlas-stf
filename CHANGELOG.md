@@ -6,6 +6,34 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-03-27
+
+### Added
+
+- **core/io_hash.py**: módulo de hashing de artefatos movido para core/ (antes em raiz)
+- **core/resource_classifier.py**: classificador de recursos TSE movido para core/ (antes em tse/)
+- **core/schema_sig.py**: assinatura de schema para detecção de drift estrutural
+- **datajud/_fetch_adapter.py**: adaptador de fetch para integração com DataJud
+- **tests/scripts/**: testes para scripts de automação documental
+
+### Changed
+
+- **release.sh**: refatorado para publish-only — sem atualização de docs, sem commit, sem gestão de branch protection
+- **docs/ARCHITECTURE.md**: blocos auto-gerenciados para contagens e lista de ADRs
+- **docs/00-visao-geral.md**: listas variáveis de endpoints e páginas substituídas por referência aos docs canônicos
+- **docs/01-objetivos-e-escopo.md**: contagem variável de páginas substituída por referência ao README
+- **docs/06-metricas-e-avaliacao.md**: snapshots operacionais substituídos por referência aos artefatos canônicos
+- **docs/10-glossario.md**: contagens variáveis de tabelas e schema version substituídas por referência ao ARCHITECTURE.md
+- **analytics/**: ajustes em 10 módulos (corporate_network, counsel_network, decision_velocity, donation_match, economic_group, pauta_anomaly, procedural_timeline, rapporteur_change e helpers)
+- **fetch/_executor.py**: simplificação do executor de fetch
+- **web/src/lib/**: ajustes em 7 data files do frontend
+- **.gitignore**: scripts/automation/ adicionado como tooling local não versionado
+
+### Removed
+
+- **src/atlas_stf/io_hash.py**: movido para core/io_hash.py
+- **src/atlas_stf/tse/_resource_classifier.py**: movido para core/resource_classifier.py
+
 ## [1.1.1] - 2026-03-27
 
 ### Added

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from atlas_stf.datajud._fetch_adapter import execute_datajud_item
 from atlas_stf.fetch._executor import (
     execute_plan,
     validate_plan_for_execution,
@@ -18,6 +19,8 @@ from atlas_stf.fetch._manifest_model import (
     compute_plan_id,
 )
 from atlas_stf.fetch._manifest_store import load_manifest
+
+_DATAJUD_EXECUTORS = {"datajud": execute_datajud_item}
 
 
 def _make_datajud_plan(unit_ids: list[str]) -> FetchPlan:
@@ -42,7 +45,7 @@ def _make_datajud_plan(unit_ids: list[str]) -> FetchPlan:
 
 
 class TestExecuteDatajud:
-    @patch("atlas_stf.datajud._client.DatajudClient")
+    @patch("atlas_stf.datajud._fetch_adapter.DatajudClient")
     def test_single_index(self, mock_cls: MagicMock, tmp_path: Path) -> None:
         mock_client = MagicMock()
         mock_client.__enter__ = MagicMock(return_value=mock_client)
@@ -62,6 +65,7 @@ class TestExecuteDatajud:
             plan,
             base_dir=tmp_path,
             datajud_api_key="test_key",
+            source_executors=_DATAJUD_EXECUTORS,
         )
 
         assert len(results) == 1
@@ -86,13 +90,13 @@ class TestExecuteDatajud:
     def test_no_api_key_fails(self, tmp_path: Path) -> None:
         plan = _make_datajud_plan(["datajud:api_publica_stj"])
         with patch.dict("os.environ", {}, clear=True):
-            results = execute_plan(plan, base_dir=tmp_path, datajud_api_key="")
+            results = execute_plan(plan, base_dir=tmp_path, datajud_api_key="", source_executors=_DATAJUD_EXECUTORS)
 
         assert len(results) == 1
         assert results[0].success is False
         assert "API key" in results[0].error
 
-    @patch("atlas_stf.datajud._client.DatajudClient")
+    @patch("atlas_stf.datajud._fetch_adapter.DatajudClient")
     def test_api_error_records_failure(self, mock_cls: MagicMock, tmp_path: Path) -> None:
         mock_client = MagicMock()
         mock_client.__enter__ = MagicMock(return_value=mock_client)
@@ -101,7 +105,7 @@ class TestExecuteDatajud:
         mock_cls.return_value = mock_client
 
         plan = _make_datajud_plan(["datajud:api_publica_stj"])
-        results = execute_plan(plan, base_dir=tmp_path, datajud_api_key="key")
+        results = execute_plan(plan, base_dir=tmp_path, datajud_api_key="key", source_executors=_DATAJUD_EXECUTORS)
 
         assert len(results) == 1
         assert results[0].success is False
@@ -123,7 +127,7 @@ class TestExecuteDatajud:
             sources=["datajud"],
             items=items,
         )
-        results = execute_plan(plan, base_dir=tmp_path, datajud_api_key="key")
+        results = execute_plan(plan, base_dir=tmp_path, datajud_api_key="key", source_executors=_DATAJUD_EXECUTORS)
         assert results == []
 
 

@@ -15,7 +15,7 @@ from ..core.identity import stable_id
 from ..core.rules import derive_thematic_key
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
-from ._match_helpers import read_jsonl
+from ._match_io import read_jsonl
 
 logger = logging.getLogger(__name__)
 

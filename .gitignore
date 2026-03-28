@@ -6,6 +6,10 @@ dist/
 wheels/
 *.egg-info/
 
+# Tooling local de automação (não versionado)
+scripts/automation/
+tests/scripts/
+
 # Virtual environments
 .venv/
 
@@ -63,6 +67,7 @@ credentials*.json
 .swarm/
 .mcp.json
 CLAUDE.md
+src/atlas_stf/CLAUDE.md
 AGENTS.md
 plans/
 .plans/

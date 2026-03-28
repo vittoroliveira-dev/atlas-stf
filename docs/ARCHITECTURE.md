@@ -24,10 +24,19 @@ data/evidence/                 JSON bundles por alerta
         ↓  serving builder
 data/serving/atlas_stf.db      SQLite (48 tabelas, schema v19)
         ↓  FastAPI (uvicorn)
-API                            86 GET + 1 POST endpoints
+API                            84 GET + 1 POST endpoints
         ↓  Next.js SSR
 web/                           Dashboard (26 Server Components)
 ```
+
+<!-- BEGIN:auto:arch-counts -->
+<!-- counts auto-generated from snapshot -->
+- **Curated:** 12 entidades
+- **Analytics:** 34 builders independentes → JSONL
+- **Serving:** 48 tabelas, schema v19
+- **API:** 84 GET + 1 POST endpoints, 9 route registrars
+- **Frontend:** 26 Server Components
+<!-- END:auto:arch-counts -->
 
 ## Módulos do backend (`src/atlas_stf/`)
 
@@ -35,7 +44,7 @@ web/                           Dashboard (26 Server Components)
 
 | Módulo | Responsabilidade |
 |--------|-----------------|
-| `core/` | Lógica de domínio pura: identity, parsers, rules, stats, origin_mapping, tpu, constants, http_stream_safety, zip_safety, fetch_lock, fetch_result, progress |
+| `core/` | Lógica de domínio pura: identity, parsers, rules, stats, origin_mapping, tpu, constants, http_stream_safety, zip_safety, fetch_lock, fetch_result, progress, io_hash, resource_classifier, schema_sig |
 
 ### Ingestão
 
@@ -47,13 +56,15 @@ web/                           Dashboard (26 Server Components)
 
 ### Fontes externas
 
+Dependências permitidas: `core`, `fetch`, `httpx`, `ingest_manifest`.
+
 | Módulo | Responsabilidade | Padrão |
 |--------|-----------------|--------|
 | `cgu/` | CEIS/CNEP/Leniência (httpx) | config + parser + runner |
 | `tse/` | Doações + despesas + órgãos partidários (CSV) | config + parser + runner |
 | `cvm/` | Processos sancionadores CVM (CSV) | config + parser + runner |
 | `rfb/` | Quadro societário CNPJ (CSV) | config + parser + runner |
-| `datajud/` | API DataJud (httpx) | config + client + runner |
+| `datajud/` | API DataJud (httpx) | config + client + runner + fetch_adapter |
 | `stf_portal/` | Timeline STF (httpx) | config + parser + runner |
 | `agenda/` | Agenda ministerial (GraphQL) | config + client + runner |
 | `oab/` | Validação CNA/CNSA | config + providers + runner |
@@ -66,7 +77,7 @@ web/                           Dashboard (26 Server Components)
 | Módulo | Responsabilidade | Depende de |
 |--------|-----------------|------------|
 | `curated/` | Entity builders (18 entidades) | core (via common.py) |
-| `analytics/` | 32 builders estatísticos independentes | core, curated (identity + I/O helpers) |
+| `analytics/` | 34 builders estatísticos independentes | core, curated (identity + I/O helpers) |
 | `evidence/` | Bundles de evidência por alerta | curated, analytics |
 
 ### Serving e API
@@ -74,7 +85,7 @@ web/                           Dashboard (26 Server Components)
 | Módulo | Responsabilidade | Depende de |
 |--------|-----------------|------------|
 | `serving/` | SQLAlchemy models (48 tabelas) + builder JSONL→SQLite | core, curated, analytics |
-| `api/` | FastAPI 86 GET + 1 POST, 9 route registrars | serving (queries ORM) |
+| `api/` | FastAPI 84 GET + 1 POST, 9 route registrars | serving (queries ORM) |
 | `cli/` | Orquestrador de comandos (lazy imports) | todos |
 | `fetch/` | Manifesto unificado de downloads (discovery, plan, execute, migrate) | core |
 | `contracts/` | Schema inspection e drift analysis por fonte | core |
@@ -149,23 +160,31 @@ app/representacao/page.tsx
   external/              curated/ │ analytics/              evidence/
   (cgu,tse,cvm,          │       │ │                        │
    rfb,datajud,...)       │       │ │                        │
-    │                     │       │ │                        │
-    ▼                     ▼       ▼ ▼                        ▼
-  fetch/ ──► core/ ◄─────┘       serving/ ◄─────────────────┘
-  (stdlib only)                   │
-                                  ▼
-                                api/
-                                  │
-                                  ▼
-                                web/
+    │   │                 │       │ │                        │
+    │   ▼                 ▼       ▼ ▼                        ▼
+    │ ingest_manifest   core/ ◄───┘ serving/ ◄──────────────┘
+    │       │           (hub)        │
+    ▼       ▼             ▲          ▼
+  fetch/ ──► core/ ◄──────┘       api/
+                                    │
+                                    ▼
+                                  web/
 ```
+
+**Regras de fronteira:**
+- `analytics` NÃO importa fontes externas (cgu, tse, cvm, rfb, etc.), api, serving nem cli
+- `curated` NÃO importa analytics, api nem serving
+- `api` NÃO importa curated nem analytics diretamente
+- `core` NÃO importa nenhum outro módulo do projeto (stdlib only)
 
 ## Decisões arquiteturais
 
 Documentadas em `docs/adr/`:
-- [ADR-001](adr/001-sqlite-serving-database.md) — SQLite materializado como serving DB
-- [ADR-002](adr/002-independent-builders-jsonl.md) — Builders independentes com JSONL
+<!-- BEGIN:auto:arch-adr-list -->
+- [ADR-001](adr/001-sqlite-serving-database.md) — SQLite como banco de serving materializado
+- [ADR-002](adr/002-independent-builders-jsonl.md) — Builders independentes com artefatos JSONL
 - [ADR-003](adr/003-ssr-only-frontend.md) — Frontend SSR-only com Server Components
-- [ADR-004](adr/004-get-only-read-only-api.md) — API GET-only read-only (1 exceção POST)
+- [ADR-004](adr/004-get-only-read-only-api.md) — API GET-only read-only
 - [ADR-005](adr/005-unified-fetch-manifest.md) — Manifesto unificado de fetch
-- [ADR-006](adr/006-graph-review-post-endpoint.md) — Endpoint POST para graph review
+- [ADR-006](adr/006-graph-review-post-endpoint.md) — Endpoint POST para review de graph scoring
+<!-- END:auto:arch-adr-list -->

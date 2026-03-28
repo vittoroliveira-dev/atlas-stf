@@ -187,11 +187,6 @@ type PaginatedSanctionCorporateLinksResponse = {
   items: SanctionCorporateLink[];
 };
 
-type SanctionCorporateLinkRedFlagsResponse = {
-  items: SanctionCorporateLink[];
-  total: number;
-};
-
 export type SanctionCorporateLinksPageData = {
   links: SanctionCorporateLink[];
   total: number;
@@ -228,10 +223,6 @@ export async function getSanctionCorporateLinksPageData(params: {
     page: normalizedPayload.page,
     pageSize: normalizedPayload.page_size,
   };
-}
-
-export async function getSanctionCorporateLinkRedFlags(): Promise<SanctionCorporateLinkRedFlagsResponse> {
-  return fetchApiJson<SanctionCorporateLinkRedFlagsResponse>("/sanction-corporate-links/red-flags");
 }
 
 export async function getPartySanctionCorporateLinks(partyId: string): Promise<SanctionCorporateLink[]> {

@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .io_hash import file_sha256
+from .core.io_hash import file_sha256
 
 TRANSPARENCIA_BASE = "https://transparencia.stf.jus.br/extensions"
 

@@ -1,4 +1,4 @@
-"""Deterministic classification of TSE donation resource types (donation_description).
+"""Deterministic classification of donation resource types (donation_description).
 
 Pure module (zero I/O).  All lookup keys and keywords are stored pre-normalized
 (uppercase, no accents).  The classifier applies a two-stage normalisation to the

@@ -78,8 +78,3 @@ export async function getMinisterCounselAffinities(minister: string): Promise<Co
   );
 }
 
-export async function getCounselMinisterAffinities(counselId: string): Promise<CounselAffinity[]> {
-  return fetchApiJson<CounselAffinity[]>(
-    `/counsels/${encodeURIComponent(counselId)}/minister-affinity`,
-  );
-}

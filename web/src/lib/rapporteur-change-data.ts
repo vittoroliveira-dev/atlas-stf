@@ -1,4 +1,4 @@
-import { fetchApiJson, isApiFetchError } from "@/lib/api-client";
+import { fetchApiJson } from "@/lib/api-client";
 
 export type RapporteurChange = {
   change_id: string;
@@ -47,37 +47,25 @@ export async function getRapporteurChangePageData(params: {
 } = {}): Promise<RapporteurChangePageData> {
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 24;
-  try {
-    const payload = await fetchApiJson<PaginatedResponse>("/rapporteur-change", {
-      page,
-      page_size: pageSize,
-      minister: params.minister,
-      red_flag_only: params.redFlagOnly,
-    });
+  const payload = await fetchApiJson<PaginatedResponse>("/rapporteur-change", {
+    page,
+    page_size: pageSize,
+    minister: params.minister,
+    red_flag_only: params.redFlagOnly,
+  });
 
-    return {
-      items: payload.items,
-      total: payload.total,
-      page: payload.page,
-      pageSize: payload.page_size,
-    };
-  } catch (error) {
-    if (!isApiFetchError(error)) throw error;
-    console.error("Failed to fetch rapporteur change data:", error);
-    return { items: [], total: 0, page, pageSize };
-  }
+  return {
+    items: payload.items,
+    total: payload.total,
+    page: payload.page,
+    pageSize: payload.page_size,
+  };
 }
 
 export async function getRapporteurChangeRedFlags(): Promise<RapporteurChangeRedFlags> {
-  try {
-    const payload = await fetchApiJson<RedFlagsResponse>("/rapporteur-change/red-flags");
-    return {
-      items: payload.items,
-      total: payload.total,
-    };
-  } catch (error) {
-    if (!isApiFetchError(error)) throw error;
-    console.error("Failed to fetch rapporteur change red flags:", error);
-    return { items: [], total: 0 };
-  }
+  const payload = await fetchApiJson<RedFlagsResponse>("/rapporteur-change/red-flags");
+  return {
+    items: payload.items,
+    total: payload.total,
+  };
 }

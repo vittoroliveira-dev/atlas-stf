@@ -56,105 +56,19 @@ O repositório cobre:
 
 ## Superfície pública real no estado atual
 
-### Páginas web implementadas
+A superfície pública do sistema compreende um dashboard web com páginas por área analítica (alertas, caso, partes, advogados, ministros, sanções, doações, vínculos, afinidade, origem, temporal, velocidade, redistribuição, rede de advogados, convergência, representação, agenda e grafo de investigação) e uma API HTTP read-only em FastAPI.
 
-- `/`
-- `/alertas`
-- `/caso`
-- `/caso/[decisionEventId]`
-- `/advogados`
-- `/advogados/[counselId]`
-- `/partes`
-- `/partes/[partyId]`
-- `/ministros`
-- `/ministros/[minister]`
-- `/auditoria`
-- `/sancoes`
-- `/doacoes`
-- `/vinculos`
-- `/afinidade`
-- `/origem`
-- `/temporal`
-- `/convergencia`
-- `/velocidade`
-- `/redistribuicao`
-- `/rede-advogados`
+O inventário atualizado de páginas e endpoints é mantido automaticamente em `README.md` e `docs/ARCHITECTURE.md`. Para a lista completa, consultar esses documentos.
 
-### Endpoints HTTP implementados
+Observações contratuais:
 
-- `GET /health`
-- `GET /filters/options`
-- `GET /dashboard`
-- `GET /alerts`
-- `GET /alerts/{alert_id}`
-- `GET /cases`
-- `GET /cases/{decision_event_id}`
-- `GET /cases/{decision_event_id}/related-alerts`
-- `GET /counsels`
-- `GET /counsels/{counsel_id}`
-- `GET /counsels/{counsel_id}/ministers`
-- `GET /parties`
-- `GET /parties/{party_id}`
-- `GET /parties/{party_id}/ministers`
-- `GET /ministers/{minister}/flow`
-- `GET /ministers/{minister}/counsels`
-- `GET /ministers/{minister}/parties`
-- `GET /ministers/{minister}/profile`
-- `GET /ministers/{minister}/sequential`
-- `GET /ministers/{minister}/bio`
-- `GET /audit/assignment`
-- `GET /origin-context`
-- `GET /origin-context/{state}`
-- `GET /sources/audit`
-- `GET /sanctions`
-- `GET /sanctions/red-flags`
-- `GET /parties/{party_id}/sanctions`
-- `GET /counsels/{counsel_id}/sanction-profile`
-- `GET /donations`
-- `GET /donations/red-flags`
-- `GET /parties/{party_id}/donations`
-- `GET /counsels/{counsel_id}/donation-profile`
-- `GET /corporate-network`
-- `GET /corporate-network/red-flags`
-- `GET /ministers/{minister}/corporate-conflicts`
-- `GET /counsel-affinity`
-- `GET /counsel-affinity/red-flags`
-- `GET /ministers/{minister}/counsel-affinity`
-- `GET /counsels/{counsel_id}/minister-affinity`
-- `GET /compound-risk`
-- `GET /compound-risk/red-flags`
-- `GET /compound-risk/heatmap`
-- `GET /temporal-analysis`
-- `GET /temporal-analysis/{minister}`
-- `GET /decision-velocity`
-- `GET /decision-velocity/flags`
-- `GET /rapporteur-change`
-- `GET /rapporteur-change/red-flags`
-- `GET /counsel-network`
-- `GET /counsel-network/red-flags`
-- `GET /caso/{process_id}/timeline`
-- `GET /caso/{process_id}/sessions`
-
-Observações contratuais já comprovadas no código:
-
-- o detalhe de caso em `GET /cases/{decision_event_id}` é subordinado ao recorte filtrado atual;
+- o detalhe de caso é subordinado ao recorte filtrado atual;
 - endpoints de biografia ministerial podem retornar ausência quando a camada correspondente não estiver materializada;
-- `origin-context` depende da materialização opcional do módulo DataJud;
-- a documentação acima descreve apenas superfícies implementadas no repositório atual.
+- `origin-context` depende da materialização opcional do módulo DataJud.
 
-## Snapshot materializado no repositório
+## Snapshot materializado
 
-Os arquivos de resumo atualmente presentes em `data/analytics/` mostram o seguinte estado materializado:
-
-- grupos comparáveis: `9.916` grupos totais e `2.978` grupos válidos em `2026-03-26T12:55:41+00:00`;
-- baselines: `2.978` em `2026-03-26T13:13:54+00:00`;
-- alertas: `239.448` em `2026-03-26T13:14:10+00:00`;
-- sanções: `3.566` matches em `2026-03-24T02:22:04+00:00`;
-- doações: `499.590` matches em `2026-03-24T04:07:38+00:00`;
-- afinidade ministro-advogado: `21.393` pares analisados em `2026-03-26T12:56:42+00:00`;
-- rede corporativa: `0` vínculos materializados em `2026-03-18T06:26:36+00:00`.
-
-Esses números representam o snapshot derivado atualmente versionado no workspace. Eles não demonstram completude do universo do STF.
+Os volumes operacionais atuais -- incluindo contagens de grupos, alertas, matches e vínculos -- são mantidos nos artefatos canônicos de inventário do pipeline (`data/analytics/*_summary.json`) e consolidados no snapshot de release. Para contagens atualizadas, consultar `docs/ARCHITECTURE.md` e `README.md`. Os números representam o snapshot derivado atualmente versionado no workspace e não demonstram completude do universo do STF.
 
 ## Expansões previstas
 

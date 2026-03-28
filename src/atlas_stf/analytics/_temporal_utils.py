@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from ..core.rules import classify_outcome_raw
-from ._match_helpers import build_process_class_map, read_jsonl
+from ._match_helpers import build_process_class_map
+from ._match_io import read_jsonl
 
 DEFAULT_DECISION_EVENT_PATH = Path("data/curated/decision_event.jsonl")
 DEFAULT_PROCESS_PATH = Path("data/curated/process.jsonl")

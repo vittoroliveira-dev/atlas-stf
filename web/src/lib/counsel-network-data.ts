@@ -1,4 +1,4 @@
-import { fetchApiJson, isApiFetchError } from "@/lib/api-client";
+import { fetchApiJson } from "@/lib/api-client";
 
 export type CounselNetworkCluster = {
   cluster_id: string;
@@ -44,36 +44,24 @@ export async function getCounselNetworkPageData(params: {
 } = {}): Promise<CounselNetworkPageData> {
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 24;
-  try {
-    const payload = await fetchApiJson<PaginatedResponse>("/counsel-network", {
-      page,
-      page_size: pageSize,
-      red_flag_only: params.redFlagOnly,
-    });
+  const payload = await fetchApiJson<PaginatedResponse>("/counsel-network", {
+    page,
+    page_size: pageSize,
+    red_flag_only: params.redFlagOnly,
+  });
 
-    return {
-      items: payload.items,
-      total: payload.total,
-      page: payload.page,
-      pageSize: payload.page_size,
-    };
-  } catch (error) {
-    if (!isApiFetchError(error)) throw error;
-    console.error("Failed to fetch counsel network data:", error);
-    return { items: [], total: 0, page, pageSize };
-  }
+  return {
+    items: payload.items,
+    total: payload.total,
+    page: payload.page,
+    pageSize: payload.page_size,
+  };
 }
 
 export async function getCounselNetworkRedFlags(): Promise<CounselNetworkRedFlags> {
-  try {
-    const payload = await fetchApiJson<RedFlagsResponse>("/counsel-network/red-flags");
-    return {
-      items: payload.items,
-      total: payload.total,
-    };
-  } catch (error) {
-    if (!isApiFetchError(error)) throw error;
-    console.error("Failed to fetch counsel network red flags:", error);
-    return { items: [], total: 0 };
-  }
+  const payload = await fetchApiJson<RedFlagsResponse>("/counsel-network/red-flags");
+  return {
+    items: payload.items,
+    total: payload.total,
+  };
 }

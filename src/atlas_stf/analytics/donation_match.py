@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from ..core.identity import stable_id
+from ..core.resource_classifier import classify_resource_type
 from ..core.stats import red_flag_confidence_label, red_flag_power
 from ..schema_validate import validate_records
-from ..tse._resource_classifier import classify_resource_type
 from ._atomic_io import AtomicJsonlWriter
 from ._donation_aggregator import (
     _build_ambiguous_record,

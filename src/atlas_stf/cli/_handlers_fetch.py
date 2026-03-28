@@ -160,6 +160,7 @@ def _handle_migrate(args: argparse.Namespace) -> int:
 def _handle_run(args: argparse.Namespace) -> int:
     import os
 
+    from ..datajud._fetch_adapter import execute_datajud_item
     from ..fetch._executor import execute_plan, validate_plan_for_execution
     from ..fetch._manifest_model import REFRESH_POLICIES
 
@@ -222,6 +223,7 @@ def _handle_run(args: argparse.Namespace) -> int:
         base_dir=args.output_dir,
         datajud_api_key=api_key,
         datajud_process_path=process_path,
+        source_executors={"datajud": execute_datajud_item},
     )
 
     ok = sum(1 for r in results if r.success)

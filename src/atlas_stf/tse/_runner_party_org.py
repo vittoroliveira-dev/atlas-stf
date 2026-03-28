@@ -265,6 +265,8 @@ def fetch_party_org_data(
         )
     if manifest_pending:
         manifest.last_updated = datetime.now(timezone.utc).isoformat()
+        # Uses save_manifest_locked (not write_manifest_unlocked) because this
+        # runner is NOT wrapped in an outer FetchLock — the lock is non-reentrant.
         save_manifest_locked(manifest, config.output_dir)
 
     if on_progress:

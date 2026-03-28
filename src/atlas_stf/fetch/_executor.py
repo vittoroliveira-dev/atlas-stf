@@ -6,12 +6,11 @@ Each source adapter maps plan items to runner calls and updates the manifest.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from ._manifest_model import (
     REFRESH_POLICIES,
@@ -40,94 +39,13 @@ class FetchExecutionResult:
 
 
 
-def _file_sha256(path: Path) -> str:
-    """Compute SHA-256 of a file."""
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-# ---------------------------------------------------------------------------
-# DataJud adapter
-# ---------------------------------------------------------------------------
-
-
-def _execute_datajud(
-    item: PlanItem,
-    output_dir: Path,
-    *,
-    api_key: str = "",
-    process_path: Path | None = None,
-) -> FetchExecutionResult:
-    """Execute a single DataJud plan item."""
-    import os
-
-    from ..datajud._client import DatajudClient
-    from ..datajud._config import DATAJUD_API_KEY_ENV
-    from ..datajud._runner import fetch_single_index
-
-    key = api_key or os.getenv(DATAJUD_API_KEY_ENV, "")
-    if not key:
-        return FetchExecutionResult(
-            unit_id=item.unit_id,
-            success=False,
-            records_written=0,
-            remote_artifact_sha256="",
-            published_artifact_sha256="",
-            error="No API key — set DATAJUD_API_KEY or pass --api-key",
-        )
-
-    # Extract index name from unit metadata or unit_id
-    index = ""
-    if item.unit_id.startswith("datajud:"):
-        # Reverse the unit_id transform: datajud:api_publica_tjsp → api_publica_tjsp
-        index = item.unit_id.split(":", 1)[1]
-
-    if not index:
-        return FetchExecutionResult(
-            unit_id=item.unit_id,
-            success=False,
-            records_written=0,
-            remote_artifact_sha256="",
-            published_artifact_sha256="",
-            error=f"Cannot extract index from unit_id: {item.unit_id}",
-        )
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    try:
-        with DatajudClient(key) as client:
-            result = fetch_single_index(client, index, output_dir)
-    except Exception as exc:
-        return FetchExecutionResult(
-            unit_id=item.unit_id,
-            success=False,
-            records_written=0,
-            remote_artifact_sha256="",
-            published_artifact_sha256="",
-            error=str(exc),
-        )
-
-    out_path = output_dir / f"{index}.json"
-    pub_sha = _file_sha256(out_path) if out_path.exists() else ""
-    # Remote artifact SHA: hash the API response content
-    remote_sha = hashlib.sha256(json.dumps(result, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
-
-    return FetchExecutionResult(
-        unit_id=item.unit_id,
-        success=True,
-        records_written=result.get("total_processes", 0),
-        remote_artifact_sha256=remote_sha,
-        published_artifact_sha256=pub_sha,
-        error="",
-    )
-
-
 # ---------------------------------------------------------------------------
 # Main executor
 # ---------------------------------------------------------------------------
+
+# Type alias for a source executor callable.
+# Signature: (item, output_dir, *, api_key, process_path) -> FetchExecutionResult
+_SourceExecutor = Any
 
 
 def execute_plan(
@@ -136,6 +54,7 @@ def execute_plan(
     base_dir: Path,
     datajud_api_key: str = "",
     datajud_process_path: Path | None = None,
+    source_executors: dict[str, _SourceExecutor] | None = None,
 ) -> list[FetchExecutionResult]:
     """Execute all actionable items in a plan.
 
@@ -161,8 +80,9 @@ def execute_plan(
         manifest = load_manifest(source, output_dir) or SourceManifest(source=source)
 
         for item in items:
-            if source == "datajud":
-                result = _execute_datajud(
+            executor = (source_executors or {}).get(source)
+            if executor is not None:
+                result = executor(
                     item,
                     output_dir,
                     api_key=datajud_api_key,

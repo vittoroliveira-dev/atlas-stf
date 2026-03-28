@@ -3,10 +3,23 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
-from ..curated.common import read_jsonl_records
 from ._config import DocExtractorConfig
+
+
+def _read_jsonl_records(path: Path) -> list[dict[str, Any]]:
+    """Read JSONL file, returning list of parsed records."""
+    import json
+
+    records: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            stripped = line.strip()
+            if stripped:
+                records.append(json.loads(stripped))
+    return records
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +47,7 @@ def run_doc_extraction(config: DocExtractorConfig) -> int:
         logger.warning("No representation_edge.jsonl found at %s", edge_path)
         return 0
 
-    edges = read_jsonl_records(edge_path)
+    edges = _read_jsonl_records(edge_path)
     low_confidence = _filter_low_confidence_edges(edges, config.min_confidence_gap)
 
     if not low_confidence:

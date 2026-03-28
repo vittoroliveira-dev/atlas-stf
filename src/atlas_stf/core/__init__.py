@@ -20,10 +20,8 @@ from .parsers import (
     split_subjects,
 )
 from .rules import (
-    ACTIVE_PARTY_ROLES,
     FAVORABLE_OUTCOMES,
     NEUTRAL_OUTCOMES,
-    PASSIVE_PARTY_ROLES,
     RULE_VERSION,
     UNFAVORABLE_OUTCOMES,
     GroupKey,
@@ -41,11 +39,9 @@ from .stats import (
 )
 
 __all__ = [
-    "ACTIVE_PARTY_ROLES",
     "FAVORABLE_OUTCOMES",
     "GroupKey",
     "NEUTRAL_OUTCOMES",
-    "PASSIVE_PARTY_ROLES",
     "RULE_VERSION",
     "UNFAVORABLE_OUTCOMES",
     "classify_outcome_for_party",

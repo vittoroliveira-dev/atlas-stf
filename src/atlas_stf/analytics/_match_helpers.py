@@ -313,7 +313,6 @@ def match_entity_record(
 
 # Re-exports for backward compatibility — existing importers use _match_helpers as entry point.
 from ._match_io import iter_jsonl  # noqa: E402, F401
-from ._match_io import read_jsonl as read_jsonl  # noqa: E402, F811
 from ._outcome_helpers import (  # noqa: E402, F401
     build_baseline_rates,
     build_baseline_rates_stratified,

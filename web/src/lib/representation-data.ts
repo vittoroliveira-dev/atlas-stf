@@ -1,4 +1,4 @@
-import { fetchApiJson, isApiFetchError, isNotFoundError } from "@/lib/api-client";
+import { fetchApiJson, isNotFoundError } from "@/lib/api-client";
 
 export type LawyerEntity = {
   lawyer_id: string;
@@ -99,41 +99,27 @@ export async function getRepresentationPageData(params: {
 } = {}): Promise<RepresentationPageData> {
   const page = params.page ?? 1;
   const pageSize = params.pageSize ?? 24;
-  try {
-    const [lawyerData, firmData, summary] = await Promise.all([
-      fetchApiJson<PaginatedLawyers>("/representation/lawyers", {
-        page,
-        page_size: pageSize,
-        search: params.search,
-      }),
-      fetchApiJson<PaginatedFirms>("/representation/firms", {
-        page: 1,
-        page_size: 10,
-      }),
-      fetchApiJson<RepresentationSummary>("/representation/summary"),
-    ]);
-    return {
-      lawyers: lawyerData.items,
-      firms: firmData.items,
-      summary,
-      lawyerTotal: lawyerData.total,
-      firmTotal: firmData.total,
-      page: lawyerData.page,
-      pageSize: lawyerData.page_size,
-    };
-  } catch (error) {
-    if (!isApiFetchError(error)) throw error;
-    console.error("Failed to fetch representation data:", error);
-    return {
-      lawyers: [],
-      firms: [],
-      summary: { total_lawyers: 0, total_firms: 0, total_edges: 0, total_events: 0, lawyers_with_oab: 0, lawyers_with_firm: 0 },
-      lawyerTotal: 0,
-      firmTotal: 0,
+  const [lawyerData, firmData, summary] = await Promise.all([
+    fetchApiJson<PaginatedLawyers>("/representation/lawyers", {
       page,
-      pageSize,
-    };
-  }
+      page_size: pageSize,
+      search: params.search,
+    }),
+    fetchApiJson<PaginatedFirms>("/representation/firms", {
+      page: 1,
+      page_size: 10,
+    }),
+    fetchApiJson<RepresentationSummary>("/representation/summary"),
+  ]);
+  return {
+    lawyers: lawyerData.items,
+    firms: firmData.items,
+    summary,
+    lawyerTotal: lawyerData.total,
+    firmTotal: firmData.total,
+    page: lawyerData.page,
+    pageSize: lawyerData.page_size,
+  };
 }
 
 export async function getLawyerDetail(lawyerId: string): Promise<LawyerDetailResponse | null> {

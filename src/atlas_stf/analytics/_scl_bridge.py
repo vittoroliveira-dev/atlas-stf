@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.identity import is_valid_cnpj, normalize_entity_name, normalize_tax_id
-from ._match_helpers import read_jsonl
+from ._match_io import read_jsonl
 from .donor_corporate_link import _iter_jsonl
 
 logger = logging.getLogger(__name__)

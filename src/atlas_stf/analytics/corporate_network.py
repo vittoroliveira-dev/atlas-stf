@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..rfb._reference import load_all_reference_tables
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._corporate_network_context import (
@@ -76,9 +75,12 @@ def build_corporate_network(
             if cnpj:
                 estab_index[cnpj].append(record)
 
-    ref_tables = load_all_reference_tables(rfb_dir)
-    qualificacoes = ref_tables.get("qualificacoes", {})
-    naturezas = ref_tables.get("naturezas", {})
+    def _load_ref(name: str) -> dict[str, str]:
+        p = rfb_dir / f"{name}.json"
+        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+    qualificacoes = _load_ref("qualificacoes")
+    naturezas = _load_ref("naturezas")
 
     eg_index: dict[str, dict[str, Any]] = {}
     eg_path = output_dir / "economic_group.jsonl"

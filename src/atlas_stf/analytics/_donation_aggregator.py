@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from ..tse._resource_classifier import classify_resource_type
+from ..core.resource_classifier import classify_resource_type
 from ._donor_identity import donor_identity_key as _donor_identity_key_fn
 from ._match_helpers import EntityMatchResult
 from ._match_io import iter_jsonl

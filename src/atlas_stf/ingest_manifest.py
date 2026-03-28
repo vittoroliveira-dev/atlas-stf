@@ -5,25 +5,15 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-import unicodedata
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .io_hash import file_sha256
+from .core.io_hash import file_sha256
+from .core.schema_sig import normalize_header_for_signature, normalize_header_value
 
 _SAMPLE_ROWS = 10
 _FIRST_1MB = 1_048_576
-
-
-def normalize_header_value(raw: str) -> str:
-    """Normalize a single header value: NFKD, lowercase, strip, collapse spaces."""
-    return " ".join(unicodedata.normalize("NFKD", raw).lower().split())
-
-
-def normalize_header_for_signature(header: list[str]) -> str:
-    joined = "|".join(normalize_header_value(v) for v in header)
-    return hashlib.sha256(joined.encode()).hexdigest()
 
 
 def _read_csv_rows(reader: csv.reader) -> tuple[list[str], list[list[str]], int]:  # type: ignore[type-arg]

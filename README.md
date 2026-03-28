@@ -67,18 +67,20 @@ O repositório combina quatro frentes operacionais:
 
 ## Escala Atual
 
+<!-- BEGIN:auto:scale -->
 | Indicador | Volume |
 |---|---|
-| Decisões organizadas | 411 mil+ |
-| Processos conectados | 842 mil+ |
-| Sinais de atenção | 239 mil+ |
-| Relações priorizadas | 676 mil+ |
-| Representantes (advogados) | 186 mil+ |
-| Partes envolvidas | 449 mil+ |
-| Vínculos com doações eleitorais | 499 mil+ |
-| Conexões com sanções públicas | 3,5 mil+ |
-| Registros temporais | 10,8 mil+ |
+| Decisões organizadas | 411.4 mil+ |
+| Processos conectados | 842.4 mil+ |
+| Sinais de atenção | 239.4 mil+ |
+| Relações priorizadas | 676.3 mil+ |
+| Representantes (advogados) | 176.7 mil+ |
+| Partes envolvidas | 441.1 mil+ |
+| Vínculos com doações eleitorais | 499.6 mil+ |
+| Conexões com sanções públicas | 3.6 mil+ |
+| Registros temporais | 10.9 mil+ |
 | Áreas de consulta no painel | 19 |
+<!-- END:auto:scale -->
 
 ## Capacidades Atuais
 
@@ -87,13 +89,13 @@ O repositório combina quatro frentes operacionais:
 | Subsistema | Entrega principal | Evidência no repositório |
 |---|---|---|
 | `raw` e `staging` | Limpeza e padronização das exportações estruturadas | `src/atlas_stf/staging/`, `tests/staging/` |
-| `core` | Domínio puro: identidade, parsers, regras, estatística, mapeamento de origem, TPU | `src/atlas_stf/core/`, `tests/core/` |
+| `core` | Domínio puro: identidade, parsers, regras, estatística, mapeamento de origem, TPU, I/O hash, classificador de recursos, assinatura de schema | `src/atlas_stf/core/`, `tests/core/` |
 | `curated` | Entidades canônicas de processo, decisão, parte, advogado, assunto, biografia ministerial, movimentos, eventos de sessão, representação (advogados, escritórios, arestas, eventos) e agenda (agenda_event, agenda_coverage) | `src/atlas_stf/curated/`, `tests/curated/` |
 | `analytics` | Grupos comparáveis, baseline, score, alertas, perfil de relator, auditoria de distribuição, análise temporal, counsel affinity, risco composto, velocidade decisória, mudança de relatoria, rede de advogados, linha do tempo processual, anomalia de pauta, identidade econômica, grupos econômicos, grafo de representação, recorrência, janelas temporais, rede amicus, clusters de escritórios, agenda exposure, contrapartes de pagamento, vínculos corporativos de doadores, vínculos corporativos de sancionados (CEIS→RFB→STF), calibração de fuzzy matching | `src/atlas_stf/analytics/`, `tests/analytics/` |
 | `evidence` | Bundles técnicos por alerta | `src/atlas_stf/evidence/`, `tests/evidence/` |
 | `agenda` | Fetcher de agenda ministerial da API GraphQL do STF, builder de eventos e analytics de exposição | `src/atlas_stf/agenda/`, `tests/agenda/` |
 | `serving` | Banco de serving (48 tabelas SQLAlchemy) para API e UI | `src/atlas_stf/serving/` |
-| `api` | Endpoints FastAPI (87: 86 GET + 1 POST) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
+| `api` | Endpoints FastAPI (85: 84 GET + 1 POST) com filtros, páginas de detalhe e módulos analíticos | `src/atlas_stf/api/`, `tests/api/` |
 | `stf_portal` | Extrator de linha do tempo processual do portal STF (httpx) com proxy rotation per-IP | `src/atlas_stf/stf_portal/`, `tests/stf_portal/` |
 | `deoab` | Sociedades de advocacia do Diário Eletrônico da OAB (PDF público → JSONL) | `src/atlas_stf/deoab/`, `tests/deoab/` |
 | `oab_sp` | Consulta à OAB/SP — detalhes de sociedades e advogados inscritos (httpx + checkpoint) | `src/atlas_stf/oab_sp/`, `tests/oab_sp/` |
@@ -136,8 +138,8 @@ flowchart LR
     C --> F[Base de consulta<br/>Banco SQLite para API e painel]
     D --> F
     E --> F
-    F --> G[API HTTP<br/>87 endpoints — recortes, entidades, risco e grafo]
-    G --> H[Painel web<br/>18 áreas de consulta auditáveis]
+    F --> G[API HTTP<br/>85 endpoints — recortes, entidades, risco e grafo]
+    G --> H[Painel web<br/>19 áreas de consulta auditáveis]
 ```
 
 ### Princípios arquiteturais
@@ -150,14 +152,16 @@ flowchart LR
 
 ### Stack
 
+<!-- BEGIN:auto:stack-table -->
 | Camada | Tecnologia |
 |---|---|
 | Backend analítico | Python 3.14+, pandas 3, scikit-learn, scipy |
 | API | FastAPI + SQLAlchemy 2.x |
 | Serving database | SQLite (48 tabelas) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 + Recharts |
-| Qualidade | pytest (~2690 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
+| Qualidade | pytest (~2764 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
 | Infra | Docker, GitHub Actions, uv |
+<!-- END:auto:stack-table -->
 
 ### Configuração operacional canônica
 
@@ -168,18 +172,20 @@ flowchart LR
 
 ## Instalação
 
+<!-- BEGIN:auto:install-version -->
 ### Via Docker (recomendado)
 
 ```bash
 docker pull ghcr.io/vittoroliveira-dev/atlas-stf:latest
-docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.1
+docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.2
 ```
 
 ### Via wheel (release asset)
 
 ```bash
-pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.1.1-py3-none-any.whl
+pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.1.2-py3-none-any.whl
 ```
+<!-- END:auto:install-version -->
 
 Após a instalação, a CLI fica disponível:
 
@@ -306,6 +312,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 
 ## Páginas do Dashboard
 
+<!-- BEGIN:auto:dashboard-pages -->
 | Caminho | Papel |
 |---|---|
 | `/` | Visão geral com métricas do período |
@@ -334,6 +341,7 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 | `/representacao` | Rede de representação processual |
 | `/representacao/advogados/[id]` | Detalhe do advogado na rede |
 | `/representacao/escritorios/[id]` | Detalhe do escritório na rede |
+<!-- END:auto:dashboard-pages -->
 
 ## Fluxo de Trabalho da CLI
 
@@ -384,7 +392,9 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 
 ## API HTTP
 
+<!-- BEGIN:auto:api-endpoints-header -->
 ### Endpoints principais (85)
+<!-- END:auto:api-endpoints-header -->
 
 <details>
 <summary>Expandir lista completa de endpoints</summary>
@@ -498,10 +508,11 @@ Pré-condição: `data/curated/` e `data/analytics/` já precisam estar material
 
 ## Estrutura do Repositório
 
+<!-- BEGIN:auto:repo-structure -->
 ```text
 atlas-stf/
 ├── src/atlas_stf/
-│   ├── core/             # Domínio puro (identidade, parsers, regras, stats, TPU)
+│   ├── core/             # Domínio puro (identidade, parsers, regras, stats, TPU, io_hash, resource_classifier, schema_sig)
 │   ├── cli/              # CLI unificada do projeto
 │   ├── staging/          # Limpeza e normalização
 │   ├── scraper/          # Coleta de jurisprudência
@@ -529,8 +540,8 @@ atlas-stf/
 │   ├── src/app/          # 26 páginas (App Router, async Server Components)
 │   ├── src/components/   # 19 componentes
 │   └── src/lib/          # 20 módulos (API client, types, mappers)
-├── tests/                # 203 arquivos, ~2690 testes (mirror da src/)
-├── docs/                 # Documentação metodológica (14 documentos)
+├── tests/                # 208 arquivos, ~2764 testes (mirror da src/)
+├── docs/                 # Documentação metodológica (13 documentos)
 ├── governance/           # Regras, decisões, auditoria e risco
 ├── schemas/              # Contratos JSON das entidades
 ├── scripts/              # Scripts utilitários
@@ -539,6 +550,7 @@ atlas-stf/
 ├── Dockerfile            # Build multi-stage com uv + uvicorn
 └── docker-compose.yml    # API containerizada
 ```
+<!-- END:auto:repo-structure -->
 
 ## Qualidade e CI
 
@@ -631,18 +643,19 @@ O pipeline de CI roda em cada push/PR para `main`:
 
 Os artefatos atualmente presentes descrevem o seguinte snapshot:
 
+<!-- BEGIN:auto:snapshot -->
 | Artefato | Volume | Data |
 |---|---|---|
-| Grupos comparáveis | 9.916 (2.978 válidos) | 2026-03-26 |
-| Baselines | 2.978 (248.913 eventos) | 2026-03-26 |
-| Alertas | 239.448 (121.841 atipicidade, 117.607 inconclusivo) | 2026-03-26 |
-| Sanction matches | 3.566 | 2026-03-24 |
-| Donation matches | 499.590 | 2026-03-24 |
-| Counsel affinity | 21.393 pares | 2026-03-26 |
-| Corporate network | 0 vínculos | 2026-03-18 |
-| Decision velocity | 403.139 (18.751 fura-fila, 20.406 parados) | 2026-03-26 |
-| Rapporteur change | 316 mudanças (83 red flags) | 2026-03-26 |
-| Counsel network clusters | 7.000 clusters (117.495 advogados, 7 red flags) | 2026-03-26 |
+| Grupos comparáveis | 9.916 (2.978 válidos) | 2026-03-28 |
+| Baselines | 2.978 (248.913 eventos) | 2026-03-28 |
+| Alertas | 239.448 (0 atipicidade, 117.607 inconclusivo) | 2026-03-28 |
+| Sanction matches | 3.575 | 2026-03-28 |
+| Donation matches | 499.590 | 2026-03-28 |
+| Counsel affinity | 21.393 pares | 2026-03-28 |
+| Decision velocity | 403.139 (18.751 fura-fila, 20.406 parados) | 2026-03-28 |
+| Rapporteur change | 316 mudanças (83 red flags) | 2026-03-28 |
+| Counsel network clusters | 7.000 clusters (117.495 advogados, 7 red flags) | 2026-03-28 |
+<!-- END:auto:snapshot -->
 
 Esses números descrevem o snapshot derivado atualmente versionado no workspace. Eles não demonstram completude do universo do STF.
 

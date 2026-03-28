@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..io_hash import file_sha256
+from ..core.io_hash import file_sha256
 from ._assuntos import fix_assuntos, normalize_multi_value
 from ._audit import AuditRecord, logger, setup_logging, write_audit
 from ._cleaners import clean_x000d, normalize_residual_nulls, standardize_column_names, strip_whitespace
@@ -234,13 +234,13 @@ def main() -> None:
             if record:
                 write_audit([record], args.staging_dir)
         else:
-            from ..cli._progress import cli_progress
-
             if args.dry_run:
                 clean_all(args.raw_dir, args.staging_dir, args.dry_run)
             else:
-                with cli_progress("Staging") as on_progress:
-                    clean_all(args.raw_dir, args.staging_dir, args.dry_run, on_progress=on_progress)
+                def _log_progress(current: int, total: int, desc: str) -> None:
+                    logger.info("[%d/%d] %s", current, total, desc)
+
+                clean_all(args.raw_dir, args.staging_dir, args.dry_run, on_progress=_log_progress)
     except Exception:
         logger.exception("Pipeline failed")
         sys.exit(1)

@@ -88,7 +88,7 @@ Análise de padrões decisórios ministeriais ao longo do tempo, incluindo tend�
 Indicador binário de que uma entidade ou relação apresenta combinação de sinais que merece atenção prioritária. Não equivale a irregularidade comprovada.
 
 ## Serving database
-Banco SQLite derivado (24 tabelas) que materializa artefatos curated e analytics para consumo pela API e pelo dashboard.
+Banco SQLite materializado com tabelas de serving (contagem atualizada em `docs/ARCHITECTURE.md`) que materializa artefatos curated e analytics para consumo pela API e pelo dashboard.
 
 ## Contexto de origem (origin_context)
 Agregação estatística de tribunais de origem derivada da API CNJ DataJud, usada para contextualizar a procedência dos processos que chegam ao STF.
@@ -262,7 +262,7 @@ Cada entrada descreve o que o termo significa **dentro do Atlas STF** — não �
 - **source_url** — URL de download do arquivo-fonte (ex: URL do repositório TSE). Permite reproduzir a coleta.
 - **collected_at** — Timestamp ISO de quando o dado foi coletado/baixado pelo pipeline.
 - **ingest_run_id** — UUID que identifica uma execução específica do pipeline de ingestão. Permite saber quais registros entraram juntos.
-- **schema_version** — Versão inteira do schema do banco serving (atualmente 14). Incrementada quando a estrutura de tabelas muda.
+- **schema_version** — Versão inteira do schema do banco serving (valor atual documentado em `docs/ARCHITECTURE.md`). Incrementada quando a estrutura de tabelas muda.
 - **schema_fingerprint** — Hash SHA-256 da estrutura completa dos modelos SQLAlchemy. Detecta mudanças não-versionadas no schema.
 - **generated_at** / **matched_at** / **built_at** — Timestamps de quando o artefato analytics/match/banco foi produzido.
 

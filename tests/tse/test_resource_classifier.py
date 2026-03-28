@@ -1,10 +1,10 @@
-"""Tests for tse/_resource_classifier.py — deterministic resource type classification."""
+"""Tests for core/resource_classifier.py — deterministic resource type classification."""
 
 from __future__ import annotations
 
 import pytest
 
-from atlas_stf.tse._resource_classifier import (
+from atlas_stf.core.resource_classifier import (
     ResourceClassification,
     _normalize_for_classification,
     classify_resource_type,
