@@ -26,6 +26,10 @@ from atlas_stf.serving.models import (
 @pytest.fixture(scope="module")
 def graph_client(tmp_path_factory):
     """TestClient com tabelas de grafo populadas e scoring calculado."""
+    import os
+
+    prev = os.environ.get("ATLAS_STF_REVIEW_API_KEY")
+    os.environ["ATLAS_STF_REVIEW_API_KEY"] = "__dev__"
     tmp = tmp_path_factory.mktemp("graph_api")
     db_path = tmp / "test.db"
     db_url = f"sqlite:///{db_path}"
@@ -106,6 +110,10 @@ def graph_client(tmp_path_factory):
     client = TestClient(app, raise_server_exceptions=False)
     yield client
     engine.dispose()
+    if prev is None:
+        os.environ.pop("ATLAS_STF_REVIEW_API_KEY", None)
+    else:
+        os.environ["ATLAS_STF_REVIEW_API_KEY"] = prev
 
 
 # ---------------------------------------------------------------------------
@@ -303,14 +311,23 @@ def test_review_queue_rejects_invalid_status(graph_client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_review_decision_no_auth_when_key_unset(graph_client: TestClient) -> None:
-    """When ATLAS_STF_REVIEW_API_KEY is not set, auth is disabled (dev mode)."""
-    resp = graph_client.post(
+def test_review_decision_503_when_key_unset(tmp_path_factory, monkeypatch) -> None:
+    """When ATLAS_STF_REVIEW_API_KEY is not set, endpoint returns 503 (fail-closed)."""
+    monkeypatch.delenv("ATLAS_STF_REVIEW_API_KEY", raising=False)
+    tmp = tmp_path_factory.mktemp("auth_503")
+    db_path = tmp / "auth503.db"
+    db_url = f"sqlite:///{db_path}"
+    engine = create_engine(db_url, connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    engine.dispose()
+
+    app = create_app(database_url=db_url)
+    client = TestClient(app, raise_server_exceptions=False)
+    resp = client.post(
         "/review/decision",
         json={"item_id": "nonexistent", "status": "confirmed_relevant"},
     )
-    # 404 because item doesn't exist — but auth passed (no key required)
-    assert resp.status_code == 404
+    assert resp.status_code == 503
 
 
 def test_review_decision_rejects_wrong_key(tmp_path_factory, monkeypatch) -> None:

@@ -39,6 +39,7 @@ def _row_to_item(row: ServingCounselNetworkCluster) -> CounselNetworkClusterItem
         shared_process_count=row.shared_process_count,
         minister_names=_parse_json_list(row.minister_names_json),
         cluster_favorable_rate=row.cluster_favorable_rate,
+        baseline_rate=row.baseline_rate,
         cluster_case_count=row.cluster_case_count,
         red_flag=row.red_flag,
     )

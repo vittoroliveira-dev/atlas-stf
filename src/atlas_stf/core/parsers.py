@@ -6,6 +6,8 @@ import math
 import re
 from typing import Any
 
+_WHITESPACE_RE = re.compile(r"\s+")
+
 
 def is_missing(value: Any) -> bool:
     if value is None:
@@ -42,6 +44,18 @@ def split_subjects(value: Any) -> list[str] | None:
     parts = [part.strip() for part in text.split("|")]
     normalized = [part for part in parts if part]
     return normalized or None
+
+
+def normalize_subjects(subjects: list[str] | None) -> list[str] | None:
+    """Normalize subject list: uppercase, collapse whitespace, dedup preserving order."""
+    if subjects is None:
+        return None
+    seen: dict[str, None] = {}
+    for s in subjects:
+        normalized = _WHITESPACE_RE.sub(" ", s.strip()).upper()
+        if normalized:
+            seen.setdefault(normalized, None)
+    return list(seen) or None
 
 
 def infer_process_number(row: dict[str, Any]) -> str | None:

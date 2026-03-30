@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date
+import math
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,29 @@ DEFAULT_RFB_DIR = Path("data/raw/rfb")
 DEFAULT_OUTPUT_DIR = Path("data/analytics")
 SCHEMA_PATH = Path("schemas/temporal_analysis.schema.json")
 SUMMARY_SCHEMA_PATH = Path("schemas/temporal_analysis_summary.schema.json")
+
+def parse_date(date_str: str | None) -> datetime | None:
+    """Parse ISO-ish date string to datetime. Returns None on invalid input."""
+    if not date_str or not isinstance(date_str, str):
+        return None
+    try:
+        return datetime.strptime(date_str[:10], "%Y-%m-%d")
+    except ValueError, IndexError:
+        return None
+
+
+def percentile(sorted_values: list[float], p: float) -> float:
+    """Compute percentile from a pre-sorted list using linear interpolation."""
+    if not sorted_values:
+        return 0.0
+    n = len(sorted_values)
+    k = (n - 1) * p / 100.0
+    f = math.floor(k)
+    c = math.ceil(k)
+    if f == c:
+        return sorted_values[int(k)]
+    return sorted_values[f] * (c - k) + sorted_values[c] * (k - f)
+
 
 MIN_EVENT_WINDOW_DECISIONS = 5
 CUSUM_DRIFT = 0.25

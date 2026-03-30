@@ -1,12 +1,25 @@
+"""Minister flow service — pre-materialized lookup.
+
+Contract:
+- **Exact match** on ``minister_query`` is always attempted first.
+- If exact match fails, **textual fallback** (case-insensitive substring via
+  ``_normalized_like``) is attempted.
+- The payload signals which path was taken via ``minister_match_mode``:
+    - ``"exact"`` — canonical key matched directly.
+    - ``"textual"`` — single textual match found.
+    - ``"ambiguous"`` — multiple textual matches; flow not returned.
+    - ``"unresolved"`` — no match at all.
+"""
+
 from __future__ import annotations
 
 import json
 from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..serving.models import ServingCase, ServingMinisterFlow
+from ..serving.models import ServingMinisterFlow
 from ._filters import QueryFilters, _normalized_like, resolve_filters
 from .schemas import MinisterFlowResponse
 
@@ -31,29 +44,19 @@ def _parse_json_list(raw: str | None) -> list[Any]:
     return parsed if isinstance(parsed, list) else []
 
 
-def _resolve_materialized_minister_name(session: Session, minister: str | None) -> tuple[str | None, bool]:
-    if not minister:
-        return None, True
-    matches = [
-        value
-        for value in session.scalars(
-            select(ServingCase.current_rapporteur)
-            .where(
-                ServingCase.current_rapporteur.is_not(None),
-                _normalized_like(ServingCase.current_rapporteur, minister),
-            )
-            .distinct()
-            .order_by(ServingCase.current_rapporteur)
-        )
-        if value
-    ]
-    return (matches[0], True) if len(matches) == 1 else (None, False)
-
-
-def _empty_minister_flow(filters: QueryFilters, *, minister_query: str | None) -> MinisterFlowResponse:
+def _empty_minister_flow(
+    filters: QueryFilters,
+    *,
+    minister_query: str | None,
+    match_mode: str = "unresolved",
+    match_count: int = 0,
+    candidates: list[str] | None = None,
+) -> MinisterFlowResponse:
     return MinisterFlowResponse(
         minister_query=minister_query or "",
-        minister_match_mode="unresolved",
+        minister_match_mode=match_mode,
+        minister_match_count=match_count,
+        minister_candidates=candidates,
         minister_reference=None,
         period=filters.period or "",
         status="empty",
@@ -85,10 +88,17 @@ def _empty_minister_flow(filters: QueryFilters, *, minister_query: str | None) -
     )
 
 
-def _minister_flow_from_row(row: ServingMinisterFlow, *, minister_query: str | None) -> MinisterFlowResponse:
+def _minister_flow_from_row(
+    row: ServingMinisterFlow,
+    *,
+    minister_query: str | None,
+    match_mode: str,
+) -> MinisterFlowResponse:
     return MinisterFlowResponse(
         minister_query=minister_query or row.minister_query,
-        minister_match_mode=row.minister_match_mode,
+        minister_match_mode=match_mode,
+        minister_match_count=1,
+        minister_candidates=None,
         minister_reference=row.minister_reference,
         period=row.period,
         status=cast(Any, row.status),
@@ -125,28 +135,71 @@ def _minister_flow_from_row(row: ServingMinisterFlow, *, minister_query: str | N
 
 
 def _materialized_minister_flow(session: Session, filters: QueryFilters) -> MinisterFlowResponse:
-    minister_name, resolved = _resolve_materialized_minister_name(session, filters.minister)
-    if not resolved:
-        return _empty_minister_flow(filters, minister_query=filters.minister)
+    minister = filters.minister or ""
+    base_where = [
+        ServingMinisterFlow.period == (filters.period or ""),
+        ServingMinisterFlow.collegiate_filter == filters.collegiate,
+        ServingMinisterFlow.judging_body.is_(filters.judging_body)
+        if filters.judging_body is None
+        else ServingMinisterFlow.judging_body == filters.judging_body,
+        ServingMinisterFlow.process_class.is_(filters.process_class)
+        if filters.process_class is None
+        else ServingMinisterFlow.process_class == filters.process_class,
+    ]
 
+    # ── Fast path: exact match on canonical key ──
     row = session.scalar(
         select(ServingMinisterFlow).where(
-            ServingMinisterFlow.period == (filters.period or ""),
-            ServingMinisterFlow.collegiate_filter == filters.collegiate,
-            ServingMinisterFlow.minister_name.is_(minister_name)
-            if minister_name is None
-            else ServingMinisterFlow.minister_name == minister_name,
-            ServingMinisterFlow.judging_body.is_(filters.judging_body)
-            if filters.judging_body is None
-            else ServingMinisterFlow.judging_body == filters.judging_body,
-            ServingMinisterFlow.process_class.is_(filters.process_class)
-            if filters.process_class is None
-            else ServingMinisterFlow.process_class == filters.process_class,
+            ServingMinisterFlow.minister_query == minister,
+            *base_where,
         )
+    )
+    if row is not None:
+        return _minister_flow_from_row(row, minister_query=filters.minister, match_mode="exact")
+
+    # ── Slow path: textual search with disambiguation ──
+    if not minister:
+        return _empty_minister_flow(filters, minister_query=filters.minister)
+
+    # Count distinct minister_query values that match the textual input.
+    like_filter = _normalized_like(ServingMinisterFlow.minister_query, minister)
+    match_count = session.scalar(
+        select(func.count(ServingMinisterFlow.minister_query.distinct())).where(
+            like_filter,
+            *base_where,
+        )
+    ) or 0
+
+    if match_count == 0:
+        return _empty_minister_flow(filters, minister_query=filters.minister)
+
+    if match_count > 1:
+        # Ambiguous: multiple ministers match — return sorted candidates.
+        candidates = sorted(
+            v
+            for v in session.scalars(
+                select(ServingMinisterFlow.minister_query.distinct()).where(
+                    like_filter,
+                    *base_where,
+                )
+            )
+            if v
+        )
+        return _empty_minister_flow(
+            filters,
+            minister_query=filters.minister,
+            match_mode="ambiguous",
+            match_count=match_count,
+            candidates=candidates[:10],
+        )
+
+    # Exactly one minister matches — deterministic textual resolution.
+    row = session.scalar(
+        select(ServingMinisterFlow).where(like_filter, *base_where)
     )
     if row is None:
         return _empty_minister_flow(filters, minister_query=filters.minister)
-    return _minister_flow_from_row(row, minister_query=filters.minister)
+    return _minister_flow_from_row(row, minister_query=filters.minister, match_mode="textual")
 
 
 def get_minister_flow(session: Session, raw_filters: QueryFilters) -> MinisterFlowResponse:

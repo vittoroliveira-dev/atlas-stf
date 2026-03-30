@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session
 
 from atlas_stf.serving.builder import build_serving_database
@@ -23,9 +23,14 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
+def _register_py_lower(dbapi_conn, _connection_record):
+    dbapi_conn.create_function("py_lower", 1, lambda v: v.lower() if isinstance(v, str) else v)
+
+
 @contextmanager
 def managed_engine(database_url: str) -> Iterator:
     engine = create_engine(database_url)
+    event.listen(engine, "connect", _register_py_lower)
     try:
         yield engine
     finally:

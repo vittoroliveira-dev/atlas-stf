@@ -72,7 +72,9 @@ class SegmentFlowItem(BaseModel):
 
 class MinisterFlowResponse(BaseModel):
     minister_query: str
-    minister_match_mode: str = "contains_casefold"
+    minister_match_mode: str = "exact"
+    minister_match_count: int = 0
+    minister_candidates: list[str] | None = None
     minister_reference: str | None = None
     period: str
     status: Literal["ok", "empty"]

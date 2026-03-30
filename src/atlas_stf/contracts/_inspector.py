@@ -37,6 +37,7 @@ _BOOLEANS = frozenset({"true", "false", "sim", "não", "nao", "s", "n", "0", "1"
 
 def _file_fingerprint(path: Path) -> str:
     h = hashlib.sha256()
+    h.update(str(path.stat().st_size).encode())
     with open(path, "rb") as f:
         h.update(f.read(_HASH_CHUNK))
     return h.hexdigest()

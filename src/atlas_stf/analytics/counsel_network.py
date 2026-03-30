@@ -15,6 +15,7 @@ from ..core.rules import classify_outcome_raw
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._match_io import read_jsonl
+from ._outcome_helpers import build_baseline_rates
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ DEFAULT_OUTPUT_DIR = Path("data/analytics")
 MIN_SHARED_CLIENTS = 2
 MIN_CLUSTER_CASES_FOR_FLAG = 5
 RED_FLAG_DELTA_THRESHOLD = 0.15
+DEFAULT_BASELINE_RATE = 0.5
 
 
 def _build_counsel_client_graph(
@@ -156,6 +158,7 @@ def build_counsel_network(
     ppl_path = curated_dir / "process_party_link.jsonl"
     de_path = curated_dir / "decision_event.jsonl"
     counsel_path = curated_dir / "counsel.jsonl"
+    process_path = curated_dir / "process.jsonl"
 
     if not pcl_path.exists() or not ppl_path.exists():
         logger.warning("Counsel network skipped: required curated inputs missing")
@@ -193,6 +196,20 @@ def build_counsel_network(
         if pid and rapporteur:
             process_rapporteurs[str(pid)].add(str(rapporteur))
 
+    # Build process_class_map from process.jsonl (canonical source, same as build_baseline_rates)
+    process_class_map: dict[str, str] = {}
+    if process_path.exists():
+        for record in read_jsonl(process_path):
+            pid = record.get("process_id")
+            pc = record.get("process_class")
+            if pid and pc:
+                process_class_map[str(pid)] = str(pc)
+
+    # Per-class baseline via canonical helper (aligned with other analytics builders)
+    class_baseline_rates: dict[str, float] = {}
+    if de_path.exists() and process_path.exists():
+        class_baseline_rates = build_baseline_rates(de_path, process_path)
+
     if on_progress:
         on_progress(1, 4, "Counsel Network: Clusterizando...")
 
@@ -223,9 +240,26 @@ def build_counsel_network(
         for cid in cluster:
             all_clients.update(counsel_clients.get(cid, set()))
 
+        # Compute weighted baseline from process classes in this cluster
+        cluster_class_counts: Counter[str] = Counter()
+        for cid in cluster:
+            for pid in counsel_process_map.get(cid, []):
+                pc = process_class_map.get(pid)
+                if pc:
+                    cluster_class_counts[pc] += 1
+
+        if cluster_class_counts:
+            total_weight = sum(cluster_class_counts.values())
+            weighted_baseline = sum(
+                count * class_baseline_rates.get(pc, DEFAULT_BASELINE_RATE)
+                for pc, count in cluster_class_counts.items()
+            ) / total_weight
+        else:
+            weighted_baseline = DEFAULT_BASELINE_RATE
+
         red_flag = (
             cluster_rate is not None
-            and cluster_rate > 0.5 + RED_FLAG_DELTA_THRESHOLD
+            and cluster_rate > weighted_baseline + RED_FLAG_DELTA_THRESHOLD
             and cluster_case_count >= MIN_CLUSTER_CASES_FOR_FLAG
         )
 
@@ -243,6 +277,7 @@ def build_counsel_network(
                 "cluster_favorable_rate": (round(cluster_rate, 6) if cluster_rate is not None else None),
                 "cluster_case_count": cluster_case_count,
                 "red_flag": red_flag,
+                "baseline_rate": round(weighted_baseline, 6),
                 "generated_at": now_iso,
             }
         )

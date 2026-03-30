@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -15,6 +14,7 @@ from ..core.identity import stable_id
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._match_io import read_jsonl
+from ._temporal_utils import parse_date, percentile
 
 logger = logging.getLogger(__name__)
 
@@ -27,26 +27,10 @@ PERCENTILE_LOW = 5
 PERCENTILE_HIGH = 95
 
 
-def _percentile(sorted_values: list[float], p: float) -> float:
-    """Compute percentile from a pre-sorted list using linear interpolation."""
-    if not sorted_values:
-        return 0.0
-    n = len(sorted_values)
-    k = (n - 1) * p / 100.0
-    f = math.floor(k)
-    c = math.ceil(k)
-    if f == c:
-        return sorted_values[int(k)]
-    return sorted_values[f] * (c - k) + sorted_values[c] * (k - f)
+_percentile = percentile
 
 
-def _parse_date(date_str: str | None) -> datetime | None:
-    if not date_str or not isinstance(date_str, str):
-        return None
-    try:
-        return datetime.strptime(date_str[:10], "%Y-%m-%d")
-    except ValueError, IndexError:
-        return None
+_parse_date = parse_date
 
 
 def _load_movements_by_process(

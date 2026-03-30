@@ -204,14 +204,41 @@ def run_deoab_fetch(
                 save_checkpoint(checkpoint, config.checkpoint_file)
                 logger.info("Progress: %d dates parsed, %d records so far", processed, len(all_records))
 
-    # Write all records
-    if all_records:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        with output_path.open("w", encoding="utf-8") as f:
-            for record in all_records:
-                f.write(json.dumps(record, ensure_ascii=False))
-                f.write("\n")
-        logger.info("Wrote %d records to %s", len(all_records), output_path)
+    # Merge with existing records to avoid data loss across incremental runs
+    existing_records: list[dict[str, object]] = []
+    if output_path.exists():
+        try:
+            with output_path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        existing_records.append(json.loads(line))
+        except json.JSONDecodeError, OSError:
+            logger.warning("Could not read existing %s, starting fresh", output_path)
+
+    def _dedup_key(r: dict[str, object]) -> str:
+        return (
+            f"{r.get('data_publicacao')}:{r.get('sociedade_nome')}"
+            f":{r.get('oab_number')}:{r.get('sociedade_registro')}"
+        )
+
+    seen: dict[str, dict[str, object]] = {}
+    for record in existing_records:
+        seen[_dedup_key(record)] = record
+    for record in all_records:
+        seen[_dedup_key(record)] = record  # new records take precedence
+
+    merged = list(seen.values())
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = output_path.with_suffix(".jsonl.tmp")
+    with tmp_path.open("w", encoding="utf-8") as f:
+        for record in merged:
+            f.write(json.dumps(record, ensure_ascii=False))
+            f.write("\n")
+    tmp_path.replace(output_path)
+    logger.info(
+        "Wrote %d records (%d new, %d existing) to %s",
+        len(merged), len(all_records), len(existing_records), output_path,
+    )
 
     save_checkpoint(checkpoint, config.checkpoint_file)
     stats = checkpoint.stats

@@ -82,6 +82,7 @@ class CounselNetworkClusterItem(BaseModel):
     shared_process_count: int
     minister_names: list[str] = []
     cluster_favorable_rate: float | None = None
+    baseline_rate: float | None = None
     cluster_case_count: int
     red_flag: bool
 

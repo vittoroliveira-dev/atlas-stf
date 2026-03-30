@@ -55,8 +55,10 @@ export default async function DoacoesPage({
     getDonationRedFlags(),
   ]);
 
-  const partyTotalDonated = partyData.donations.reduce((sum, d) => sum + d.total_donated_brl, 0);
-  const counselTotalDonated = counselData.donations.reduce((sum, d) => sum + d.total_donated_brl, 0);
+  // NOTE: total_donated_brl is the donor's GLOBAL total (all parties/candidates),
+  // not the total for this specific match.  Summing it across matches would
+  // produce an inflated, semantically invalid number (double-counting donors
+  // that appear in multiple matches).  KPI removed intentionally.
 
   return (
     <AppShell
@@ -134,12 +136,8 @@ export default async function DoacoesPage({
           pageSizeOptions={[8, 16, 24]}
         />
 
-        {partyTotalDonated > 0 && (
-          <div className="mt-4 rounded-2xl border border-ouro-200 bg-ouro-50 p-4">
-            <p className="text-sm text-ouro-700">Total doado nesta pagina</p>
-            <p className="mt-1 text-2xl font-semibold text-ouro-800">{formatBrl(partyTotalDonated)}</p>
-          </div>
-        )}
+        {/* Total per-page KPI removed: total_donated_brl is global per donor,
+            summing across matches would double-count and mislead. */}
 
         {partyData.donations.length === 0 ? (
           <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
@@ -234,12 +232,7 @@ export default async function DoacoesPage({
           pageSizeOptions={[8, 16, 24]}
         />
 
-        {counselTotalDonated > 0 && (
-          <div className="mt-4 rounded-2xl border border-ouro-200 bg-ouro-50 p-4">
-            <p className="text-sm text-ouro-700">Total doado nesta pagina</p>
-            <p className="mt-1 text-2xl font-semibold text-ouro-800">{formatBrl(counselTotalDonated)}</p>
-          </div>
-        )}
+        {/* Total per-page KPI removed: same reason as party section above. */}
 
         {counselData.donations.length === 0 ? (
           <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">

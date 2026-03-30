@@ -28,7 +28,28 @@ def _parse_json_list(raw: str | None) -> list:
         return []
 
 
-def _row_to_match_item(row: ServingDonationMatch) -> DonationMatchItem:
+def _compute_match_subtotals(
+    session: Session, match_ids: list[str],
+) -> dict[str, tuple[float, int]]:
+    """Compute (sum, count) of donation events per match_id."""
+    if not match_ids:
+        return {}
+    rows = session.execute(
+        select(
+            ServingDonationEvent.match_id,
+            func.coalesce(func.sum(ServingDonationEvent.donation_amount), 0.0),
+            func.count(),
+        )
+        .where(ServingDonationEvent.match_id.in_(match_ids))
+        .group_by(ServingDonationEvent.match_id)
+    ).all()
+    return {mid: (total, cnt) for mid, total, cnt in rows}
+
+
+def _row_to_match_item(
+    row: ServingDonationMatch,
+    subtotals: dict[str, tuple[float, int]] | None = None,
+) -> DonationMatchItem:
     entity_id = row.entity_id or row.party_id
     return DonationMatchItem(
         match_id=row.match_id,
@@ -42,6 +63,8 @@ def _row_to_match_item(row: ServingDonationMatch) -> DonationMatchItem:
         donor_name_originator=row.donor_name_originator,
         total_donated_brl=row.total_donated_brl,
         donation_count=row.donation_count,
+        matched_events_total_brl=subtotals[row.match_id][0] if subtotals and row.match_id in subtotals else None,
+        matched_events_count=subtotals[row.match_id][1] if subtotals and row.match_id in subtotals else None,
         election_years=_parse_json_list(row.election_years_json),
         parties_donated_to=_parse_json_list(row.parties_donated_to_json),
         candidates_donated_to=_parse_json_list(row.candidates_donated_to_json),
@@ -130,12 +153,13 @@ def get_donations(
         list[ServingDonationMatch],
         session.scalars(stmt.offset((page - 1) * page_size).limit(page_size)).all(),
     )
+    subtotals = _compute_match_subtotals(session, [r.match_id for r in rows])
 
     return PaginatedDonationsResponse(
         total=total,
         page=page,
         page_size=page_size,
-        items=[_row_to_match_item(r) for r in rows],
+        items=[_row_to_match_item(r, subtotals) for r in rows],
     )
 
 
@@ -153,7 +177,8 @@ def get_party_donations(session: Session, party_id: str, *, limit: int = 100) ->
             .limit(limit)
         ).all(),
     )
-    return [_row_to_match_item(r) for r in rows]
+    subtotals = _compute_match_subtotals(session, [r.match_id for r in rows])
+    return [_row_to_match_item(r, subtotals) for r in rows]
 
 
 def get_counsel_donation_profile(session: Session, counsel_id: str) -> CounselDonationProfileItem | None:
@@ -199,8 +224,9 @@ def get_donation_red_flags(session: Session, *, limit: int = 100) -> DonationRed
             .limit(limit)
         ).all(),
     )
+    party_subtotals = _compute_match_subtotals(session, [r.match_id for r in party_flags])
     return DonationRedFlagsResponse(
-        party_flags=[_row_to_match_item(r) for r in party_flags],
+        party_flags=[_row_to_match_item(r, party_subtotals) for r in party_flags],
         counsel_flags=[_row_to_counsel_item(r) for r in counsel_flags],
         total_party_flags=total_party_flags,
         total_counsel_flags=total_counsel_flags,

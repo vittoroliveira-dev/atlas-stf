@@ -69,6 +69,9 @@ class DonationMatchItem(BaseModel):
     donor_name_originator: str | None = None
     total_donated_brl: float
     donation_count: int
+    matched_events_total_brl: float | None = None
+    matched_events_count: int | None = None
+    donation_scope: Literal["donor_global"] = "donor_global"
     election_years: list[int] = []
     parties_donated_to: list[str] = []
     candidates_donated_to: list[str] = []

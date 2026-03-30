@@ -24,6 +24,9 @@
     "max_cluster_size": {
       "type": "integer"
     },
+    "skipped_parties_over_cap": {
+      "type": "integer"
+    },
     "generated_at": {
       "type": "string"
     }

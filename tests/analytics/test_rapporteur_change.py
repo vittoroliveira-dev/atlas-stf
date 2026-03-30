@@ -128,6 +128,14 @@ def test_red_flag_with_high_favorable_rate(tmp_path: Path):
             "current_rapporteur": "MIN B",
             "decision_progress": "Provido",
         },
+        {
+            "decision_event_id": "de_3",
+            "process_id": "proc_1",
+            "decision_date": "2020-08-01",
+            "decision_year": 2020,
+            "current_rapporteur": "MIN B",
+            "decision_progress": "Provido",
+        },
     ]
     # Add many unfavorable decisions for MIN B to create low baseline
     for i in range(10):
@@ -153,7 +161,7 @@ def test_red_flag_with_high_favorable_rate(tmp_path: Path):
 
     records = [json.loads(line) for line in result.read_text().strip().split("\n") if line]
     assert len(records) == 1
-    # Post-change rate = 100% (2/2), baseline for MIN B is ~0% (0/10)
+    # Post-change rate = 100% (3/3), baseline for MIN B is ~0% (0/10)
     assert records[0]["red_flag"] is True
     assert records[0]["delta_vs_baseline"] is not None
     assert records[0]["delta_vs_baseline"] > 0.15

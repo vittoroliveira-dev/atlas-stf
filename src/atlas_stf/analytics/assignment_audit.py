@@ -68,7 +68,7 @@ def build_assignment_audit(
 
     for event in events:
         process_id = str(event.get("process_id") or "").strip()
-        pc = event.get("process_class") or process_classes.get(process_id)
+        pc = process_classes.get(process_id)
         year = event.get("decision_year")
         rapporteur = event.get("current_rapporteur")
         if not pc or not year or not rapporteur:

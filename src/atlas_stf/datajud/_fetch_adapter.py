@@ -11,19 +11,12 @@ from typing import Any
 
 from ..fetch._executor import FetchExecutionResult
 from ..fetch._manifest_model import PlanItem
+from ..io_hash import file_sha256
 from ._client import DatajudClient
 from ._config import DATAJUD_API_KEY_ENV
 from ._runner import fetch_single_index
 
 logger = logging.getLogger(__name__)
-
-
-def _file_sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def execute_datajud_item(
@@ -75,7 +68,7 @@ def execute_datajud_item(
         )
 
     out_path = output_dir / f"{index}.json"
-    pub_sha = _file_sha256(out_path) if out_path.exists() else ""
+    pub_sha = file_sha256(out_path) if out_path.exists() else ""
     remote_sha = hashlib.sha256(
         json.dumps(result, sort_keys=True, ensure_ascii=False).encode()
     ).hexdigest()

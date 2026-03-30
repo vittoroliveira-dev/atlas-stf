@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -24,6 +25,20 @@ DEFAULT_SEQUENTIAL_PATH = Path("data/analytics/sequential_analysis.jsonl")
 DEFAULT_ASSIGNMENT_AUDIT_PATH = Path("data/analytics/assignment_audit.jsonl")
 SCHEMA_PATH = Path("schemas/evidence_bundle.schema.json")
 EVIDENCE_VERSION = "evidence-bundle-v3"
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write text atomically via tmp + flush + fsync + rename."""
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    try:
+        with tmp_path.open("w", encoding="utf-8") as fh:
+            fh.write(content)
+            fh.flush()
+            os.fsync(fh.fileno())
+        tmp_path.replace(path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def _read_jsonl_map(path: Path, key: str) -> dict[str, dict[str, Any]]:
@@ -256,8 +271,8 @@ def _build_evidence_bundle_from_maps(
 
     json_path = evidence_dir / f"{alert_id}.json"
     md_path = report_dir / f"{alert_id}.md"
-    json_path.write_text(json.dumps(bundle, ensure_ascii=False, indent=2), encoding="utf-8")
-    md_path.write_text(_render_markdown(bundle), encoding="utf-8")
+    _atomic_write_text(json_path, json.dumps(bundle, ensure_ascii=False, indent=2))
+    _atomic_write_text(md_path, _render_markdown(bundle))
     return json_path, md_path
 
 

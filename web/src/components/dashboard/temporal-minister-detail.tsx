@@ -27,25 +27,25 @@ export function MinisterDetail({
         </p>
         <h2 className="mt-3 text-2xl font-semibold text-slate-950">{minister}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          S\u00e9rie mensal descritiva, compara\u00e7\u00e3o ano contra ano por classe,
-          eventos documentados e v\u00ednculos societ\u00e1rios ativos desde a entrada.
+          Série mensal descritiva, comparação ano contra ano por classe,
+          eventos documentados e vínculos societários ativos desde a entrada.
         </p>
       </div>
 
       <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
         <h3 className="mb-4 text-lg font-semibold text-slate-950">
-          S\u00e9rie mensal e m\u00e9dia m\u00f3vel de 6 meses
+          Série mensal e média móvel de 6 meses
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
-                <th className="px-3 py-2">M\u00eas</th>
-                <th className="px-3 py-2">Decis\u00f5es</th>
-                <th className="px-3 py-2">Taxa favor\u00e1vel</th>
-                <th className="px-3 py-2">M\u00e9dia m\u00f3vel</th>
+                <th className="px-3 py-2">Mês</th>
+                <th className="px-3 py-2">Decisões</th>
+                <th className="px-3 py-2">Taxa favorável</th>
+                <th className="px-3 py-2">Média móvel</th>
                 <th className="px-3 py-2">Score</th>
-                <th className="px-3 py-2">Mudan\u00e7a</th>
+                <th className="px-3 py-2">Mudança</th>
               </tr>
             </thead>
             <tbody>
@@ -59,7 +59,7 @@ export function MinisterDetail({
                   </td>
                   <td className="px-3 py-2">{row.breakpoint_score?.toFixed(2) ?? "\u2014"}</td>
                   <td className="px-3 py-2">
-                    {row.breakpoint_flag ? "mudan\u00e7a de padr\u00e3o" : "\u2014"}
+                    {row.breakpoint_flag ? "mudança de padrão" : "\u2014"}
                   </td>
                 </tr>
               ))}
@@ -104,18 +104,18 @@ export function MinisterDetail({
 
       <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
         <h3 className="mb-4 text-lg font-semibold text-slate-950">
-          Linha do tempo de v\u00ednculos societ\u00e1rios
+          Linha do tempo de vínculos societários
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
-                <th className="px-3 py-2">In\u00edcio observ\u00e1vel</th>
+                <th className="px-3 py-2">Início observável</th>
                 <th className="px-3 py-2">Empresa</th>
                 <th className="px-3 py-2">Entidade ligada</th>
                 <th className="px-3 py-2">Grau</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Taxa favor\u00e1vel</th>
+                <th className="px-3 py-2">Taxa favorável</th>
               </tr>
             </thead>
             <tbody>

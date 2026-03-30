@@ -8,6 +8,7 @@
     "total_pairs_analyzed",
     "red_flag_count",
     "ministers_with_red_flags",
+    "institutional_classification",
     "generated_at"
   ],
   "properties": {
@@ -19,6 +20,18 @@
     },
     "ministers_with_red_flags": {
       "type": "integer"
+    },
+    "institutional_classification": {
+      "type": "object",
+      "required": ["total_institutional", "structural", "fallback_prefix", "private", "structural_coverage_pct", "fallback_pct"],
+      "properties": {
+        "total_institutional": {"type": "integer"},
+        "structural": {"type": "integer"},
+        "fallback_prefix": {"type": "integer"},
+        "private": {"type": "integer"},
+        "structural_coverage_pct": {"type": "number"},
+        "fallback_pct": {"type": "number"}
+      }
     },
     "generated_at": {
       "type": "string"

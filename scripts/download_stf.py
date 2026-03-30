@@ -17,7 +17,8 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from playwright.sync_api import sync_playwright, Page, BrowserContext, TimeoutError
+
+from playwright.sync_api import BrowserContext, Page, TimeoutError, sync_playwright
 
 BASE = "https://transparencia.stf.jus.br/extensions"
 
@@ -170,7 +171,7 @@ def fazer_download(page: Page, download_dir: Path, painel_nome: str) -> Path | N
         print("    Nenhum botão de exportação encontrado")
         return None
 
-    print(f"    Iniciando download...", end="", flush=True)
+    print("    Iniciando download...", end="", flush=True)
 
     try:
         with page.expect_download(timeout=TIMEOUT_DOWNLOAD) as download_info:

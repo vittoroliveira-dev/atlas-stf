@@ -41,6 +41,9 @@ def load_counsel_affinities(analytics_dir: Path) -> list[ServingCounselAffinity]
                 pair_delta_vs_minister=record.get("pair_delta_vs_minister"),
                 pair_delta_vs_counsel=record.get("pair_delta_vs_counsel"),
                 red_flag=_coerce_bool(record.get("red_flag")),
+                institutional=_coerce_bool(record.get("institutional")),
+                institutional_source=str(record.get("institutional_source", "private")),
+                institutional_confidence=record.get("institutional_confidence"),
                 top_process_classes_json=json.dumps(record.get("top_process_classes", []), ensure_ascii=False),
                 generated_at=_parse_datetime(record.get("generated_at")),
             )
@@ -200,6 +203,7 @@ def load_counsel_network_clusters(analytics_dir: Path) -> list[ServingCounselNet
                 shared_process_count=_coerce_int(record.get("shared_process_count")),
                 minister_names_json=json.dumps(record.get("minister_names", []), ensure_ascii=False),
                 cluster_favorable_rate=_coerce_float(record.get("cluster_favorable_rate")),
+                baseline_rate=_coerce_float(record.get("baseline_rate")),
                 cluster_case_count=_coerce_int(record.get("cluster_case_count")),
                 red_flag=_coerce_bool(record.get("red_flag")),
                 generated_at=_parse_datetime(record.get("generated_at")),

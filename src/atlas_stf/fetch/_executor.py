@@ -136,8 +136,8 @@ def execute_plan(
                 manifest.units[item.unit_id] = unit
                 logger.warning("Failed %s: %s", item.unit_id, result.error)
 
-        # Persist manifest after processing all items for this source
-        save_manifest_locked(manifest, output_dir)
+            # Persist manifest after each item so progress survives crashes
+            save_manifest_locked(manifest, output_dir)
 
     return results
 

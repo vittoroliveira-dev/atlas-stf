@@ -9,6 +9,7 @@ export type CounselNetworkCluster = {
   shared_process_count: number;
   minister_names: string[];
   cluster_favorable_rate: number | null;
+  baseline_rate: number | null;
   cluster_case_count: number;
   red_flag: boolean;
 };

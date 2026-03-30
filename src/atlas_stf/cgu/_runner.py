@@ -313,9 +313,11 @@ def _fetch_sanctions_data_locked(
         # Write sanctions_raw.jsonl (CSV strategy writes full dataset; API appends incrementally)
         if strategy == "csv":
             output_path = config.output_dir / "sanctions_raw.jsonl"
-            with output_path.open("w", encoding="utf-8") as fh:
+            tmp_path = output_path.with_suffix(".jsonl.tmp")
+            with tmp_path.open("w", encoding="utf-8") as fh:
                 for record in records:
                     fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+            tmp_path.replace(output_path)
 
         timer.log_success(records_written=len(records), detail=strategy)
         return config.output_dir

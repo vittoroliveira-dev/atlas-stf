@@ -168,7 +168,7 @@ export default async function PartyDetailPage({
                   <thead className="border-b border-ouro-200">
                     <tr>
                       <th className="px-3 py-2 font-semibold text-ouro-700">CPF/CNPJ</th>
-                      <th className="px-3 py-2 font-semibold text-ouro-700">Total doado</th>
+                      <th className="px-3 py-2 font-semibold text-ouro-700" title="Total dos eventos vinculados a este match">Total do match</th>
                       <th className="px-3 py-2 font-semibold text-ouro-700">Eleicoes</th>
                       <th className="px-3 py-2 font-semibold text-ouro-700">Partidos</th>
                       <th className="px-3 py-2 font-semibold text-ouro-700">Status</th>
@@ -179,7 +179,7 @@ export default async function PartyDetailPage({
                       <tr key={d.match_id}>
                         <td className="px-3 py-2 font-mono text-xs text-slate-700">{d.donor_cpf_cnpj || "—"}</td>
                         <td className="px-3 py-2 text-slate-700">
-                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(d.total_donated_brl)}
+                          {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(d.matched_events_total_brl ?? d.total_donated_brl)}
                         </td>
                         <td className="px-3 py-2 text-slate-600">{d.election_years.join(", ") || "—"}</td>
                         <td className="px-3 py-2 text-slate-600">{d.parties_donated_to.join(", ") || "—"}</td>

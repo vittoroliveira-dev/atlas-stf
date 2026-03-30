@@ -19,6 +19,9 @@
     "pair_delta_vs_minister",
     "pair_delta_vs_counsel",
     "red_flag",
+    "institutional",
+    "institutional_source",
+    "institutional_confidence",
     "top_process_classes",
     "generated_at"
   ],
@@ -70,6 +73,17 @@
     },
     "red_flag": {
       "type": "boolean"
+    },
+    "institutional": {
+      "type": "boolean"
+    },
+    "institutional_source": {
+      "type": "string",
+      "enum": ["structural", "fallback:name_prefix", "private"]
+    },
+    "institutional_confidence": {
+      "type": ["string", "null"],
+      "enum": ["high", "low", null]
     },
     "red_flag_substantive": {
       "type": [

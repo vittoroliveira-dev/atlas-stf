@@ -60,7 +60,7 @@ async def test_dashboard_endpoint(serving_db: str):
     async with _get_client(serving_db) as client:
         response = await client.get(
             "/dashboard",
-            params={"minister": "TESTE", "period": "2026-01", "collegiate": "colegiado"},
+            params={"minister": "MIN. TESTE", "period": "2026-01", "collegiate": "colegiado"},
         )
     assert response.status_code == 200
     payload = response.json()
@@ -111,7 +111,7 @@ async def test_dashboard_rejects_invalid_period_format(serving_db: str):
 @pytest.mark.anyio
 async def test_minister_flow_endpoint(serving_db: str):
     async with _get_client(serving_db) as client:
-        response = await client.get("/ministers/TESTE/flow", params={"period": "2026-01"})
+        response = await client.get("/ministers/MIN. TESTE/flow", params={"period": "2026-01"})
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "ok"
@@ -120,13 +120,12 @@ async def test_minister_flow_endpoint(serving_db: str):
 
 
 @pytest.mark.anyio
-async def test_minister_flow_endpoint_returns_empty_for_ambiguous_match(serving_db: str):
+async def test_minister_flow_endpoint_returns_empty_for_unknown(serving_db: str):
     async with _get_client(serving_db) as client:
-        response = await client.get("/ministers/TE/flow", params={"period": "2026-01"})
+        response = await client.get("/ministers/INEXISTENTE/flow", params={"period": "2026-01"})
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "empty"
-    assert payload["minister_reference"] is None
     assert payload["event_count"] == 0
 
 
@@ -148,14 +147,17 @@ async def test_case_detail_endpoint(serving_db: str):
 
 
 @pytest.mark.anyio
-async def test_case_detail_returns_404_when_case_is_outside_filters(serving_db: str):
+async def test_case_detail_always_finds_by_id_regardless_of_filters(serving_db: str):
+    # Case detail is PK lookup — filters don't exclude the case itself.
     async with _get_client(serving_db) as client:
         response = await client.get(
             "/cases/evt_2",
-            params={"minister": "TESTE", "period": "2026-01"},
+            params={"minister": "MIN. TESTE", "period": "2026-01"},
         )
-    assert response.status_code == 404
-    assert response.json()["detail"] == "case_not_found"
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["case_item"] is not None
+    assert payload["case_item"]["decision_event_id"] == "evt_2"
 
 
 @pytest.mark.anyio

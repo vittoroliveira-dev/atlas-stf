@@ -44,22 +44,29 @@ class TestFileFingerprint:
         content = b"atlas stf test data"
         p = tmp_path / "data.bin"
         p.write_bytes(content)
-        expected = hashlib.sha256(content).hexdigest()
-        assert _file_fingerprint(p) == expected
+        h = hashlib.sha256()
+        h.update(str(len(content)).encode())
+        h.update(content)
+        assert _file_fingerprint(p) == h.hexdigest()
 
     def test_only_reads_first_1mb(self, tmp_path: Path) -> None:
-        # Write exactly 2 MB; fingerprint should match SHA-256 of first 1 MB only.
+        # Write exactly 2 MB; fingerprint uses size + first 1 MB.
         chunk = b"x" * 1_048_576
+        full = chunk + b"y" * 1_048_576
         p = tmp_path / "big.bin"
-        p.write_bytes(chunk + b"y" * 1_048_576)
-        expected = hashlib.sha256(chunk).hexdigest()
-        assert _file_fingerprint(p) == expected
+        p.write_bytes(full)
+        h = hashlib.sha256()
+        h.update(str(len(full)).encode())
+        h.update(chunk)
+        assert _file_fingerprint(p) == h.hexdigest()
 
     def test_empty_file(self, tmp_path: Path) -> None:
         p = tmp_path / "empty.bin"
         p.write_bytes(b"")
-        result = _file_fingerprint(p)
-        assert result == hashlib.sha256(b"").hexdigest()
+        h = hashlib.sha256()
+        h.update(b"0")
+        h.update(b"")
+        assert _file_fingerprint(p) == h.hexdigest()
 
 
 # ---------------------------------------------------------------------------

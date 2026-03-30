@@ -75,7 +75,7 @@ def _process_zip(zip_path: Path, output_dir: Path) -> list[dict[str, Any]]:
         with zipfile.ZipFile(zip_path) as zf:
             safe_members: list[zipfile.ZipInfo] = []
             for info in zf.infolist():
-                if not is_safe_zip_member(info.filename, output_dir):
+                if not is_safe_zip_member(info.filename, output_dir, external_attr=info.external_attr):
                     logger.warning("Skipping unsafe ZIP member: %s", info.filename)
                     continue
                 safe_members.append(info)
@@ -195,9 +195,11 @@ def _fetch_cvm_data_locked(
 
         if on_progress:
             on_progress(2, total, "CVM: Gravando resultados...")
-        with output_path.open("w", encoding="utf-8") as fh:
+        tmp_path = output_path.with_suffix(".jsonl.tmp")
+        with tmp_path.open("w", encoding="utf-8") as fh:
             for record in records:
                 fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+        tmp_path.replace(output_path)
 
         # Save manifest
         uid = build_unit_id("cvm", "sanctions")

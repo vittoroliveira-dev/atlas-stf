@@ -6,6 +6,59 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-03-30
+
+### Added
+
+- **api/_service_flow.py**: contrato de flow com 4 modos explícitos (exact, textual, ambiguous, unresolved) e payload com candidatos em caso de ambiguidade
+- **api/_schemas_core.py**: campos `minister_match_count`, `minister_candidates` no `MinisterFlowResponse`
+- **api/_schemas_risk.py**: campos `matched_events_total_brl`, `matched_events_count`, `donation_scope` no `DonationMatchItem` para distinção semântica entre total global e subtotal do match
+- **api/app.py**: UDF `py_lower` registrada via `event.listens_for("connect")` para casefold Unicode correto no SQLite
+- **analytics/counsel_affinity.py**: classificação institucional estrutural via `build_structural_institutional_set()` (representation_edge role_type), com fallback textual residual (1,9%)
+- **analytics/counsel_affinity.py**: campos `institutional`, `institutional_source`, `institutional_confidence` no output e summary com métricas de cobertura
+- **serving/_models_analytics.py**: colunas `institutional`, `institutional_source`, `institutional_confidence` no `ServingCounselAffinity`
+- **tests/api/test_audit_regression.py**: 52 testes de regressão cobrindo flow, temporal, Unicode, institucional, doações e lookup por ID
+- **scripts/audit_*.py**: 11 scripts de auditoria de integridade, pipeline, API smoke, frontend coverage e builder runtime
+- **audit/contracts/integrity_manifest.json**: manifesto de contratos de integridade
+- **web/src/app/investigacao/**: 4 páginas de investigação (listagem, detalhe, scores, loading)
+- **web/src/app/revisao/**: 2 páginas de revisão de grafo (queue, loading)
+- **web/src/app/not-found.tsx**: página 404 customizada
+- **web/src/lib/grafo-data.ts**: fetchers e tipos para dados do grafo
+- **scripts/automation/build_change_summary.py**: gerador de resumo classificado de mudanças para CHANGELOG e release notes
+
+### Changed
+
+- **api/_filters.py**: `func.lower()` substituído por `func.py_lower()` em `_normalized_like` — política de normalização centralizada (case-insensitive Unicode, NOT accent-insensitive)
+- **api/_service_alerts_cases.py**: `get_case_detail` e `get_case_ml_outlier` removidos filtros contextuais do lookup por PK — caso sempre encontrado por ID independente do período
+- **api/_temporal_analysis.py**: removido `LIMIT 1000` do overview, adicionado `ORDER BY record_id` determinístico
+- **api/_service_graph_review.py**: 4 instâncias de `func.lower()` substituídas por `func.py_lower()`
+- **api/_donations.py**: `_compute_match_subtotals()` calcula soma/contagem real dos eventos por match via SQL
+- **serving/_builder_schema.py**: schema version 20 → 21
+- **serving/_builder_loaders_analytics_risk.py**: loader atualizado para campos institucionais
+- **schemas/counsel_affinity.schema.json**: campos `institutional`, `institutional_source`, `institutional_confidence`
+- **schemas/counsel_affinity_summary.schema.json**: bloco `institutional_classification` com cobertura estrutural
+- **web/src/components/dashboard/temporal-tables.tsx**: escapes Unicode corrigidos para UTF-8
+- **web/src/components/dashboard/temporal-minister-detail.tsx**: escapes Unicode corrigidos para UTF-8
+- **web/src/app/doacoes/page.tsx**: KPIs enganosos de soma global removidos
+- **web/src/app/partes/[partyId]/page.tsx**: coluna usa subtotal do match, label explicita escopo
+- **web/src/lib/donations-data.ts**: tipo atualizado com `matched_events_total_brl`, `matched_events_count`, `donation_scope`
+- **web/src/lib/ui-copy.ts**: label "Total doado (global do doador)"
+- **Makefile**: target `serve-api` renomeado para `server-api`
+- **.gitignore**: `audit/samples/` adicionado como regenerável
+
+### Fixed
+
+- Ministros com acento (Barroso, Cármen, Dino, etc.) não apareciam em ~20 endpoints por falha do `LOWER()` do SQLite com UTF-8
+- Flow do ministro retornava `unresolved` para ministros existentes por resolução secundária via tabela intermediária
+- Temporal overview mostrava apenas 5 de 34 ministros por `LIMIT 1000` hardcoded sem ORDER BY
+- Case detail e ML-outlier retornavam 404 para casos de períodos anteriores ao selecionado no dashboard
+- 364 de 696 red flags de counsel affinity eram falsos positivos de entidades institucionais (procuradores, AGU, defensorias)
+- Total de doações exibido no frontend era o global do doador, não o subtotal do match
+
+### Removed
+
+- **src/atlas_stf/core/io_hash.py**: movido para `src/atlas_stf/io_hash.py`
+
 ## [1.1.2] - 2026-03-27
 
 ### Added

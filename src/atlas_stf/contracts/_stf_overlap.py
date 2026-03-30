@@ -65,13 +65,14 @@ _DUPLICATE_SAMPLE_SIZE = 5
 @contextlib.contextmanager
 def _open_csv(path: Path) -> Iterator[csv.DictReader[str]]:
     """Open a CSV trying utf-8, falling back to latin-1."""
+    fh = open(path, encoding="utf-8", newline="")  # noqa: SIM115
     try:
-        fh = open(path, encoding="utf-8", newline="")  # noqa: SIM115
         reader = csv.DictReader(fh, delimiter=",")
         if reader.fieldnames is None:
             fh.close()
             raise UnicodeDecodeError("utf-8", b"", 0, 1, "no header")
     except UnicodeDecodeError:
+        fh.close()
         fh = open(path, encoding="latin-1", newline="")  # noqa: SIM115
         reader = csv.DictReader(fh, delimiter=",")
     try:

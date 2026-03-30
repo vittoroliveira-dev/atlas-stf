@@ -26,6 +26,13 @@ def _minister_stmt(minister: str):
 
 
 def _match_rapporteur(session: Session, minister: str) -> str | None:
+    exact = session.scalar(
+        select(ServingTemporalAnalysis.rapporteur)
+        .where(ServingTemporalAnalysis.rapporteur == minister)
+        .limit(1)
+    )
+    if exact:
+        return exact
     row = session.execute(
         select(ServingTemporalAnalysis.rapporteur, func.count())
         .where(
@@ -151,7 +158,7 @@ def get_temporal_analysis_overview(
     if event_type:
         stmt = stmt.where(ServingTemporalAnalysis.event_type == event_type)
 
-    rows = session.scalars(stmt.limit(1000)).all()
+    rows = session.scalars(stmt.order_by(ServingTemporalAnalysis.record_id)).all()
     counts_by_kind = Counter(row.analysis_kind for row in rows)
     ministers = {row.rapporteur for row in rows if row.rapporteur}
     events = {row.event_id for row in rows if row.analysis_kind == "event_window" and row.event_id}

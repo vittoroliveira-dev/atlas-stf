@@ -225,16 +225,16 @@ def get_review_queue(
     if queue_type == "calibration":
         calibration_filter = or_(
             ServingReviewQueue.priority_tier == "low",
-            func.lower(func.coalesce(ServingReviewQueue.review_reason, "")).like("%fuzzy%"),
-            func.lower(func.coalesce(ServingReviewQueue.review_reason, "")).like("%truncated%"),
+            func.py_lower(func.coalesce(ServingReviewQueue.review_reason, "")).like("%fuzzy%"),
+            func.py_lower(func.coalesce(ServingReviewQueue.review_reason, "")).like("%truncated%"),
         )
         stmt = stmt.where(calibration_filter)
         count_stmt = count_stmt.where(calibration_filter)
     elif queue_type == "investigation":
         investigation_filter = ~or_(
             ServingReviewQueue.priority_tier == "low",
-            func.lower(func.coalesce(ServingReviewQueue.review_reason, "")).like("%fuzzy%"),
-            func.lower(func.coalesce(ServingReviewQueue.review_reason, "")).like("%truncated%"),
+            func.py_lower(func.coalesce(ServingReviewQueue.review_reason, "")).like("%fuzzy%"),
+            func.py_lower(func.coalesce(ServingReviewQueue.review_reason, "")).like("%truncated%"),
         )
         stmt = stmt.where(investigation_filter)
         count_stmt = count_stmt.where(investigation_filter)

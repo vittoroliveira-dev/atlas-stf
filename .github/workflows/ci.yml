@@ -36,6 +36,13 @@ jobs:
       - name: Test (pytest + coverage)
         run: uv run pytest --tb=short -q --cov=src/atlas_stf --cov-report=term-missing --cov-fail-under=83
 
+      - name: Integrity audit (static — PR gate)
+        run: PYTHONPATH=scripts uv run python scripts/audit_integrity.py --quick
+
+      - name: Integrity audit (static — merge gate)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: PYTHONPATH=scripts uv run python scripts/audit_integrity.py --quick
+
   web:
     runs-on: ubuntu-latest
     defaults:

@@ -156,7 +156,7 @@ export function fieldLabel(field: string): string {
     case "stf_case_count": return "Processos no STF";
     case "sanction_source": return "Origem da sancao";
     case "risk_score": return "Indice de relevancia";
-    case "total_donated_brl": return "Total doado";
+    case "total_donated_brl": return "Total doado (global do doador)";
     case "election_years": return "Eleicoes";
     case "parties_donated_to": return "Partidos";
     case "link_degree": return "Grau de vinculo";

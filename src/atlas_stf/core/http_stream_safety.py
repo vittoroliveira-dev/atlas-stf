@@ -25,14 +25,20 @@ def write_limited_stream_to_file(
     """Write a streamed response to disk, refusing payloads above a byte ceiling."""
     total = 0
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with destination.open("wb") as fh:
-        for chunk in response.iter_bytes():
-            if not chunk:
-                continue
-            total += len(chunk)
-            if total > max_download_bytes:
-                raise ValueError(f"download exceeded max bytes ({total} > {max_download_bytes})")
-            fh.write(chunk)
+    part_path = destination.with_suffix(destination.suffix + ".part")
+    try:
+        with part_path.open("wb") as fh:
+            for chunk in response.iter_bytes():
+                if not chunk:
+                    continue
+                total += len(chunk)
+                if total > max_download_bytes:
+                    raise ValueError(f"download exceeded max bytes ({total} > {max_download_bytes})")
+                fh.write(chunk)
+        part_path.replace(destination)
+    except BaseException:
+        part_path.unlink(missing_ok=True)
+        raise
     return total
 
 

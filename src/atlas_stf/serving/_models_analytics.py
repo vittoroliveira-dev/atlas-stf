@@ -247,6 +247,9 @@ class ServingCounselAffinity(Base):
     pair_delta_vs_minister: Mapped[float | None] = mapped_column(Float)
     pair_delta_vs_counsel: Mapped[float | None] = mapped_column(Float)
     red_flag: Mapped[bool] = mapped_column(Boolean, index=True, default=False)
+    institutional: Mapped[bool] = mapped_column(Boolean, default=False)
+    institutional_source: Mapped[str] = mapped_column(String(32), default="private")
+    institutional_confidence: Mapped[str | None] = mapped_column(String(16))
     top_process_classes_json: Mapped[str | None] = mapped_column(Text())
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -262,6 +265,7 @@ class ServingCounselNetworkCluster(Base):
     shared_process_count: Mapped[int] = mapped_column(Integer, default=0)
     minister_names_json: Mapped[str | None] = mapped_column(Text())
     cluster_favorable_rate: Mapped[float | None] = mapped_column(Float)
+    baseline_rate: Mapped[float | None] = mapped_column(Float)
     cluster_case_count: Mapped[int] = mapped_column(Integer, default=0)
     red_flag: Mapped[bool] = mapped_column(Boolean, index=True, default=False)
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

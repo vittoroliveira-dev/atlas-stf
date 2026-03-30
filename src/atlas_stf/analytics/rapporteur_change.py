@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from ..core.identity import stable_id
-from ..core.rules import classify_outcome_raw
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._match_io import read_jsonl
+from ._outcome_helpers import build_process_class_map, compute_favorable_rate
 
 logger = logging.getLogger(__name__)
 
@@ -46,33 +46,8 @@ def _build_process_events(
     return dict(process_events)
 
 
-def _build_process_class_map(process_path: Path) -> dict[str, str]:
-    """Map process_id -> process_class."""
-    result: dict[str, str] = {}
-    for record in read_jsonl(process_path):
-        pid = record.get("process_id")
-        pc = record.get("process_class")
-        if pid and pc:
-            result[str(pid)] = str(pc)
-    return result
-
-
-def _compute_favorable_rate(
-    outcomes: list[str],
-) -> float | None:
-    """Compute favorable rate from decision_progress values."""
-    favorable = 0
-    classifiable = 0
-    for outcome in outcomes:
-        cls = classify_outcome_raw(outcome)
-        if cls == "favorable":
-            favorable += 1
-            classifiable += 1
-        elif cls == "unfavorable":
-            classifiable += 1
-    if classifiable == 0:
-        return None
-    return favorable / classifiable
+RED_FLAG_DELTA_THRESHOLD = 0.15
+MIN_CASES_FOR_RED_FLAG = 3
 
 
 def build_rapporteur_changes(
@@ -89,7 +64,7 @@ def build_rapporteur_changes(
         on_progress(0, 3, "Rapporteur Change: Carregando dados...")
 
     process_events = _build_process_events(decision_event_path)
-    process_classes = _build_process_class_map(process_path)
+    process_classes = build_process_class_map(process_path)
 
     if on_progress:
         on_progress(1, 3, "Rapporteur Change: Detectando mudanças...")
@@ -107,7 +82,7 @@ def build_rapporteur_changes(
                 rapporteur_outcomes[str(rapporteur)].append(str(progress))
 
     rapporteur_baselines: dict[str, float | None] = {
-        rap: _compute_favorable_rate(outcomes) for rap, outcomes in rapporteur_outcomes.items()
+        rap: compute_favorable_rate(outcomes) for rap, outcomes in rapporteur_outcomes.items()
     }
 
     for pid, events in process_events.items():
@@ -129,14 +104,18 @@ def build_rapporteur_changes(
                     if progress and subsequent_event.get("current_rapporteur") == curr_rapporteur:
                         post_change_outcomes.append(str(progress))
 
-                post_change_rate = _compute_favorable_rate(post_change_outcomes)
+                post_change_rate = compute_favorable_rate(post_change_outcomes)
                 new_rapporteur_baseline = rapporteur_baselines.get(str(curr_rapporteur))
 
                 delta_vs_baseline: float | None = None
                 if post_change_rate is not None and new_rapporteur_baseline is not None:
                     delta_vs_baseline = post_change_rate - new_rapporteur_baseline
 
-                red_flag = delta_vs_baseline is not None and delta_vs_baseline > 0.15 and len(post_change_outcomes) >= 2
+                red_flag = (
+                    delta_vs_baseline is not None
+                    and delta_vs_baseline > RED_FLAG_DELTA_THRESHOLD
+                    and len(post_change_outcomes) >= MIN_CASES_FOR_RED_FLAG
+                )
 
                 decision_event_id = str(event.get("decision_event_id") or "")
                 change_id = stable_id(

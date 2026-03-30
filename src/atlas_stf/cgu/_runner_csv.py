@@ -331,7 +331,8 @@ def _download_and_extract_csv(
             csv_infos = [
                 info
                 for info in zf.infolist()
-                if info.filename.endswith(".csv") and is_safe_zip_member(info.filename, output_dir)
+                if info.filename.endswith(".csv")
+                and is_safe_zip_member(info.filename, output_dir, external_attr=info.external_attr)
             ]
             if not csv_infos:
                 logger.warning("No CSV found in %s ZIP", dataset)

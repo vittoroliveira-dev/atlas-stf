@@ -123,20 +123,18 @@ class TestServiceQueries:
         assert result.case_item is None
         assert result.ml_outlier_analysis is None
 
-    def test_get_case_detail_respects_filters(self, session: Session):
-        result = get_case_detail(session, QueryFilters(minister="TESTE", period="2026-01"), "evt_2")
-        assert result.case_item is None
-        assert result.ml_outlier_analysis is None
-        assert result.related_alerts == []
-        assert result.counsels == []
-        assert result.parties == []
+    def test_get_case_detail_always_finds_by_id(self, session: Session):
+        # Case detail is an exact PK lookup — filters do NOT exclude the case.
+        result = get_case_detail(session, QueryFilters(minister="MIN. TESTE", period="2026-01"), "evt_2")
+        assert result.case_item is not None
+        assert result.case_item.decision_event_id == "evt_2"
 
-    def test_get_case_detail_returns_case_when_id_matches_filtered_recorte(self, session: Session):
-        result = get_case_detail(session, QueryFilters(minister="TESTE", period="2026-01"), "evt_1")
+    def test_get_case_detail_returns_case_when_id_matches(self, session: Session):
+        result = get_case_detail(session, QueryFilters(minister="MIN. TESTE", period="2026-01"), "evt_1")
         assert result.case_item is not None
         assert result.case_item.decision_event_id == "evt_1"
         assert result.case_item.process_id == "proc_1"
-        assert result.filters.applied.minister == "TESTE"
+        assert result.filters.applied.minister == "MIN. TESTE"
         assert result.related_alerts[0].alert_id == "alert_1"
         assert result.related_alerts[0].ensemble_score == pytest.approx(0.85)
 
@@ -247,7 +245,7 @@ class TestServiceQueries:
         assert result[0].group_progress_distribution == {}
 
     def test_get_minister_flow_uses_materialized_row(self, session: Session):
-        result = get_minister_flow(session, QueryFilters(minister="TESTE", period="2026-01"))
+        result = get_minister_flow(session, QueryFilters(minister="MIN. TESTE", period="2026-01"))
         assert result.status == "ok"
         assert result.minister_reference == "MIN. TESTE"
         assert result.event_count == 1
@@ -269,15 +267,14 @@ class TestServiceQueries:
         row.daily_counts_json = "{invalid"
         session.commit()
 
-        result = get_minister_flow(session, QueryFilters(minister="TESTE", period="2026-01"))
+        result = get_minister_flow(session, QueryFilters(minister="MIN. TESTE", period="2026-01"))
 
         assert result.thematic_source_distribution == {}
         assert result.thematic_flow_interpretation_reasons == []
         assert result.daily_counts == []
 
-    def test_get_minister_flow_returns_empty_for_ambiguous_match(self, session: Session):
-        result = get_minister_flow(session, QueryFilters(minister="TE", period="2026-01"))
+    def test_get_minister_flow_returns_empty_for_unknown_minister(self, session: Session):
+        result = get_minister_flow(session, QueryFilters(minister="INEXISTENTE", period="2026-01"))
         assert result.status == "empty"
-        assert result.minister_reference is None
         assert result.event_count == 0
         assert result.process_count == 0

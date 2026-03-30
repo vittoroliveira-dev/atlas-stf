@@ -9,8 +9,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .core.io_hash import file_sha256
 from .core.schema_sig import normalize_header_for_signature, normalize_header_value
+from .io_hash import file_sha256
 
 _SAMPLE_ROWS = 10
 _FIRST_1MB = 1_048_576
@@ -179,6 +179,7 @@ def write_manifest(manifest: SourceManifest, output_dir: Path) -> Path:
     """Write manifest as JSON to output_dir, creating the directory if needed."""
     output_dir.mkdir(parents=True, exist_ok=True)
     fname = f"{manifest.source}_{manifest.file_name}_{manifest.year_or_cycle}.manifest.json"
+    fname = Path(fname).name  # strip any directory components from external input
     dest = output_dir / fname
     dest.write_text(json.dumps(asdict(manifest), indent=2, ensure_ascii=False), encoding="utf-8")
     return dest

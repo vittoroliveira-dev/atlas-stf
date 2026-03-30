@@ -52,9 +52,23 @@ class ResolvedFilters:
 
 
 def _normalized_like(column, value: str):
+    """Case-insensitive substring match via ``py_lower`` UDF.
+
+    Normalization policy (centralised here):
+    - **Case-insensitive**: ``py_lower`` uses Python ``str.lower()`` which is
+      Unicode-aware (handles É→é, Ç→ç, etc.).
+    - **NOT accent-insensitive**: ``"LUÍS"`` matches ``"luís"`` but NOT
+      ``"luis"`` (without accent).  Serving data preserves the original
+      accented spelling from court records, and the frontend sends exact
+      values from dropdowns — accent-folding is unnecessary.
+    - **Substring**: wraps the value in ``%…%`` for LIKE matching.
+
+    This function is the **single source of truth** for textual search
+    semantics across all API endpoints.
+    """
     escaped = value.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     lowered = f"%{escaped}%"
-    return func.lower(func.coalesce(column, "")).like(lowered, escape="\\")
+    return func.py_lower(func.coalesce(column, "")).like(lowered, escape="\\")
 
 
 def _apply_case_filters(stmt: Select, filters: QueryFilters) -> Select:

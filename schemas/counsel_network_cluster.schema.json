@@ -24,6 +24,7 @@
     "cluster_favorable_rate": {"type": ["number", "null"]},
     "cluster_case_count": {"type": "integer"},
     "red_flag": {"type": "boolean"},
+    "baseline_rate": {"type": "number"},
     "generated_at": {"type": "string", "format": "date-time"}
   }
 }

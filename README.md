@@ -79,7 +79,7 @@ O repositório combina quatro frentes operacionais:
 | Vínculos com doações eleitorais | 499.6 mil+ |
 | Conexões com sanções públicas | 3.6 mil+ |
 | Registros temporais | 10.9 mil+ |
-| Áreas de consulta no painel | 19 |
+| Áreas de consulta no painel | 21 |
 <!-- END:auto:scale -->
 
 ## Capacidades Atuais
@@ -159,7 +159,7 @@ flowchart LR
 | API | FastAPI + SQLAlchemy 2.x |
 | Serving database | SQLite (48 tabelas) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 + Recharts |
-| Qualidade | pytest (~2764 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
+| Qualidade | pytest (~2804 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
 | Infra | Docker, GitHub Actions, uv |
 <!-- END:auto:stack-table -->
 
@@ -177,13 +177,13 @@ flowchart LR
 
 ```bash
 docker pull ghcr.io/vittoroliveira-dev/atlas-stf:latest
-docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.2
+docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.3
 ```
 
 ### Via wheel (release asset)
 
 ```bash
-pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.1.2-py3-none-any.whl
+pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.1.3-py3-none-any.whl
 ```
 <!-- END:auto:install-version -->
 
@@ -282,7 +282,7 @@ Ou, via `make`:
 
 ```bash
 make serving-build
-make serve-api
+make server-api
 ```
 
 ### 5. Dashboard web
@@ -537,10 +537,10 @@ atlas-stf/
 │   ├── contracts/        # Schema inspection e drift analysis por fonte
 │   └── validation/       # Integridade referencial cross-artefato
 ├── web/                  # Dashboard Next.js 16 + React 19 + TypeScript
-│   ├── src/app/          # 26 páginas (App Router, async Server Components)
+│   ├── src/app/          # 30 páginas (App Router, async Server Components)
 │   ├── src/components/   # 19 componentes
-│   └── src/lib/          # 20 módulos (API client, types, mappers)
-├── tests/                # 208 arquivos, ~2764 testes (mirror da src/)
+│   └── src/lib/          # 21 módulos (API client, types, mappers)
+├── tests/                # 208 arquivos, ~2804 testes (mirror da src/)
 ├── docs/                 # Documentação metodológica (13 documentos)
 ├── governance/           # Regras, decisões, auditoria e risco
 ├── schemas/              # Contratos JSON das entidades
@@ -646,15 +646,15 @@ Os artefatos atualmente presentes descrevem o seguinte snapshot:
 <!-- BEGIN:auto:snapshot -->
 | Artefato | Volume | Data |
 |---|---|---|
-| Grupos comparáveis | 9.916 (2.978 válidos) | 2026-03-28 |
-| Baselines | 2.978 (248.913 eventos) | 2026-03-28 |
-| Alertas | 239.448 (0 atipicidade, 117.607 inconclusivo) | 2026-03-28 |
-| Sanction matches | 3.575 | 2026-03-28 |
-| Donation matches | 499.590 | 2026-03-28 |
-| Counsel affinity | 21.393 pares | 2026-03-28 |
-| Decision velocity | 403.139 (18.751 fura-fila, 20.406 parados) | 2026-03-28 |
-| Rapporteur change | 316 mudanças (83 red flags) | 2026-03-28 |
-| Counsel network clusters | 7.000 clusters (117.495 advogados, 7 red flags) | 2026-03-28 |
+| Grupos comparáveis | 9.916 (2.978 válidos) | 2026-03-30 |
+| Baselines | 2.978 (248.913 eventos) | 2026-03-30 |
+| Alertas | 239.448 (0 atipicidade, 117.607 inconclusivo) | 2026-03-30 |
+| Sanction matches | 3.575 | 2026-03-30 |
+| Donation matches | 499.590 | 2026-03-30 |
+| Counsel affinity | 21.393 pares | 2026-03-30 |
+| Decision velocity | 403.139 (18.751 fura-fila, 20.406 parados) | 2026-03-30 |
+| Rapporteur change | 316 mudanças (83 red flags) | 2026-03-30 |
+| Counsel network clusters | 7.000 clusters (117.495 advogados, 7 red flags) | 2026-03-30 |
 <!-- END:auto:snapshot -->
 
 Esses números descrevem o snapshot derivado atualmente versionado no workspace. Eles não demonstram completude do universo do STF.

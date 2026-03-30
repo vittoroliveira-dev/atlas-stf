@@ -22,7 +22,7 @@ data/analytics/                32 artefatos JSONL + summaries JSON
         ↓  evidence builder
 data/evidence/                 JSON bundles por alerta
         ↓  serving builder
-data/serving/atlas_stf.db      SQLite (48 tabelas, schema v19)
+data/serving/atlas_stf.db      SQLite (48 tabelas, schema v21)
         ↓  FastAPI (uvicorn)
 API                            84 GET + 1 POST endpoints
         ↓  Next.js SSR
@@ -33,9 +33,9 @@ web/                           Dashboard (26 Server Components)
 <!-- counts auto-generated from snapshot -->
 - **Curated:** 12 entidades
 - **Analytics:** 34 builders independentes → JSONL
-- **Serving:** 48 tabelas, schema v19
+- **Serving:** 48 tabelas, schema v21
 - **API:** 84 GET + 1 POST endpoints, 9 route registrars
-- **Frontend:** 26 Server Components
+- **Frontend:** 30 Server Components
 <!-- END:auto:arch-counts -->
 
 ## Módulos do backend (`src/atlas_stf/`)
@@ -95,7 +95,7 @@ Dependências permitidas: `core`, `fetch`, `httpx`, `ingest_manifest`.
 
 | Diretório | Responsabilidade |
 |-----------|-----------------|
-| `app/` | 26 páginas (async Server Components) + 7 subpáginas dinâmicas |
+| `app/` | 30 páginas (async Server Components) + 7 subpáginas dinâmicas |
 | `lib/` | 14 data files (*-data.ts), api-client, types, mappers, filter-context, ui-copy |
 | `components/dashboard/` | Componentes reutilizáveis (AppShell, charts, tables, cards, filters) |
 

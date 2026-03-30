@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 import math
 import random
-import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -675,7 +674,7 @@ def main() -> None:
     sig_sequential = sum(1 for e in enriched if e.sequential_bias_flag)
     sig_deviation = sum(1 for e in enriched if e.deviation_flag)
     sig_ml = sum(1 for e in enriched if e.ml_rarity_score is not None)
-    print(f"\n  Sinais disponíveis:")
+    print("\n  Sinais disponíveis:")
     print(f"    counsel_affinity red_flag: {sig_counsel}")
     print(f"    sanction red_flag:         {sig_sanction}")
     print(f"    donation red_flag:         {sig_donation}")

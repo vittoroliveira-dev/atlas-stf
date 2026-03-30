@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from .models import Base, ServingSchemaMeta
 
-SERVING_SCHEMA_VERSION = 19
+SERVING_SCHEMA_VERSION = 21
 SERVING_SCHEMA_SINGLETON_KEY = "serving"
 logger = logging.getLogger(__name__)
 

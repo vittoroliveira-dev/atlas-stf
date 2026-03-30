@@ -317,7 +317,8 @@ def _extract_csv_from_zip(zip_path: Path) -> bytes | None:
             csv_infos = [
                 info
                 for info in zf.infolist()
-                if _is_rfb_data_member(info.filename) and is_safe_zip_member(info.filename, zip_path.parent)
+                if _is_rfb_data_member(info.filename)
+                and is_safe_zip_member(info.filename, zip_path.parent, external_attr=info.external_attr)
             ]
             if not csv_infos:
                 logger.warning("No CSV found in ZIP")
@@ -392,7 +393,8 @@ def _parse_csv_from_zip_text(
             csv_infos = [
                 info
                 for info in zf.infolist()
-                if _is_rfb_data_member(info.filename) and is_safe_zip_member(info.filename, zip_path.parent)
+                if _is_rfb_data_member(info.filename)
+                and is_safe_zip_member(info.filename, zip_path.parent, external_attr=info.external_attr)
             ]
             if not csv_infos:
                 logger.warning("No CSV found in ZIP")

@@ -9,6 +9,9 @@ export type DonationMatch = {
   donor_cpf_cnpj: string;
   total_donated_brl: number;
   donation_count: number;
+  matched_events_total_brl: number | null;
+  matched_events_count: number | null;
+  donation_scope: "donor_global";
   election_years: number[];
   parties_donated_to: string[];
   candidates_donated_to: string[];

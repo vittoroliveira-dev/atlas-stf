@@ -24,7 +24,6 @@ class TestBuildAssignmentAudit:
                 {
                     "decision_event_id": f"evt_{i}",
                     "process_id": f"proc_{i}",
-                    "process_class": "ADI",
                     "decision_year": 2024,
                     "current_rapporteur": rapporteur,
                     "decision_date": "2024-06-15",
@@ -32,11 +31,14 @@ class TestBuildAssignmentAudit:
             )
 
         evt_path = tmp_path / "decision_event.jsonl"
+        proc_path = tmp_path / "process.jsonl"
         out_dir = tmp_path / "output"
         _write_jsonl(evt_path, events)
+        _write_jsonl(proc_path, [{"process_id": f"proc_{i}", "process_class": "ADI"} for i in range(100)])
 
         result = build_assignment_audit(
             decision_event_path=evt_path,
+            process_path=proc_path,
             output_dir=out_dir,
             min_events=50,
         )
@@ -56,7 +58,6 @@ class TestBuildAssignmentAudit:
                 {
                     "decision_event_id": f"evt_a_{i}",
                     "process_id": f"proc_a_{i}",
-                    "process_class": "RE",
                     "decision_year": 2024,
                     "current_rapporteur": "MIN_A",
                     "decision_date": "2024-06-15",
@@ -67,7 +68,6 @@ class TestBuildAssignmentAudit:
                 {
                     "decision_event_id": f"evt_b_{i}",
                     "process_id": f"proc_b_{i}",
-                    "process_class": "RE",
                     "decision_year": 2024,
                     "current_rapporteur": "MIN_B",
                     "decision_date": "2024-06-15",
@@ -78,19 +78,27 @@ class TestBuildAssignmentAudit:
                 {
                     "decision_event_id": f"evt_c_{i}",
                     "process_id": f"proc_c_{i}",
-                    "process_class": "RE",
                     "decision_year": 2024,
                     "current_rapporteur": "MIN_C",
                     "decision_date": "2024-06-15",
                 }
             )
 
+        all_procs = (
+            [{"process_id": f"proc_a_{i}", "process_class": "RE"} for i in range(80)]
+            + [{"process_id": f"proc_b_{i}", "process_class": "RE"} for i in range(10)]
+            + [{"process_id": f"proc_c_{i}", "process_class": "RE"} for i in range(10)]
+        )
+
         evt_path = tmp_path / "decision_event.jsonl"
+        proc_path = tmp_path / "process.jsonl"
         out_dir = tmp_path / "output"
         _write_jsonl(evt_path, events)
+        _write_jsonl(proc_path, all_procs)
 
         result = build_assignment_audit(
             decision_event_path=evt_path,
+            process_path=proc_path,
             output_dir=out_dir,
             min_events=50,
         )
@@ -105,7 +113,6 @@ class TestBuildAssignmentAudit:
             {
                 "decision_event_id": f"evt_{i}",
                 "process_id": f"proc_{i}",
-                "process_class": "ADI",
                 "decision_year": 2024,
                 "current_rapporteur": f"MIN_{i % 2}",
                 "decision_date": "2024-06-15",
@@ -114,11 +121,14 @@ class TestBuildAssignmentAudit:
         ]
 
         evt_path = tmp_path / "decision_event.jsonl"
+        proc_path = tmp_path / "process.jsonl"
         out_dir = tmp_path / "output"
         _write_jsonl(evt_path, events)
+        _write_jsonl(proc_path, [{"process_id": f"proc_{i}", "process_class": "ADI"} for i in range(10)])
 
         result = build_assignment_audit(
             decision_event_path=evt_path,
+            process_path=proc_path,
             output_dir=out_dir,
             min_events=50,
         )
@@ -131,7 +141,6 @@ class TestBuildAssignmentAudit:
             {
                 "decision_event_id": f"evt_{i}",
                 "process_id": f"proc_{i}",
-                "process_class": "ADI",
                 "decision_year": 2024,
                 "current_rapporteur": f"MIN_{i % 3}",
                 "decision_date": "2024-06-15",
@@ -140,11 +149,14 @@ class TestBuildAssignmentAudit:
         ]
 
         evt_path = tmp_path / "decision_event.jsonl"
+        proc_path = tmp_path / "process.jsonl"
         out_dir = tmp_path / "output"
         _write_jsonl(evt_path, events)
+        _write_jsonl(proc_path, [{"process_id": f"proc_{i}", "process_class": "ADI"} for i in range(60)])
 
         build_assignment_audit(
             decision_event_path=evt_path,
+            process_path=proc_path,
             output_dir=out_dir,
             min_events=50,
         )
@@ -155,7 +167,8 @@ class TestBuildAssignmentAudit:
         assert "total_audits" in summary
         assert "uniform_count" in summary
 
-    def test_falls_back_to_process_jsonl_when_event_lacks_process_class(self, tmp_path: Path):
+    def test_uses_process_jsonl_as_canonical_source(self, tmp_path: Path):
+        """process_class comes exclusively from process.jsonl, not decision_event."""
         events = []
         for i in range(100):
             events.append(

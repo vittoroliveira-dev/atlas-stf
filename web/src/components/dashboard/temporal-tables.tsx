@@ -60,24 +60,24 @@ export function BreakpointTable({ rows }: { rows: TemporalMonthlyItem[] }) {
   if (rows.length === 0) {
     return (
       <p className="text-sm text-slate-500">
-        Nenhuma mudan\u00e7a de padr\u00e3o materializada neste recorte.
+        Nenhuma mudança de padrão materializada neste recorte.
       </p>
     );
   }
   return (
     <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold text-slate-950">
-        Mudan\u00e7as de padr\u00e3o por m\u00eas
+        Mudanças de padrão por mês
       </h2>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
               <th className="px-3 py-2">Ministro</th>
-              <th className="px-3 py-2">M\u00eas</th>
-              <th className="px-3 py-2">Decis\u00f5es</th>
-              <th className="px-3 py-2">Taxa favor\u00e1vel</th>
-              <th className="px-3 py-2">M\u00e9dia m\u00f3vel 6m</th>
+              <th className="px-3 py-2">Mês</th>
+              <th className="px-3 py-2">Decisões</th>
+              <th className="px-3 py-2">Taxa favorável</th>
+              <th className="px-3 py-2">Média móvel 6m</th>
               <th className="px-3 py-2">Score</th>
             </tr>
           </thead>
@@ -171,14 +171,14 @@ export function SeasonalityTable({ rows }: { rows: TemporalSeasonalityItem[] }) 
   if (aggregated.length === 0) {
     return (
       <p className="text-sm text-slate-500">
-        Ainda n\u00e3o h\u00e1 sazonalidade suficiente para leitura.
+        Ainda não há sazonalidade suficiente para leitura.
       </p>
     );
   }
   return (
     <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold text-slate-950">
-        Sazonalidade agregada por m\u00eas
+        Sazonalidade agregada por mês
       </h2>
       <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-6">
         {aggregated.map((row) => (
@@ -193,7 +193,7 @@ export function SeasonalityTable({ rows }: { rows: TemporalSeasonalityItem[] }) 
               {row.decisionCount}
             </p>
             <p className="mt-2 text-sm text-slate-600">
-              Taxa favor\u00e1vel {formatPercent(row.favorableRate)}
+              Taxa favorável {formatPercent(row.favorableRate)}
             </p>
           </article>
         ))}

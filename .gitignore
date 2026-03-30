@@ -82,6 +82,9 @@ plans/
 *~
 .DS_Store
 
+# Amostras de auditoria (regeneráveis via build_golden_sample.py)
+audit/samples/
+
 # Testes e cobertura
 .pytest_cache/
 pytest-of-*/

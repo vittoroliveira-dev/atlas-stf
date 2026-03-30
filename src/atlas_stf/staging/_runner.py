@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..core.io_hash import file_sha256
+from ..io_hash import file_sha256
 from ._assuntos import fix_assuntos, normalize_multi_value
 from ._audit import AuditRecord, logger, setup_logging, write_audit
 from ._cleaners import clean_x000d, normalize_residual_nulls, standardize_column_names, strip_whitespace

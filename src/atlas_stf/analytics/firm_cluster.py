@@ -23,6 +23,8 @@ SUMMARY_SCHEMA_PATH = Path("schemas/firm_cluster_summary.schema.json")
 
 # Minimum shared parties to form a cluster
 MIN_SHARED_PARTIES = 2
+# Skip parties with too many firms to avoid O(N^2) explosion
+MAX_FIRMS_PER_PARTY = 50
 
 
 def _union_find_root(parent: dict[str, str], node: str) -> str:
@@ -164,12 +166,19 @@ def build_firm_cluster(
 
     # For each pair of firms sharing a party, count shared parties
     firm_pair_shared: dict[tuple[str, str], int] = defaultdict(int)
+    skipped_parties = 0
     for pid, fids in party_firms.items():
+        if len(fids) > MAX_FIRMS_PER_PARTY:
+            skipped_parties += 1
+            continue
         fid_list = sorted(fids)
         for i in range(len(fid_list)):
             for j in range(i + 1, len(fid_list)):
                 pair = (fid_list[i], fid_list[j])
                 firm_pair_shared[pair] += 1
+
+    if skipped_parties:
+        logger.info("Skipped %d parties exceeding MAX_FIRMS_PER_PARTY=%d", skipped_parties, MAX_FIRMS_PER_PARTY)
 
     # Merge pairs meeting threshold
     for (fid_a, fid_b), shared_count in firm_pair_shared.items():
@@ -228,6 +237,7 @@ def build_firm_cluster(
         "total_firms_in_clusters": sum(r["cluster_size"] for r in records),
         "total_firms_analyzed": len(all_firm_ids),
         "max_cluster_size": max((r["cluster_size"] for r in records), default=0),
+        "skipped_parties_over_cap": skipped_parties,
         "generated_at": timestamp,
     }
     validate_records([summary], SUMMARY_SCHEMA_PATH)

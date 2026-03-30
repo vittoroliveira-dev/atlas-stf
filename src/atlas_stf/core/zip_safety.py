@@ -9,12 +9,21 @@ from pathlib import Path
 MAX_ZIP_UNCOMPRESSED_BYTES = 128 * 1024 * 1024
 
 
-def is_safe_zip_member(filename: str, output_dir: Path) -> bool:
+def is_safe_zip_member(
+    filename: str,
+    output_dir: Path,
+    *,
+    external_attr: int = 0,
+) -> bool:
     """Return True if extracting *filename* stays within *output_dir*.
 
-    Guards against path-traversal attacks (``../``, absolute paths, and
-    paths that resolve outside the target directory after normalisation).
+    Guards against path-traversal attacks (``../``, absolute paths,
+    paths that resolve outside the target directory after normalisation)
+    and Unix symlinks embedded in the ZIP.
     """
+    # Reject Unix symlinks (mode 0o120000 in upper 16 bits)
+    if (external_attr >> 16) & 0o170000 == 0o120000:
+        return False
     base = output_dir.resolve()
     target = (output_dir / filename).resolve()
     return target == base or target.is_relative_to(base)

@@ -24,6 +24,7 @@ DEFAULT_DECISION_EVENT_PATH = Path("data/curated/decision_event.jsonl")
 DEFAULT_OUTPUT_PATH = Path("data/analytics/outlier_alert.jsonl")
 DEFAULT_SUMMARY_PATH = Path("data/analytics/outlier_alert_summary.json")
 DEFAULT_COMPOUND_RISK_PATH = Path("data/analytics/compound_risk.jsonl")
+DEFAULT_PROCESS_PATH = Path("data/curated/process.jsonl")
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,7 @@ def build_alerts(
     output_path: Path = DEFAULT_OUTPUT_PATH,
     summary_path: Path = DEFAULT_SUMMARY_PATH,
     compound_risk_path: Path = DEFAULT_COMPOUND_RISK_PATH,
+    process_path: Path = DEFAULT_PROCESS_PATH,
     *,
     on_progress: Callable[[int, int, str], None] | None = None,
 ) -> tuple[Path, Path]:
@@ -79,6 +81,22 @@ def build_alerts(
     baselines = {row["comparison_group_id"]: row for row in _read_jsonl(baseline_path)}
     events = {row["decision_event_id"]: row for row in _read_jsonl(decision_event_path)}
     links = _read_jsonl(link_path)
+
+    # Enrich events with process_class from canonical source (process.jsonl)
+    # decision_event.jsonl does NOT contain process_class — without this,
+    # procedural suppressions and odds_ratio components are disabled.
+    if process_path.exists():
+        pc_map: dict[str, str] = {}
+        for row in _read_jsonl(process_path):
+            pid = row.get("process_id")
+            pc = row.get("process_class")
+            if pid and pc:
+                pc_map[str(pid)] = str(pc)
+        for event in events.values():
+            if not event.get("process_class"):
+                pid = event.get("process_id")
+                if pid and pid in pc_map:
+                    event["process_class"] = pc_map[pid]
 
     # Build process risk index from compound_risk (auto-detect)
     process_risk: dict[str, dict[str, Any]] = {}

@@ -239,10 +239,12 @@ class TestServingSmoke:
         assert load_representation_edges(tmp_path) == []
         assert load_representation_events(tmp_path) == []
 
-    def test_schema_version_is_14(self) -> None:
+    def test_schema_version_is_current(self) -> None:
         from atlas_stf.serving._builder_schema import SERVING_SCHEMA_VERSION
 
-        assert SERVING_SCHEMA_VERSION == 19
+        # Smoke test: schema version must be at least 21 (v1.1.3 baseline).
+        # This prevents accidental rollback, not forward increments.
+        assert SERVING_SCHEMA_VERSION >= 21
 
     def test_schema_upgrade_drops_and_recreates(self, tmp_path: Path) -> None:
         """P4/P5: incompatible schema must be rebuilt, not crash."""

@@ -177,11 +177,16 @@ export default async function RedeAdvogadosPage({
 
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Taxa favoravel</p>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Taxa favorável</p>
                       <p className="mt-1 text-sm text-slate-900">
                         {c.cluster_favorable_rate != null
                           ? `${(c.cluster_favorable_rate * 100).toFixed(1)}%`
                           : "---"}
+                        {c.baseline_rate != null && (
+                          <span className="ml-1 text-xs text-slate-400">
+                            (base: {(c.baseline_rate * 100).toFixed(1)}%)
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div>

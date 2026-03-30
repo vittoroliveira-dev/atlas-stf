@@ -1,0 +1,160 @@
+{
+  "version": "2.0",
+  "defaults": {
+    "severity_default": "critical",
+    "stale_data_policy_default": "block",
+    "ui_requirement_default": "required",
+    "requires_real_data_proof_default": false
+  },
+  "concepts": {
+    "process_class": {
+      "description": "Classe processual (ADI, RE, ADPF, etc.)",
+      "canonical_source": "process.jsonl",
+      "canonical_field": "process_class",
+      "prohibited_sources": [
+        {
+          "file": "decision_event.jsonl",
+          "reason": "process_class is sparse/absent in decision events (0% coverage in real data)"
+        }
+      ],
+      "canonical_helpers": ["build_process_class_map", "build_baseline_rates", "build_baseline_rates_stratified"],
+      "prohibited_patterns": [
+        {
+          "pattern": "event\\.get\\(\"process_class\"\\)",
+          "context": "analytics builders",
+          "reason": "decision_event does not reliably contain process_class",
+          "exceptions": [
+            {"file": "score.py", "reason": "receives enriched events from build_alerts, not raw decision_events"},
+            {"file": "build_groups.py", "reason": "uses process.jsonl with infer fallback for group key derivation"},
+            {"file": "build_alerts.py", "context_pattern": "if not event\\.get\\(\"process_class\"\\)", "reason": "enrichment guard: checks absence before filling from process.jsonl"}
+          ]
+        }
+      ],
+      "severity": "critical",
+      "max_fallback_pct": 5.0,
+      "requires_real_data_proof": true,
+      "stale_data_policy": "block"
+    },
+    "baseline_rate": {
+      "description": "Taxa favorável por classe processual (baseline canônico)",
+      "canonical_source": "build_baseline_rates (from _outcome_helpers.py)",
+      "propagation_chain": [
+        {"layer": "analytics", "file": "analytics/counsel_network.py", "field": "baseline_rate"},
+        {"layer": "schema", "file": "schemas/counsel_network_cluster.schema.json", "field": "baseline_rate"},
+        {"layer": "serving", "file": "serving/_models_analytics.py", "field": "baseline_rate"},
+        {"layer": "loader", "file": "serving/_builder_loaders_analytics_risk.py", "field": "baseline_rate"},
+        {"layer": "api_schema", "file": "api/_schemas_velocity.py", "field": "baseline_rate"},
+        {"layer": "api_service", "file": "api/_counsel_network.py", "field": "baseline_rate"},
+        {"layer": "frontend_type", "file": "web/src/lib/counsel-network-data.ts", "field": "baseline_rate"},
+        {"layer": "frontend_render", "file": "web/src/app/rede-advogados/page.tsx", "field": "baseline_rate"}
+      ],
+      "severity": "critical",
+      "max_fallback_pct": 10.0,
+      "requires_real_data_proof": true,
+      "stale_data_policy": "block"
+    },
+    "red_flag": {
+      "description": "Sinalização de anomalia estatística",
+      "canonical_helpers": ["classify_outcome_raw", "compute_favorable_rate", "lookup_baseline_rate"],
+      "consistency_rules": [
+        {
+          "name": "threshold_constant",
+          "pattern": "RED_FLAG_DELTA_THRESHOLD",
+          "required_in": ["counsel_network.py", "rapporteur_change.py", "sanction_match.py", "donation_match.py", "corporate_network.py"]
+        },
+        {
+          "name": "min_cases_constant",
+          "pattern": "MIN_CASES_FOR_RED_FLAG|MIN_CLUSTER_CASES_FOR_FLAG",
+          "min_value": 3
+        }
+      ],
+      "severity": "high",
+      "requires_real_data_proof": false,
+      "stale_data_policy": "warn"
+    },
+    "skipped_parties_over_cap": {
+      "description": "Contagem de partes ignoradas por cap defensivo",
+      "propagation_chain": [
+        {"layer": "analytics", "file": "analytics/firm_cluster.py", "field": "skipped_parties_over_cap"},
+        {"layer": "schema", "file": "schemas/firm_cluster_summary.schema.json", "field": "skipped_parties_over_cap"}
+      ],
+      "severity": "medium",
+      "requires_real_data_proof": false,
+      "stale_data_policy": "warn"
+    }
+  },
+  "canonical_helpers": {
+    "compute_favorable_rate": {
+      "module": "analytics._outcome_helpers",
+      "prohibited_reimplementations": [
+        {
+          "pattern": "favorable.*classifiable.*classify_outcome_raw",
+          "description": "Local reimplementation of compute_favorable_rate",
+          "exceptions": ["baseline.py", "_compute_cluster_favorable_rate"]
+        }
+      ]
+    },
+    "build_process_class_map": {
+      "module": "analytics._outcome_helpers",
+      "prohibited_reimplementations": [
+        {
+          "pattern": "process_class.*process.jsonl",
+          "description": "Local reimplementation of build_process_class_map",
+          "exceptions": ["firm_cluster.py", "rapporteur_profile.py"]
+        }
+      ]
+    }
+  },
+  "frontend_coverage": {
+    "groups": {
+      "graph": {
+        "required_coverage": true,
+        "endpoints": [
+          {"path": "/graph/search", "method": "GET", "fetcher": "fetchGraphSearch", "page": "/investigacao", "ui_requirement": "required"},
+          {"path": "/graph/nodes/{node_id}", "method": "GET", "fetcher": "fetchGraphNode", "page": "/investigacao/[entityId]", "ui_requirement": "indirect_ok", "reason": "consumed via fetchInvestigationDetail which returns node data"},
+          {"path": "/graph/scores", "method": "GET", "fetcher": "fetchGraphScores", "page": "/investigacao/scores", "ui_requirement": "required"},
+          {"path": "/graph/metrics", "method": "GET", "fetcher": "fetchGraphMetrics", "page": "/investigacao", "ui_requirement": "required"},
+          {"path": "/graph/neighbors/{node_id}", "method": "GET", "fetcher": "fetchGraphNeighbors", "page": null, "ui_requirement": "fetcher_only_ok", "reason": "detail-level data available on demand, not a standalone page"},
+          {"path": "/graph/edges/{edge_id}", "method": "GET", "fetcher": null, "ui_requirement": "indirect_ok", "reason": "edge data available via investigation detail response"},
+          {"path": "/graph/paths", "method": "GET", "fetcher": null, "ui_requirement": "not_required", "reason": "Future feature — path exploration between entities"},
+          {"path": "/graph/explain/{entity_id}", "method": "GET", "fetcher": null, "ui_requirement": "indirect_ok", "reason": "same data available via investigation entity endpoint"}
+        ]
+      },
+      "investigation": {
+        "required_coverage": true,
+        "endpoints": [
+          {"path": "/investigations/top", "method": "GET", "fetcher": "fetchTopInvestigations", "page": "/investigacao", "ui_requirement": "required"},
+          {"path": "/investigations/entity/{entity_id}", "method": "GET", "fetcher": "fetchInvestigationDetail", "page": "/investigacao/[entityId]", "ui_requirement": "required"}
+        ]
+      },
+      "review": {
+        "required_coverage": true,
+        "endpoints": [
+          {"path": "/review/queue", "method": "GET", "fetcher": "fetchReviewQueue", "page": "/revisao", "ui_requirement": "required"},
+          {"path": "/review/queue/{item_id}", "method": "GET", "fetcher": "fetchReviewItem", "ui_requirement": "fetcher_only_ok", "reason": "item detail available inline in queue page, no dedicated page needed"},
+          {"path": "/review/decision", "method": "POST", "ui_requirement": "not_required", "reason": "Operational/CLI — requires authentication, not a frontend consultation endpoint"}
+        ]
+      }
+    }
+  },
+  "fallback_thresholds": {
+    "process_class_missing": {
+      "description": "Registros sem process_class resolvido",
+      "max_pct": 1.0,
+      "requires_real_data_proof": true,
+      "stale_data_policy": "block"
+    },
+    "baseline_rate_fallback": {
+      "description": "Clusters usando DEFAULT_BASELINE_RATE em vez de taxa canônica",
+      "max_pct": 10.0,
+      "requires_real_data_proof": true,
+      "stale_data_policy": "block"
+    },
+    "alert_without_process_class": {
+      "description": "Alertas gerados sem process_class enriquecido",
+      "max_pct": 1.0,
+      "requires_real_data_proof": false,
+      "stale_data_policy": "warn"
+    }
+  }
+}

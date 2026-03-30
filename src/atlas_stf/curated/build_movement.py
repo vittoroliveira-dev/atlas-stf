@@ -33,6 +33,8 @@ def _build_movement_from_andamento(
     entry: dict[str, Any],
     rapporteur: str | None,
     timestamp: str,
+    *,
+    seq: int = 0,
 ) -> dict[str, Any]:
     description = entry.get("description") or ""
     date = entry.get("date")
@@ -42,7 +44,7 @@ def _build_movement_from_andamento(
     has_match = category != "outros"
 
     return {
-        "movement_id": stable_id("mov_", f"{process_number}:{date}:{description}:{detail or ''}"),
+        "movement_id": stable_id("mov_", f"{process_number}:{date}:{description}:{detail or ''}:{seq}"),
         "process_id": process_id,
         "source_system": "stf_portal",
         "tpu_code": None,
@@ -64,6 +66,8 @@ def _build_movement_from_deslocamento(
     entry: dict[str, Any],
     rapporteur: str | None,
     timestamp: str,
+    *,
+    seq: int = 0,
 ) -> dict[str, Any]:
     origin = entry.get("origin") or ""
     destination = entry.get("destination") or ""
@@ -80,7 +84,7 @@ def _build_movement_from_deslocamento(
     has_match = True  # deslocamentos always have a category
 
     return {
-        "movement_id": stable_id("mov_", f"{process_number}:{date}:{description}:"),
+        "movement_id": stable_id("mov_", f"{process_number}:{date}:{description}::{seq}"),
         "process_id": process_id,
         "source_system": "stf_portal",
         "tpu_code": None,
@@ -122,7 +126,7 @@ def build_movement_records(
         informacoes = doc.get("informacoes") or {}
         rapporteur = informacoes.get("relator_atual")
 
-        for entry in doc.get("andamentos", []):
+        for seq, entry in enumerate(doc.get("andamentos", [])):
             records.append(
                 _build_movement_from_andamento(
                     process_number,
@@ -130,10 +134,11 @@ def build_movement_records(
                     entry,
                     rapporteur,
                     timestamp,
+                    seq=seq,
                 )
             )
 
-        for entry in doc.get("deslocamentos", []):
+        for seq, entry in enumerate(doc.get("deslocamentos", [])):
             records.append(
                 _build_movement_from_deslocamento(
                     process_number,
@@ -141,6 +146,7 @@ def build_movement_records(
                     entry,
                     rapporteur,
                     timestamp,
+                    seq=seq,
                 )
             )
 

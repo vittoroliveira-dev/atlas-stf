@@ -27,7 +27,7 @@
        transparencia-fetch \
        stf-portal stf-portal-fetch oab-validate deoab deoab-fetch oab-sp oab-sp-fetch oab-sp-lookup \
        external-fetch fetch-all external-matches external-data \
-       serving-build pipeline serve-api web-dev web-build web-typecheck \
+       serving-build pipeline server-api web-dev web-build web-typecheck \
        docker-build docker-up \
        status runs tail-run explain-run resume resume-last
 
@@ -80,6 +80,18 @@ deadcode: ## Detecta codigo morto (vulture)
 	uv run vulture src/ --min-confidence 80
 
 check: lint typecheck deadcode ## Lint + typecheck + deadcode
+
+audit-integrity: ## Auditoria de integridade (fontes canônicas + propagação + fallback + frontend)
+	cd $(CURDIR) && uv run python scripts/audit_integrity.py
+
+audit-integrity-quick: ## Auditoria rápida (sem dados reais)
+	cd $(CURDIR) && uv run python scripts/audit_integrity.py --quick
+
+audit-pipeline: ## Auditoria de contratos do pipeline (artefatos reais)
+	cd $(CURDIR) && PYTHONPATH=scripts uv run python scripts/audit_pipeline_contracts.py
+
+audit-runtime: ## Auditoria com execução real de builders em amostra
+	cd $(CURDIR) && PYTHONPATH=scripts uv run python scripts/audit_integrity.py --runtime
 
 # ===========================
 # Testes (paralelos via pytest-xdist -n 4)
@@ -488,12 +500,12 @@ pipeline-contained: _check-env _ensure-no-heavy-fetch ## Pipeline com contencao 
 	$(MAKE) evidence serving-build
 
 pipeline: scrape staging curate analytics external-data evidence serving-build ## Pipeline completo (scrape -> serving)
-	@echo "Pipeline completo. Rode 'make serve-api' e 'make web-dev' para subir."
+	@echo "Pipeline completo. Rode 'make server-api' e 'make web-dev' para subir."
 
 # ===========================
 # Servidores
 # ===========================
-serve-api: ## Inicia servidor API (FastAPI + Uvicorn)
+server-api: ## Inicia servidor API (FastAPI + Uvicorn)
 	ATLAS_STF_DATABASE_URL="$(ATLAS_STF_DB_URL)" $(CLI) api serve --host 127.0.0.1 --port 8000
 
 web-dev: ## Inicia dev server frontend

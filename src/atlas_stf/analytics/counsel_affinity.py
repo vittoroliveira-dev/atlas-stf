@@ -34,6 +34,93 @@ RED_FLAG_DELTA_THRESHOLD = 0.15
 # excessive false-positive red flags.
 MIN_CASES_FOR_RED_FLAG = 5
 
+# ---------------------------------------------------------------------------
+# Institutional counsel classification
+# ---------------------------------------------------------------------------
+# Primary source: representation_edge.jsonl role_type = "public_attorney",
+# bridged to counsel entities via lawyer_entity name matching.
+#
+# Fallback: name-prefix heuristic for counsel that don't appear in the
+# representation data.  Explicitly marked as low-confidence.
+# ---------------------------------------------------------------------------
+
+_INSTITUTIONAL_PREFIXES = (
+    "PROCURADOR-GERAL",
+    "PROCURADOR GERAL",
+    "PROCURADORIA",
+    "ADVOGADO-GERAL",
+    "ADVOGADO GERAL",
+    "ADVOCACIA-GERAL",
+    "ADVOCACIA GERAL",
+    "DEFENSOR PUBLICO",
+    "DEFENSOR-GERAL",
+    "DEFENSORIA",
+    "MINISTERIO PUBLICO",
+)
+
+
+def build_structural_institutional_set(
+    representation_edge_path: Path,
+    lawyer_entity_path: Path,
+) -> set[str]:
+    """Build a set of normalized names classified as public_attorney.
+
+    Uses the ``role_type`` field from ``representation_edge.jsonl`` (parsed
+    from court record labels, e.g. "PROC.") and bridges to counsel names via
+    ``lawyer_entity.jsonl``.  This is a data-driven classification, not a
+    name-prefix heuristic.
+    """
+    public_attorney_ids: set[str] = set()
+    if representation_edge_path.exists():
+        for rec in read_jsonl(representation_edge_path):
+            if rec.get("role_type") == "public_attorney":
+                eid = rec.get("representative_entity_id", "")
+                if eid:
+                    public_attorney_ids.add(eid)
+
+    public_attorney_names: set[str] = set()
+    if lawyer_entity_path.exists() and public_attorney_ids:
+        for rec in read_jsonl(lawyer_entity_path):
+            lid = rec.get("lawyer_id", "")
+            if lid in public_attorney_ids:
+                name = rec.get("lawyer_name_normalized", "")
+                if name:
+                    public_attorney_names.add(name.upper())
+
+    return public_attorney_names
+
+
+def classify_institutional(
+    name: str,
+    structural_set: set[str],
+) -> tuple[bool, str]:
+    """Classify whether a counsel is an institutional (mandatory) representative.
+
+    Returns ``(is_institutional, source)`` where source is one of:
+    - ``"structural"`` — classified via representation_edge role_type
+    - ``"fallback:name_prefix"`` — classified via name prefix heuristic
+    - ``"private"`` — not institutional
+    """
+    upper = name.upper()
+    if upper in structural_set:
+        return True, "structural"
+    if any(upper.startswith(prefix) for prefix in _INSTITUTIONAL_PREFIXES):
+        return True, "fallback:name_prefix"
+    return False, "private"
+
+
+def is_institutional_counsel(name: str, structural_set: set[str] | None = None) -> bool:
+    """Return True if the counsel is an institutional representative.
+
+    When ``structural_set`` is provided, uses structural classification first.
+    Falls back to name-prefix heuristic.
+    """
+    if structural_set is not None:
+        result, _ = classify_institutional(name, structural_set)
+        return result
+    upper = name.upper()
+    return any(upper.startswith(prefix) for prefix in _INSTITUTIONAL_PREFIXES)
+
 
 def _build_rapporteur_map(decision_event_path: Path) -> dict[str, str]:
     """Map process_id -> rapporteur from the latest dated event."""
@@ -146,6 +233,8 @@ def build_counsel_affinity(
     process_path: Path = Path("data/curated/process.jsonl"),
     counsel_path: Path = Path("data/curated/counsel.jsonl"),
     process_counsel_link_path: Path = Path("data/curated/process_counsel_link.jsonl"),
+    representation_edge_path: Path = Path("data/curated/representation_edge.jsonl"),
+    lawyer_entity_path: Path = Path("data/curated/lawyer_entity.jsonl"),
     output_dir: Path = Path("data/analytics"),
     on_progress: Callable[[int, int, str], None] | None = None,
 ) -> Path:
@@ -169,6 +258,13 @@ def build_counsel_affinity(
     counsel_process_map = _build_counsel_process_map(process_counsel_link_path)
     process_outcomes = _build_process_outcomes_map(decision_event_path)
     process_class_map = build_process_class_map(process_path)
+    structural_institutional = build_structural_institutional_set(
+        representation_edge_path, lawyer_entity_path,
+    )
+    logger.info(
+        "Institutional classification: %d structural names, prefix fallback active",
+        len(structural_institutional),
+    )
     minister_baseline_cache: dict[tuple[str, frozenset[str]], float | None] = {}
     tracker.complete_phase()
 
@@ -246,11 +342,19 @@ def build_counsel_affinity(
             delta_vs_minister if delta_vs_minister is not None else -1.0,
             delta_vs_counsel if delta_vs_counsel is not None else -1.0,
         )
-        red_flag = max_delta > RED_FLAG_DELTA_THRESHOLD and len(shared_pids) >= MIN_CASES_FOR_RED_FLAG
+        counsel_name = counsel_id_to_name.get(counsel_id, "")
+        institutional, institutional_source = classify_institutional(
+            counsel_name, structural_institutional,
+        )
+        red_flag = (
+            max_delta > RED_FLAG_DELTA_THRESHOLD
+            and len(shared_pids) >= MIN_CASES_FOR_RED_FLAG
+            and not institutional
+        )
 
         # Substantive red flag
         red_flag_substantive: bool | None = None
-        if pair_rate_substantive is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG:
+        if pair_rate_substantive is not None and n_substantive >= MIN_CASES_FOR_RED_FLAG and not institutional:
             sub_delta_minister = (pair_rate_substantive - minister_baseline) if minister_baseline is not None else -1.0
             sub_delta_counsel = (pair_rate_substantive - counsel_baseline) if counsel_baseline is not None else -1.0
             max_sub_delta = max(sub_delta_minister, sub_delta_counsel)
@@ -279,6 +383,13 @@ def build_counsel_affinity(
                 "pair_delta_vs_counsel": delta_vs_counsel,
                 "red_flag": red_flag,
                 "red_flag_substantive": red_flag_substantive,
+                "institutional": institutional,
+                "institutional_source": institutional_source,
+                "institutional_confidence": (
+                    "high" if institutional_source == "structural"
+                    else "low" if institutional_source == "fallback:name_prefix"
+                    else None
+                ),
                 "top_process_classes": top_classes,
                 "generated_at": now_iso,
             }
@@ -294,11 +405,38 @@ def build_counsel_affinity(
         for a in affinities:
             fh.write(json.dumps(a, ensure_ascii=False) + "\n")
 
+    # Institutional classification metrics
+    inst_sources = Counter(a["institutional_source"] for a in affinities)
+    total_institutional = sum(1 for a in affinities if a["institutional"])
+    structural_count = inst_sources.get("structural", 0)
+    fallback_count = inst_sources.get("fallback:name_prefix", 0)
+    structural_pct = (structural_count / total_institutional * 100) if total_institutional else 100.0
+    fallback_pct = (fallback_count / total_institutional * 100) if total_institutional else 0.0
+
+    FALLBACK_WARN_THRESHOLD = 20.0
+    if fallback_pct > FALLBACK_WARN_THRESHOLD:
+        logger.warning(
+            "Institutional classification: %.1f%% using prefix fallback (%d/%d) — "
+            "exceeds %.0f%% threshold. Consider enriching representation_edge coverage.",
+            fallback_pct,
+            fallback_count,
+            total_institutional,
+            FALLBACK_WARN_THRESHOLD,
+        )
+
     # Write summary
     summary = {
         "total_pairs_analyzed": len(affinities),
         "red_flag_count": sum(1 for a in affinities if a["red_flag"]),
         "ministers_with_red_flags": len({a["rapporteur"] for a in affinities if a["red_flag"]}),
+        "institutional_classification": {
+            "total_institutional": total_institutional,
+            "structural": structural_count,
+            "fallback_prefix": fallback_count,
+            "private": inst_sources.get("private", 0),
+            "structural_coverage_pct": round(structural_pct, 1),
+            "fallback_pct": round(fallback_pct, 1),
+        },
         "generated_at": now_iso,
     }
     validate_records([summary], SUMMARY_SCHEMA_PATH)
@@ -306,9 +444,12 @@ def build_counsel_affinity(
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
     logger.info(
-        "Built counsel affinity: %d pairs (%d red flags)",
+        "Built counsel affinity: %d pairs (%d red flags, %d institutional [%d structural, %d prefix fallback])",
         len(affinities),
         summary["red_flag_count"],
+        total_institutional,
+        structural_count,
+        fallback_count,
     )
     tracker.complete_phase()
     return output_path

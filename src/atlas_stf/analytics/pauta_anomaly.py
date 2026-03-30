@@ -16,6 +16,7 @@ from ..core.stats import z_score
 from ..schema_validate import validate_records
 from ._atomic_io import AtomicJsonlWriter
 from ._match_io import read_jsonl
+from ._temporal_utils import parse_date
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +28,7 @@ Z_SCORE_THRESHOLD = 2.0
 REJUDGE_WINDOW_DAYS = 90
 
 
-def _parse_date(date_str: str | None) -> datetime | None:
-    if not date_str or not isinstance(date_str, str):
-        return None
-    try:
-        return datetime.strptime(date_str[:10], "%Y-%m-%d")
-    except ValueError, IndexError:
-        return None
+_parse_date = parse_date
 
 
 def _compute_std(values: list[float]) -> float:

@@ -18,6 +18,7 @@ from ..core.parsers import (
     as_optional_str,
     first_non_null,
     infer_process_number,
+    normalize_subjects,
     split_subjects,
 )
 from ..schema_validate import validate_records
@@ -120,7 +121,7 @@ def _merge_process(record: dict[str, Any], row: dict[str, Any], filename: str, r
     if record["subjects_raw"] is None and as_optional_str(subjects_value) is not None:
         subjects = split_subjects(subjects_value)
         record["subjects_raw"] = subjects
-        record["subjects_normalized"] = subjects
+        record["subjects_normalized"] = normalize_subjects(subjects)
 
 
 def _enrich_with_jurisprudencia(

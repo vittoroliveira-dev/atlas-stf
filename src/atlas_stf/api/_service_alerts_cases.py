@@ -146,12 +146,11 @@ def get_cases(session: Session, raw_filters: QueryFilters, page: int, page_size:
 def get_case_detail(session: Session, raw_filters: QueryFilters, decision_event_id: str) -> CaseDetailResponse:
     resolved = resolve_filters(session, raw_filters)
     flow = _materialized_minister_flow(session, resolved.filters)
-    # Contract: case detail is scoped to the active filter recorte, not absolute by ID.
+    # Contract: case detail by decision_event_id is an exact lookup — the case
+    # is identified uniquely by its PK, independent of the active period/minister
+    # filter.  Filters are used only for the surrounding context (flow, options).
     case = session.scalar(
-        _apply_case_filters(
-            select(ServingCase).where(ServingCase.decision_event_id == decision_event_id),
-            resolved.filters,
-        )
+        select(ServingCase).where(ServingCase.decision_event_id == decision_event_id)
     )
     if case is None:
         return CaseDetailResponse(
@@ -252,14 +251,14 @@ def get_case_ml_outlier(
     raw_filters: QueryFilters,
     decision_event_id: str,
 ) -> MlOutlierScoreResponse | None:
-    resolved = resolve_filters(session, raw_filters)
-    case_in_scope = session.scalar(
-        _apply_case_filters(
-            select(ServingCase.decision_event_id).where(ServingCase.decision_event_id == decision_event_id),
-            resolved.filters,
+    # Contract: ml-outlier is identified by decision_event_id (PK) — context
+    # filters must not exclude the case itself.
+    case_exists = session.scalar(
+        select(ServingCase.decision_event_id).where(
+            ServingCase.decision_event_id == decision_event_id
         )
     )
-    if case_in_scope is None:
+    if case_exists is None:
         return None
 
     ml_outlier = session.scalar(

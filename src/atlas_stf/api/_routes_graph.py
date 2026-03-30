@@ -7,7 +7,6 @@ workflow where human reviewers confirm or reject flagged items.
 
 from __future__ import annotations
 
-import logging
 import os
 import secrets
 from typing import Annotated
@@ -39,8 +38,11 @@ TopLimit = Annotated[int, Query(ge=1, le=500)]
 _REVIEW_API_KEY_HEADER = APIKeyHeader(name="X-Review-API-Key", auto_error=False)
 
 
+_REVIEW_AUTH_DEV_BYPASS = "__dev__"
+
+
 def _get_review_api_key() -> str:
-    """Read the review API key from environment. Empty string disables auth."""
+    """Read the review API key from environment. Empty string = not configured."""
     return os.getenv("ATLAS_STF_REVIEW_API_KEY", "")
 
 
@@ -49,16 +51,21 @@ async def _require_review_auth(
 ) -> None:
     """Dependency that enforces API key auth on write endpoints.
 
-    When ``ATLAS_STF_REVIEW_API_KEY`` is not set or empty, auth is disabled
-    (development/testing mode).  In production, set the env var to a
-    random secret and pass it via ``X-Review-API-Key`` header.
+    Fail-closed by default: when ``ATLAS_STF_REVIEW_API_KEY`` is not set,
+    returns 503 (review endpoint unavailable).
+
+    Set to ``__dev__`` to explicitly opt in to unauthenticated access
+    during development/testing.  In production, set to a random secret
+    and pass it via ``X-Review-API-Key`` header.
     """
     expected = _get_review_api_key()
     if not expected:
-        logging.getLogger("atlas_stf.api").debug(
-            "ATLAS_STF_REVIEW_API_KEY not set — review auth disabled (dev mode)"
+        raise HTTPException(
+            status_code=503,
+            detail="review_endpoint_unavailable_no_api_key_configured",
         )
-        return  # auth disabled — no key configured
+    if expected == _REVIEW_AUTH_DEV_BYPASS:
+        return  # explicit dev/test bypass
     if not api_key or not secrets.compare_digest(api_key, expected):
         raise HTTPException(status_code=401, detail="invalid_or_missing_review_api_key")
 

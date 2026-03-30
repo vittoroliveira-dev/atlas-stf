@@ -12,7 +12,7 @@ from threading import Lock
 
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from starlette.responses import JSONResponse
 
@@ -137,6 +137,11 @@ def create_app(*, database_url: str | None = None) -> FastAPI:
     if resolved_database_url.startswith("sqlite"):
         engine_kwargs["connect_args"] = {"check_same_thread": False}
     engine = create_engine(resolved_database_url, **engine_kwargs)
+
+    @event.listens_for(engine, "connect")
+    def _register_py_lower(dbapi_conn, _connection_record):
+        dbapi_conn.create_function("py_lower", 1, lambda v: v.lower() if isinstance(v, str) else v)
+
     factory = sessionmaker(engine)
 
     app = FastAPI(title="Atlas STF API", version="1.0.0", lifespan=_lifespan)
@@ -263,5 +268,15 @@ def create_app(*, database_url: str | None = None) -> FastAPI:
     register_representation_routes(app, factory, build_filters, get_base_filters)
     register_agenda_routes(app, factory, build_filters, get_base_filters)
     register_graph_routes(app, factory, build_filters, get_base_filters)
+
+    review_key = os.getenv("ATLAS_STF_REVIEW_API_KEY", "")
+    if not review_key:
+        logger.warning(
+            "ATLAS_STF_REVIEW_API_KEY not set — POST /review/decision will return 503"
+        )
+    elif review_key == "__dev__":
+        logger.warning(
+            "ATLAS_STF_REVIEW_API_KEY=__dev__ — POST /review/decision open without authentication (dev mode)"
+        )
 
     return app

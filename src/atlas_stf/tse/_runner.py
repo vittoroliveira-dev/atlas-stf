@@ -172,7 +172,7 @@ def _extract_zip(zip_path: Path, extract_dir: Path) -> Path | None:
         with zipfile.ZipFile(zip_path) as zf:
             safe_members: list[zipfile.ZipInfo] = []
             for info in zf.infolist():
-                if not is_safe_zip_member(info.filename, extract_dir):
+                if not is_safe_zip_member(info.filename, extract_dir, external_attr=info.external_attr):
                     logger.warning("Skipping unsafe ZIP member: %s", info.filename)
                     continue
                 safe_members.append(info)
