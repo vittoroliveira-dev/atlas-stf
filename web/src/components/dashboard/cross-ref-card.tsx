@@ -74,7 +74,7 @@ export function DeltaIndicator({
     tone = "border-slate-200 bg-slate-50 text-slate-600";
   }
 
-  const ariaLabel = `Diferenca da media: ${text}`;
+  const ariaLabel = `Diferença da média: ${text}`;
 
   if (compact) {
     return (
@@ -159,9 +159,9 @@ export function RedFlagPill({ show }: { show: boolean }) {
   return (
     <span
       className="inline-flex rounded-full border border-red-300 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700"
-      aria-label="Ponto critico: resultado fora do padrao esperado"
+      aria-label="Ponto crítico: resultado fora do padrão esperado"
     >
-      Ponto critico
+      Ponto crítico
     </span>
   );
 }

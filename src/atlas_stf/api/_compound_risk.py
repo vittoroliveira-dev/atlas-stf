@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..serving.models import ServingCompoundRisk
 from ._filters import _normalized_like
+from ._json_helpers import parse_json_list
 from .schemas import (
     CompoundRiskCompanyItem,
     CompoundRiskHeatmapCell,
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def _parse_company_items(raw: str | None) -> list[CompoundRiskCompanyItem]:
     items: list[CompoundRiskCompanyItem] = []
-    for company in _parse_json_list(raw):
+    for company in parse_json_list(raw):
         if not isinstance(company, dict):
             continue
         try:
@@ -35,15 +36,6 @@ def _parse_company_items(raw: str | None) -> list[CompoundRiskCompanyItem]:
         except ValidationError:
             logger.debug("Skipping invalid company item: %s", company)
     return items
-
-
-def _parse_json_list(raw: str | None) -> list[Any]:
-    if not raw:
-        return []
-    try:
-        return json.loads(raw)
-    except TypeError, json.JSONDecodeError:
-        return []
 
 
 def _parse_signal_details(raw: str | None) -> dict[str, dict[str, Any]] | None:
@@ -64,31 +56,31 @@ def _row_to_item(row: ServingCompoundRisk) -> CompoundRiskItem:
         entity_id=row.entity_id,
         entity_name=row.entity_name,
         signal_count=row.signal_count,
-        signals=[str(value) for value in _parse_json_list(row.signals_json)],
+        signals=[str(value) for value in parse_json_list(row.signals_json)],
         red_flag=row.red_flag,
         shared_process_count=row.shared_process_count,
-        shared_process_ids=[str(value) for value in _parse_json_list(row.shared_process_ids_json)],
+        shared_process_ids=[str(value) for value in parse_json_list(row.shared_process_ids_json)],
         alert_count=row.alert_count,
-        alert_ids=[str(value) for value in _parse_json_list(row.alert_ids_json)],
+        alert_ids=[str(value) for value in parse_json_list(row.alert_ids_json)],
         max_alert_score=row.max_alert_score,
         max_rate_delta=row.max_rate_delta,
         sanction_match_count=row.sanction_match_count,
-        sanction_sources=[str(value) for value in _parse_json_list(row.sanction_sources_json)],
+        sanction_sources=[str(value) for value in parse_json_list(row.sanction_sources_json)],
         donation_match_count=row.donation_match_count,
         donation_total_brl=row.donation_total_brl,
         corporate_conflict_count=row.corporate_conflict_count,
-        corporate_conflict_ids=[str(value) for value in _parse_json_list(row.corporate_conflict_ids_json)],
+        corporate_conflict_ids=[str(value) for value in parse_json_list(row.corporate_conflict_ids_json)],
         corporate_companies=_parse_company_items(row.corporate_companies_json),
         affinity_count=row.affinity_count,
-        affinity_ids=[str(value) for value in _parse_json_list(row.affinity_ids_json)],
-        top_process_classes=[str(value) for value in _parse_json_list(row.top_process_classes_json)],
-        supporting_party_ids=[str(value) for value in _parse_json_list(row.supporting_party_ids_json)],
-        supporting_party_names=[str(value) for value in _parse_json_list(row.supporting_party_names_json)],
+        affinity_ids=[str(value) for value in parse_json_list(row.affinity_ids_json)],
+        top_process_classes=[str(value) for value in parse_json_list(row.top_process_classes_json)],
+        supporting_party_ids=[str(value) for value in parse_json_list(row.supporting_party_ids_json)],
+        supporting_party_names=[str(value) for value in parse_json_list(row.supporting_party_names_json)],
         signal_details=_parse_signal_details(row.signal_details_json),
         earliest_year=row.earliest_year,
         latest_year=row.latest_year,
         sanction_corporate_link_count=row.sanction_corporate_link_count,
-        sanction_corporate_link_ids=[str(v) for v in _parse_json_list(row.sanction_corporate_link_ids_json)],
+        sanction_corporate_link_ids=[str(v) for v in parse_json_list(row.sanction_corporate_link_ids_json)],
         sanction_corporate_min_degree=row.sanction_corporate_min_degree,
         adjusted_rate_delta=row.adjusted_rate_delta,
         has_law_firm_group=row.has_law_firm_group,

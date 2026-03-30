@@ -36,37 +36,37 @@ export default async function RedistribuicaoPage({
   return (
     <AppShell
       currentPath="/redistribuicao"
-      eyebrow="Atlas STF · mudanca de relatoria"
-      title="Redistribuicao de processos"
-      description="Processos que mudaram de relator durante a tramitacao."
+      eyebrow="Atlas STF · mudança de relatoria"
+      title="Redistribuição de processos"
+      description="Processos que mudaram de relator durante a tramitação."
       guidance={{
         title: "Como interpretar esta tela",
         summary:
-          "Detecta mudancas de relator entre decisoes consecutivas do mesmo processo e analisa o resultado pos-redistribuicao.",
+          "Detecta mudanças de relator entre decisões consecutivas do mesmo processo e analisa o resultado pós-redistribuição.",
         bullets: [
-          "Ponto critico: taxa favoravel pos-redistribuicao > 15pp acima do baseline do novo relator, com pelo menos 2 decisoes.",
-          "Delta vs. baseline compara a taxa favoravel pos-mudanca com a taxa geral do novo relator.",
-          "Redistribuicao ocorre por varias razoes legitimas: aposentadoria, impedimento, redistribuicao por sorteio.",
-          "O fato de haver mudanca e resultado favoravel nao implica irregularidade.",
+          "Ponto crítico: taxa favorável pós-redistribuição > 15pp acima do baseline do novo relator, com pelo menos 2 decisões.",
+          "Delta vs. baseline compara a taxa favorável pós-mudança com a taxa geral do novo relator.",
+          "Redistribuição ocorre por várias razões legítimas: aposentadoria, impedimento, redistribuição por sorteio.",
+          "O fato de haver mudança e resultado favorável não implica irregularidade.",
         ],
       }}
     >
       {/* KPI cards */}
       <section className="grid gap-4 md:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Mudancas detectadas</p>
+          <p className="text-sm text-slate-500">Mudanças detectadas</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.total}</p>
         </div>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
-          <p className="text-sm text-red-600">Pontos criticos</p>
+          <p className="text-sm text-red-600">Pontos críticos</p>
           <p className="mt-1 text-3xl font-semibold text-red-700">{redFlags.total}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Na pagina</p>
+          <p className="text-sm text-slate-500">Na página</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.items.length}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Pagina</p>
+          <p className="text-sm text-slate-500">Página</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">
             {data.page}/{Math.max(1, Math.ceil(data.total / data.pageSize))}
           </p>
@@ -93,7 +93,7 @@ export default async function RedistribuicaoPage({
               : "border-slate-200 text-slate-600 hover:border-slate-400"
           }`}
         >
-          Apenas pontos criticos
+          Apenas pontos críticos
         </Link>
       </section>
 
@@ -103,7 +103,7 @@ export default async function RedistribuicaoPage({
         page={data.page}
         pageSize={data.pageSize}
         total={data.total}
-        orderingLabel="mudancas de relatoria"
+        orderingLabel="mudanças de relatoria"
         pageSizeOptions={[8, 16, 24]}
       />
 
@@ -141,12 +141,12 @@ export default async function RedistribuicaoPage({
                 <div className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Data da mudanca</p>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Data da mudança</p>
                       <p className="mt-1 text-sm text-slate-900">{c.change_date ?? "---"}</p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Decisoes pos-mudanca
+                        Decisões pós-mudança
                       </p>
                       <p className="mt-1 text-sm text-slate-900">{c.post_change_decision_count}</p>
                     </div>
@@ -158,12 +158,12 @@ export default async function RedistribuicaoPage({
                   {(c.post_change_favorable_rate != null || c.new_rapporteur_baseline_rate != null) && (
                     <div>
                       <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Taxa favoravel pos-mudanca vs. baseline do novo relator
+                        Taxa favorável pós-mudança vs. baseline do novo relator
                       </p>
                       <RateComparisonBar
                         rate={c.post_change_favorable_rate}
                         baseline={c.new_rapporteur_baseline_rate}
-                        rateLabel="Pos-mudanca"
+                        rateLabel="Pós-mudança"
                         baselineLabel="Baseline relator"
                       />
                     </div>

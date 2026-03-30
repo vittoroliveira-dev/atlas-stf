@@ -159,7 +159,7 @@ flowchart LR
 | API | FastAPI + SQLAlchemy 2.x |
 | Serving database | SQLite (48 tabelas) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 + Recharts |
-| Qualidade | pytest (~2804 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
+| Qualidade | pytest (~2822 testes, 83% cobertura), ruff, pyright, ESLint 10, vulture |
 | Infra | Docker, GitHub Actions, uv |
 <!-- END:auto:stack-table -->
 
@@ -177,13 +177,13 @@ flowchart LR
 
 ```bash
 docker pull ghcr.io/vittoroliveira-dev/atlas-stf:latest
-docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.3
+docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.4
 ```
 
 ### Via wheel (release asset)
 
 ```bash
-pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.1.3-py3-none-any.whl
+pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.1.4-py3-none-any.whl
 ```
 <!-- END:auto:install-version -->
 
@@ -540,7 +540,7 @@ atlas-stf/
 │   ├── src/app/          # 30 páginas (App Router, async Server Components)
 │   ├── src/components/   # 19 componentes
 │   └── src/lib/          # 21 módulos (API client, types, mappers)
-├── tests/                # 208 arquivos, ~2804 testes (mirror da src/)
+├── tests/                # 208 arquivos, ~2822 testes (mirror da src/)
 ├── docs/                 # Documentação metodológica (13 documentos)
 ├── governance/           # Regras, decisões, auditoria e risco
 ├── schemas/              # Contratos JSON das entidades
@@ -648,7 +648,7 @@ Os artefatos atualmente presentes descrevem o seguinte snapshot:
 |---|---|---|
 | Grupos comparáveis | 9.916 (2.978 válidos) | 2026-03-30 |
 | Baselines | 2.978 (248.913 eventos) | 2026-03-30 |
-| Alertas | 239.448 (0 atipicidade, 117.607 inconclusivo) | 2026-03-30 |
+| Alertas | 239.448 (121.841 atipicidade, 117.607 inconclusivo) | 2026-03-30 |
 | Sanction matches | 3.575 | 2026-03-30 |
 | Donation matches | 499.590 | 2026-03-30 |
 | Counsel affinity | 21.393 pares | 2026-03-30 |

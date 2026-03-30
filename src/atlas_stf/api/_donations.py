@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
 from typing import Literal, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..serving.models import ServingCounselDonationProfile, ServingDonationEvent, ServingDonationMatch
+from ._json_helpers import parse_json_list
 from .schemas import (
     CounselDonationProfileItem,
     DonationEventItem,
@@ -17,15 +17,6 @@ from .schemas import (
     PaginatedDonationEventsResponse,
     PaginatedDonationsResponse,
 )
-
-
-def _parse_json_list(raw: str | None) -> list:
-    if not raw:
-        return []
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError, TypeError:
-        return []
 
 
 def _compute_match_subtotals(
@@ -65,10 +56,10 @@ def _row_to_match_item(
         donation_count=row.donation_count,
         matched_events_total_brl=subtotals[row.match_id][0] if subtotals and row.match_id in subtotals else None,
         matched_events_count=subtotals[row.match_id][1] if subtotals and row.match_id in subtotals else None,
-        election_years=_parse_json_list(row.election_years_json),
-        parties_donated_to=_parse_json_list(row.parties_donated_to_json),
-        candidates_donated_to=_parse_json_list(row.candidates_donated_to_json),
-        positions_donated_to=_parse_json_list(row.positions_donated_to_json),
+        election_years=parse_json_list(row.election_years_json),
+        parties_donated_to=parse_json_list(row.parties_donated_to_json),
+        candidates_donated_to=parse_json_list(row.candidates_donated_to_json),
+        positions_donated_to=parse_json_list(row.positions_donated_to_json),
         stf_case_count=row.stf_case_count,
         favorable_rate=row.favorable_rate,
         favorable_rate_substantive=row.favorable_rate_substantive,
@@ -98,7 +89,7 @@ def _row_to_match_item(
         donor_group_has_counsel_partner=row.donor_group_has_counsel_partner,
         min_link_degree_to_minister=row.min_link_degree_to_minister,
         corporate_link_red_flag=row.corporate_link_red_flag,
-        resource_types_observed=_parse_json_list(row.resource_types_observed_json),
+        resource_types_observed=parse_json_list(row.resource_types_observed_json),
         first_donation_date=row.first_donation_date,
         last_donation_date=row.last_donation_date,
         active_election_year_count=row.active_election_year_count,

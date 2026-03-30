@@ -16,11 +16,11 @@ function entityTypeLabel(entityType: "party" | "counsel") {
 function signalLabel(signal: string) {
   switch (signal) {
     case "sanction":
-      return "Sancao";
+      return "Sanção";
     case "donation":
-      return "Doacao";
+      return "Doação";
     case "corporate":
-      return "Vinculo";
+      return "Vínculo";
     case "affinity":
       return "Afinidade";
     case "alert":
@@ -69,13 +69,13 @@ function formatCurrency(value: number | null) {
 function signalSummary(item: CompoundRiskItem) {
   const segments: string[] = [];
   if (item.sanction_match_count > 0) {
-    segments.push(`${item.sanction_match_count} sancao(oes)`);
+    segments.push(`${item.sanction_match_count} sanção(ões)`);
   }
   if (item.donation_match_count > 0) {
-    segments.push(`${item.donation_match_count} doacao(oes)`);
+    segments.push(`${item.donation_match_count} doação(ões)`);
   }
   if (item.corporate_conflict_count > 0) {
-    segments.push(`${item.corporate_conflict_count} vinculo(s)`);
+    segments.push(`${item.corporate_conflict_count} vínculo(s)`);
   }
   if (item.affinity_count > 0) {
     segments.push(`${item.affinity_count} afinidade(s)`);
@@ -145,7 +145,7 @@ export function CompoundRiskRanking({
                       {item.red_flag ? (
                         <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">
                           <Flame className="h-3.5 w-3.5" />
-                          Ponto critico composto
+                          Ponto crítico composto
                         </span>
                       ) : null}
                     </div>
@@ -197,7 +197,7 @@ export function CompoundRiskRanking({
                     </p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-sm text-slate-500">Doacoes somadas</p>
+                    <p className="text-sm text-slate-500" title="Soma dos totais globais dos doadores vinculados — não representa subtotal contextual">Doações (global dos doadores)</p>
                     <p className="mt-2 text-2xl font-semibold text-slate-950">
                       {formatCurrency(item.donation_total_brl)}
                     </p>

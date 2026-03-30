@@ -427,3 +427,19 @@ class TestDonationsEndpoints:
         assert item["top_state_share"] is None
         assert item["donation_year_span"] is None
         assert item["recent_donation_flag"] is False
+
+    # ── donation_scope semantic contract ──
+
+    def test_donation_payload_includes_scope_field(self, client: TestClient) -> None:
+        """donation_scope must be present in payload to mark total_donated_brl as global."""
+        resp = client.get("/donations", params={"page": 1, "page_size": 10})
+        item = resp.json()["items"][0]
+        assert "donation_scope" in item
+        assert item["donation_scope"] == "donor_global"
+
+    def test_donation_payload_includes_matched_subtotals(self, client: TestClient) -> None:
+        """matched_events_total_brl and matched_events_count must be present."""
+        resp = client.get("/donations", params={"page": 1, "page_size": 10})
+        item = resp.json()["items"][0]
+        assert "matched_events_total_brl" in item
+        assert "matched_events_count" in item

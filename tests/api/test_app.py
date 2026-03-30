@@ -42,7 +42,9 @@ async def test_openapi_metadata_exposes_consistent_api_version(serving_db: str):
     assert response.status_code == 200
     payload = response.json()
     assert payload["info"]["title"] == "Atlas STF API"
-    assert payload["info"]["version"] == "1.0.0"
+    from importlib.metadata import version as pkg_version
+
+    assert payload["info"]["version"] == pkg_version("atlas-stf")
 
 
 @pytest.mark.anyio

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from typing import Any, cast
+from typing import cast
 
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session
@@ -18,6 +17,7 @@ from atlas_stf.serving._models_graph import (
 )
 
 from ._filters import _normalized_like
+from ._json_helpers import parse_json_dict_or_none, parse_json_list
 from ._schemas_graph import (
     BuildMetricsResponse,
     EvidenceBundleItem,
@@ -31,31 +31,6 @@ from ._schemas_graph import (
     PaginatedPathsResponse,
     PaginatedScoresResponse,
 )
-
-# ---------------------------------------------------------------------------
-# JSON deserialization helpers
-# ---------------------------------------------------------------------------
-
-
-def _safe_json_loads(raw: str | None) -> Any:
-    """Parse a JSON string, returning None on failure or None input."""
-    if raw is None:
-        return None
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError, TypeError:
-        return None
-
-
-def _safe_json_list(raw: str | None) -> list:
-    result = _safe_json_loads(raw)
-    return result if isinstance(result, list) else []
-
-
-def _safe_json_dict(raw: str | None) -> dict | None:
-    result = _safe_json_loads(raw)
-    return result if isinstance(result, dict) else None
-
 
 # ---------------------------------------------------------------------------
 # ORM -> Pydantic converters
@@ -88,7 +63,7 @@ def _edge_to_item(row: ServingGraphEdge) -> GraphEdgeItem:
         traversal_policy=row.traversal_policy,
         truncated_flag=row.truncated_flag,
         weight=row.weight,
-        explanation=_safe_json_dict(row.explanation_json),
+        explanation=parse_json_dict_or_none(row.explanation_json),
     )
 
 
@@ -109,7 +84,7 @@ def _score_to_item(row: ServingGraphScore) -> GraphScoreItem:
         raw_score=row.raw_score,
         calibrated_score=row.calibrated_score,
         operational_priority=row.operational_priority,
-        explanation=_safe_json_dict(row.explanation_json),
+        explanation=parse_json_dict_or_none(row.explanation_json),
     )
 
 
@@ -125,7 +100,7 @@ def _path_to_item(row: ServingGraphPathCandidate) -> GraphPathItem:
         traversal_mode=row.traversal_mode,
         has_truncated_edge=row.has_truncated_edge,
         has_fuzzy_edge=row.has_fuzzy_edge,
-        edges=_safe_json_list(row.path_edges_json),
+        edges=parse_json_list(row.path_edges_json),
     )
 
 
@@ -135,9 +110,9 @@ def _bundle_to_item(row: ServingEvidenceBundle) -> EvidenceBundleItem:
         entity_id=row.entity_id,
         bundle_type=row.bundle_type,
         signal_count=row.signal_count,
-        signal_types=_safe_json_list(row.signal_types_json),
+        signal_types=parse_json_list(row.signal_types_json),
         summary_text=row.summary_text,
-        evidence=_safe_json_list(row.evidence_json),
+        evidence=parse_json_list(row.evidence_json),
     )
 
 

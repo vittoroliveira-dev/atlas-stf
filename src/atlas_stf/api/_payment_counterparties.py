@@ -2,35 +2,17 @@
 
 from __future__ import annotations
 
-import json
-from typing import Any, cast
+from typing import cast
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..serving.models import ServingPaymentCounterparty
+from ._json_helpers import parse_json_dict_or_none, parse_json_list
 from .schemas import (
     PaginatedPaymentCounterpartiesResponse,
     PaymentCounterpartyItem,
 )
-
-
-def _parse_json_list(raw: str | None) -> list:
-    if not raw:
-        return []
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError, TypeError:
-        return []
-
-
-def _parse_json_dict(raw: str | None) -> dict[str, Any] | None:
-    if not raw:
-        return None
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError, TypeError:
-        return None
 
 
 def _row_to_item(row: ServingPaymentCounterparty) -> PaymentCounterpartyItem:
@@ -44,14 +26,14 @@ def _row_to_item(row: ServingPaymentCounterparty) -> PaymentCounterpartyItem:
         counterparty_document_type=row.counterparty_document_type,
         total_received_brl=row.total_received_brl,
         payment_count=row.payment_count,
-        election_years=_parse_json_list(row.election_years_json),
-        payer_parties=_parse_json_list(row.payer_parties_json),
+        election_years=parse_json_list(row.election_years_json),
+        payer_parties=parse_json_list(row.payer_parties_json),
         payer_actor_type=row.payer_actor_type,
         first_payment_date=row.first_payment_date,
         last_payment_date=row.last_payment_date,
-        states=_parse_json_list(row.states_json),
-        cnae_codes=_parse_json_list(row.cnae_codes_json),
-        provenance=_parse_json_dict(row.provenance_json),
+        states=parse_json_list(row.states_json),
+        cnae_codes=parse_json_list(row.cnae_codes_json),
+        provenance=parse_json_dict_or_none(row.provenance_json),
     )
 
 

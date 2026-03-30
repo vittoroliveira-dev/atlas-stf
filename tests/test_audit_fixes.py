@@ -505,3 +505,137 @@ class TestFingerprintIncludesSize:
         a.write_bytes(content)
         b.write_bytes(content + b"extra")
         assert _file_fingerprint(a) != _file_fingerprint(b)
+
+
+# ---------------------------------------------------------------------------
+# Metrics snapshot — alerts_atypical key mismatch regression
+# ---------------------------------------------------------------------------
+
+
+class TestExtractAlertCounts:
+    """Regression: extract_alert_counts must read atypical from
+    alert_type_counts, not from status_counts.
+
+    This tests the real function in atlas_stf.analytics._match_io, which
+    is the canonical implementation used by metrics_snapshot.py.
+    """
+
+    def test_extracts_atypical_from_alert_type_counts(self) -> None:
+        from atlas_stf.analytics._match_io import extract_alert_counts
+
+        summary = {
+            "alert_count": 100,
+            "alert_type_counts": {"atipicidade": 60, "inconclusivo": 40},
+            "status_counts": {"novo": 60, "inconclusivo": 40},
+        }
+        result = extract_alert_counts(summary)
+
+        assert result["atypical"] == 60
+        assert result["inconclusive"] == 40
+        assert result["total"] == 100
+
+    def test_returns_zero_when_summary_empty(self) -> None:
+        from atlas_stf.analytics._match_io import extract_alert_counts
+
+        result = extract_alert_counts({})
+
+        assert result["atypical"] == 0
+        assert result["inconclusive"] == 0
+        assert result["total"] == 0
+
+    def test_wrong_key_would_produce_zero(self) -> None:
+        """Prove that status_counts.atipicidade is always 0 — the old bug."""
+        from atlas_stf.analytics._match_io import extract_alert_counts
+
+        summary = {
+            "alert_count": 100,
+            "alert_type_counts": {"atipicidade": 60, "inconclusivo": 40},
+            "status_counts": {"novo": 60, "inconclusivo": 40},
+        }
+        # The buggy path was: status_counts.get("atipicidade", 0) → always 0
+        buggy_value = summary["status_counts"].get("atipicidade", 0)
+        correct_value = extract_alert_counts(summary)["atypical"]
+
+        assert buggy_value == 0, "status_counts must NOT contain atipicidade"
+        assert correct_value == 60, "extract_alert_counts must return 60"
+
+    def test_read_summary_from_file(self, tmp_path: Path) -> None:
+        import json
+
+        from atlas_stf.analytics._match_io import extract_alert_counts, read_summary
+
+        summary = {
+            "alert_count": 239448,
+            "alert_type_counts": {"atipicidade": 121841, "inconclusivo": 117607},
+            "status_counts": {"novo": 121841, "inconclusivo": 117607},
+        }
+        path = tmp_path / "outlier_alert_summary.json"
+        path.write_text(json.dumps(summary), encoding="utf-8")
+
+        loaded = read_summary(path)
+        result = extract_alert_counts(loaded)
+
+        assert result["atypical"] == 121841
+        assert result["inconclusive"] == 117607
+        assert result["atypical"] + result["inconclusive"] == result["total"]
+
+
+# ---------------------------------------------------------------------------
+# JSON helpers — consolidation regression
+# ---------------------------------------------------------------------------
+
+
+class TestJsonHelpers:
+    """Regression: _parse_json_list/dict consolidated into _json_helpers.py."""
+
+    def test_parse_json_list_valid(self) -> None:
+        from atlas_stf.api._json_helpers import parse_json_list
+
+        assert parse_json_list('[1, 2, 3]') == [1, 2, 3]
+
+    def test_parse_json_list_none(self) -> None:
+        from atlas_stf.api._json_helpers import parse_json_list
+
+        assert parse_json_list(None) == []
+
+    def test_parse_json_list_empty(self) -> None:
+        from atlas_stf.api._json_helpers import parse_json_list
+
+        assert parse_json_list("") == []
+
+    def test_parse_json_list_invalid(self) -> None:
+        from atlas_stf.api._json_helpers import parse_json_list
+
+        assert parse_json_list("{not a list}") == []
+
+    def test_parse_json_list_dict_returns_empty(self) -> None:
+        from atlas_stf.api._json_helpers import parse_json_list
+
+        assert parse_json_list('{"key": "value"}') == []
+
+    def test_parse_json_dict_valid(self) -> None:
+        from atlas_stf.api._json_helpers import parse_json_dict
+
+        assert parse_json_dict('{"a": 1}') == {"a": 1}
+
+    def test_parse_json_dict_none(self) -> None:
+        from atlas_stf.api._json_helpers import parse_json_dict
+
+        assert parse_json_dict(None) == {}
+
+    def test_parse_json_dict_invalid(self) -> None:
+        from atlas_stf.api._json_helpers import parse_json_dict
+
+        assert parse_json_dict("[not a dict]") == {}
+
+    def test_parse_json_dict_or_none_valid(self) -> None:
+        from atlas_stf.api._json_helpers import parse_json_dict_or_none
+
+        assert parse_json_dict_or_none('{"a": 1}') == {"a": 1}
+
+    def test_parse_json_dict_or_none_returns_none(self) -> None:
+        from atlas_stf.api._json_helpers import parse_json_dict_or_none
+
+        assert parse_json_dict_or_none(None) is None
+        assert parse_json_dict_or_none("") is None
+        assert parse_json_dict_or_none("[1,2]") is None

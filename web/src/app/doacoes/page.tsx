@@ -20,8 +20,8 @@ function matchConfidenceLabel(confidence: string | null, score: number | null): 
     case "deterministic": return "CPF/CNPJ exato";
     case "exact_name": return "Nome exato";
     case "fuzzy": return score != null ? `Match fuzzy (${score.toFixed(2)})` : "Match fuzzy";
-    case "nominal_review_needed": return "Revisao manual necessaria";
-    default: return "Confianca nao determinada";
+    case "nominal_review_needed": return "Revisão manual necessária";
+    default: return "Confiança não determinada";
   }
 }
 
@@ -64,17 +64,17 @@ export default async function DoacoesPage({
     <AppShell
       currentPath="/doacoes"
       eyebrow="Atlas STF · doadores de campanha"
-      title="Doacoes eleitorais"
-      description="Doadores de campanha que tambem litigam no STF."
+      title="Doações eleitorais"
+      description="Doadores de campanha que também litigam no STF."
       guidance={{
         title: "Como interpretar esta tela",
         summary:
           "Mostra partes e advogados que constam como doadores de campanha no TSE e que litigam no STF.",
         bullets: [
-          "Ponto critico indica taxa de exito significativamente acima da media para a classe processual.",
-          "O matching e feito por nome normalizado entre doador TSE e entidade processual STF.",
-          "Doacoes de PJ foram proibidas a partir de 2015 -- dados anteriores podem incluir empresas.",
-          "A secao de advogados identifica profissionais que constam como doadores e atuam no STF.",
+          "Ponto crítico indica taxa de êxito significativamente acima da média para a classe processual.",
+          "O matching é feito por nome normalizado entre doador TSE e entidade processual STF.",
+          "Doações de PJ foram proibidas a partir de 2015 -- dados anteriores podem incluir empresas.",
+          "A seção de advogados identifica profissionais que constam como doadores e atuam no STF.",
         ],
       }}
     >
@@ -89,11 +89,11 @@ export default async function DoacoesPage({
           <p className="mt-1 text-3xl font-semibold text-slate-900">{counselData.total}</p>
         </div>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
-          <p className="text-sm text-red-600">Pontos criticos (partes)</p>
+          <p className="text-sm text-red-600">Pontos críticos (partes)</p>
           <p className="mt-1 text-3xl font-semibold text-red-700">{redFlags.totalPartyFlags}</p>
         </div>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
-          <p className="text-sm text-red-600">Pontos criticos (advogados)</p>
+          <p className="text-sm text-red-600">Pontos críticos (advogados)</p>
           <p className="mt-1 text-3xl font-semibold text-red-700">{redFlags.totalCounselFlags}</p>
         </div>
       </section>
@@ -118,7 +118,7 @@ export default async function DoacoesPage({
               : "border-slate-200 text-slate-600 hover:border-slate-400"
           }`}
         >
-          Apenas pontos criticos
+          Apenas pontos críticos
         </Link>
       </section>
 
@@ -132,7 +132,7 @@ export default async function DoacoesPage({
           page={partyData.page}
           pageSize={partyData.pageSize}
           total={partyData.total}
-          orderingLabel="cruzamentos de doacoes (partes)"
+          orderingLabel="cruzamentos de doações (partes)"
           pageSizeOptions={[8, 16, 24]}
         />
 
@@ -175,8 +175,8 @@ export default async function DoacoesPage({
                     <RateComparisonBar
                       rate={d.favorable_rate}
                       baseline={d.baseline_favorable_rate}
-                      rateLabel="Taxa favoravel"
-                      baselineLabel="media"
+                      rateLabel="Taxa favorável"
+                      baselineLabel="média"
                     />
                     <dl className="grid gap-2 text-sm sm:grid-cols-2">
                       <div>
@@ -189,7 +189,7 @@ export default async function DoacoesPage({
                       </div>
                     </dl>
                     <div>
-                      <p className="text-sm text-slate-500">Eleicoes</p>
+                      <p className="text-sm text-slate-500">Eleições</p>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {d.election_years.length > 0 ? d.election_years.map((y) => (
                           <span key={y} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-700">
@@ -226,7 +226,7 @@ export default async function DoacoesPage({
           page={counselData.page}
           pageSize={counselData.pageSize}
           total={counselData.total}
-          orderingLabel="cruzamentos de doacoes (advogados)"
+          orderingLabel="cruzamentos de doações (advogados)"
           pageParam="counsel_page"
           pageSizeParam="counsel_page_size"
           pageSizeOptions={[8, 16, 24]}
@@ -270,8 +270,8 @@ export default async function DoacoesPage({
                     <RateComparisonBar
                       rate={d.favorable_rate}
                       baseline={d.baseline_favorable_rate}
-                      rateLabel="Taxa favoravel"
-                      baselineLabel="media"
+                      rateLabel="Taxa favorável"
+                      baselineLabel="média"
                     />
                     <dl className="grid gap-2 text-sm sm:grid-cols-2">
                       <div>
@@ -284,7 +284,7 @@ export default async function DoacoesPage({
                       </div>
                     </dl>
                     <div>
-                      <p className="text-sm text-slate-500">Eleicoes</p>
+                      <p className="text-sm text-slate-500">Eleições</p>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {d.election_years.length > 0 ? d.election_years.map((y) => (
                           <span key={y} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-700">

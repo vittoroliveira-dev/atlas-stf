@@ -257,3 +257,22 @@ class TestCompoundRiskEndpoints:
         top_cell = next(cell for cell in data["cells"] if cell["pair_id"] == "cr-party")
         assert top_cell["signal_count"] == 4
         assert top_cell["signals"] == ["alert", "corporate", "donation", "sanction"]
+
+    # ── donation_total_scope semantic contract ──
+
+    def test_compound_risk_payload_includes_donation_scope(self, client: TestClient) -> None:
+        """donation_total_scope must arrive in the API response payload."""
+        response = client.get("/compound-risk", params={"page": 1, "page_size": 10})
+        assert response.status_code == 200
+        item = response.json()["items"][0]
+        assert "donation_total_scope" in item
+        assert item["donation_total_scope"] == "donor_global_sum"
+
+    def test_compound_risk_donation_total_is_global_not_subtotal(self, client: TestClient) -> None:
+        """donation_total_brl is labeled as global; confirm scope field documents this."""
+        response = client.get("/compound-risk", params={"page": 1, "page_size": 10})
+        item = response.json()["items"][0]
+        assert item["donation_total_brl"] == 100000.0
+        assert item["donation_total_scope"] == "donor_global_sum", (
+            "donation_total_brl is a sum of donor globals — scope must be explicit"
+        )

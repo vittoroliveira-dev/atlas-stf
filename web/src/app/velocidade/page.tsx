@@ -44,25 +44,25 @@ export default async function VelocidadePage({
   return (
     <AppShell
       currentPath="/velocidade"
-      eyebrow="Atlas STF · velocidade decisoria"
-      title="Velocidade de decisao"
-      description="Processos com tempo de tramitacao anomalo em relacao ao grupo comparavel."
+      eyebrow="Atlas STF · velocidade decisória"
+      title="Velocidade de decisão"
+      description="Processos com tempo de tramitação anômalo em relação ao grupo comparável."
       guidance={{
         title: "Como interpretar esta tela",
         summary:
-          "Compara o tempo entre autuacao e decisao de cada processo com processos similares (mesma classe, tema e ano).",
+          "Compara o tempo entre autuação e decisão de cada processo com processos similares (mesma classe, tema e ano).",
         bullets: [
-          "Fura-fila: processo decidido mais rapido que 95% dos similares (abaixo do percentil 5).",
+          "Fura-fila: processo decidido mais rápido que 95% dos similares (abaixo do percentil 5).",
           "Parado: processo decidido mais devagar que 95% dos similares (acima do percentil 95).",
-          "O z-score indica quantos desvios o processo esta da mediana do grupo.",
-          "Anomalia de velocidade nao implica irregularidade -- pode refletir urgencia legitima ou complexidade processual.",
+          "O z-score indica quantos desvios o processo está da mediana do grupo.",
+          "Anomalia de velocidade não implica irregularidade -- pode refletir urgência legítima ou complexidade processual.",
         ],
       }}
     >
       {/* KPI cards */}
       <section className="grid gap-4 md:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Decisoes analisadas</p>
+          <p className="text-sm text-slate-500">Decisões analisadas</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.total.toLocaleString("pt-BR")}</p>
         </div>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
@@ -129,7 +129,7 @@ export default async function VelocidadePage({
         page={data.page}
         pageSize={data.pageSize}
         total={data.total}
-        orderingLabel="decisoes"
+        orderingLabel="decisões"
         pageSizeOptions={[12, 24, 48]}
       />
 
@@ -169,11 +169,11 @@ export default async function VelocidadePage({
               >
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Autuacao</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Autuação</p>
                     <p className="mt-1 text-sm text-slate-900">{v.filing_date ?? "---"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Decisao</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Decisão</p>
                     <p className="mt-1 text-sm text-slate-900">{v.decision_date ?? "---"}</p>
                   </div>
                   <div>

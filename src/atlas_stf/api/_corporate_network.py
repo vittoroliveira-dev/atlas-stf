@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Literal, cast
 
 from sqlalchemy import func, select
@@ -10,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..serving.models import ServingCorporateConflict
 from ._filters import _normalized_like
+from ._json_helpers import parse_json_list
 from .schemas import (
     CorporateConflictItem,
     CorporateConflictRedFlagsResponse,
@@ -18,18 +18,8 @@ from .schemas import (
 )
 
 
-def _parse_json_list(raw: str | None) -> list:
-    if not raw:
-        return []
-    try:
-        result = json.loads(raw)
-        return result if isinstance(result, list) else []
-    except json.JSONDecodeError, TypeError:
-        return []
-
-
 def _parse_establishment_list(raw: str | None) -> list[EstablishmentSummary]:
-    items = _parse_json_list(raw)
+    items = parse_json_list(raw)
     return [EstablishmentSummary(**item) for item in items if isinstance(item, dict)]
 
 
@@ -44,7 +34,7 @@ def _row_to_item(row: ServingCorporateConflict) -> CorporateConflictItem:
         linked_entity_id=row.linked_entity_id,
         linked_entity_name=row.linked_entity_name,
         entity_qualification=row.entity_qualification,
-        shared_process_ids=_parse_json_list(row.shared_process_ids_json),
+        shared_process_ids=parse_json_list(row.shared_process_ids_json),
         shared_process_count=row.shared_process_count,
         favorable_rate=row.favorable_rate,
         baseline_favorable_rate=row.baseline_favorable_rate,
@@ -67,14 +57,14 @@ def _row_to_item(row: ServingCorporateConflict) -> CorporateConflictItem:
         headquarters_cnae_label=row.headquarters_cnae_label,
         headquarters_situacao_cadastral=row.headquarters_situacao_cadastral,
         headquarters_motivo_situacao_label=row.headquarters_motivo_situacao_label,
-        establishment_ufs=_parse_json_list(row.establishment_ufs_json),
-        establishment_cnaes=_parse_json_list(row.establishment_cnaes_json),
-        establishment_cnae_labels=_parse_json_list(row.establishment_cnae_labels_json),
+        establishment_ufs=parse_json_list(row.establishment_ufs_json),
+        establishment_cnaes=parse_json_list(row.establishment_cnaes_json),
+        establishment_cnae_labels=parse_json_list(row.establishment_cnae_labels_json),
         key_establishments=_parse_establishment_list(row.key_establishments_json),
         # Economic group
         economic_group_id=row.economic_group_id,
         economic_group_member_count=row.economic_group_member_count,
-        economic_group_razoes_sociais=_parse_json_list(row.economic_group_razoes_sociais_json),
+        economic_group_razoes_sociais=parse_json_list(row.economic_group_razoes_sociais_json),
         # Provenance
         evidence_type=row.evidence_type,
         source_dataset=row.source_dataset,

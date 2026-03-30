@@ -30,11 +30,11 @@ export function entityTypeLabel(entityType: "party" | "counsel") {
 function signalLabel(signal: string) {
   switch (signal) {
     case "sanction":
-      return "Sancao";
+      return "Sanção";
     case "donation":
-      return "Doacao";
+      return "Doação";
     case "corporate":
-      return "Vinculo";
+      return "Vínculo";
     case "affinity":
       return "Afinidade";
     case "alert":
@@ -84,7 +84,7 @@ export function CompoundRiskFilterPanel({
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Filtros</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-              Ajuste o recorte da convergencia
+              Ajuste o recorte da convergência
             </h2>
           </div>
           <Flame className="mt-1 h-5 w-5 text-rose-500" />
@@ -143,7 +143,7 @@ export function CompoundRiskFilterPanel({
                 : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
             }`}
           >
-            Apenas pontos criticos compostos
+            Apenas pontos críticos compostos
           </Link>
         </div>
       </div>
@@ -151,16 +151,16 @@ export function CompoundRiskFilterPanel({
       <div className="rounded-[30px] border border-slate-200/80 bg-[linear-gradient(145deg,rgba(15,23,42,0.96),rgba(0,99,40,0.88),rgba(0,39,118,0.84))] p-6 text-white shadow-[0_24px_90px_rgba(15,23,42,0.26)]">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.24em] text-white/70">Leitura rapida</p>
+            <p className="font-mono text-xs uppercase tracking-[0.24em] text-white/70">Leitura rápida</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight">
-              Onde a convergencia esta mais concentrada
+              Onde a convergência está mais concentrada
             </h2>
           </div>
           <ShieldAlert className="mt-1 h-5 w-5 text-rose-200" />
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-            <p className="text-sm text-white/70">Pares com alertas estatisticos</p>
+            <p className="text-sm text-white/70">Pares com alertas estatísticos</p>
             <p className="mt-2 text-3xl font-semibold">{pairsWithAlerts}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
@@ -173,7 +173,7 @@ export function CompoundRiskFilterPanel({
           </div>
         </div>
         <p className="mt-5 text-sm leading-6 text-white/80">
-          O heatmap abaixo mostra ate {displayLimit} pares do ranking composto. Quanto mais quente a celula, maior a quantidade de sinais convergentes no mesmo par.
+          O heatmap abaixo mostra até {displayLimit} pares do ranking composto. Quanto mais quente a célula, maior a quantidade de sinais convergentes no mesmo par.
         </p>
       </div>
     </section>
@@ -201,7 +201,7 @@ export function CompoundRiskHeatmapPanel({
             Ministro x entidade
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            A matriz usa os pares mais altos do ranking atual para mostrar concentracoes de sinais compostos no mesmo relacionamento.
+            A matriz usa os pares mais altos do ranking atual para mostrar concentrações de sinais compostos no mesmo relacionamento.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
@@ -225,7 +225,7 @@ export function CompoundRiskHeatmapPanel({
         <div className="mt-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
           <AlertTriangle className="h-5 w-5 text-amber-600" />
           <p className="text-sm text-amber-800">
-            O heatmap nao tem celulas para o recorte atual.
+            O heatmap não tem células para o recorte atual.
           </p>
         </div>
       ) : (
@@ -277,7 +277,7 @@ export function CompoundRiskHeatmapPanel({
                         <div className="flex h-full flex-col gap-2">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-xs font-medium uppercase tracking-[0.14em] opacity-80">
-                              {cell.red_flag ? "Ponto critico" : "Sinal"}
+                              {cell.red_flag ? "Ponto crítico" : "Sinal"}
                             </span>
                             <span className="text-2xl font-semibold">{cell.signal_count}</span>
                           </div>

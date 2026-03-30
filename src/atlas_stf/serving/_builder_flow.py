@@ -24,7 +24,7 @@ from .models import ServingAlert, ServingCase, ServingMinisterFlow
 logger = logging.getLogger(__name__)
 
 # Module-level state shared with forked workers (copy-on-write).
-_worker_cases: list[_CaseRow] = []
+_worker_case_index: CaseIndex = {}
 _worker_alert_ids: frozenset[str] = frozenset()
 
 FLOW_SHAPES: tuple[tuple[str, ...], ...] = (
@@ -68,23 +68,6 @@ def _minister_flow_key(filters: QueryFilters) -> str:
     )
     return sha256(signature.encode("utf-8")).hexdigest()
 
-
-def _matches_filter(case: _CaseRow, filters: QueryFilters) -> bool:
-    if filters.minister:
-        rapporteur = (case.current_rapporteur or "").lower()
-        if filters.minister.lower() not in rapporteur:
-            return False
-    if filters.period and case.period != filters.period:
-        return False
-    if filters.collegiate == "colegiado" and case.is_collegiate is not True:
-        return False
-    if filters.collegiate == "monocratico" and case.is_collegiate is not False:
-        return False
-    if filters.judging_body and case.judging_body != filters.judging_body:
-        return False
-    if filters.process_class and case.process_class != filters.process_class:
-        return False
-    return True
 
 
 def _group_counter(cases: list[_CaseRow], selector) -> dict[str, int]:
@@ -163,29 +146,83 @@ def _interpret_thematic_flow(
     return ("comparativo" if not reasons else "inconclusivo", reasons)
 
 
+CaseIndex = dict[tuple[str | None, str], list[_CaseRow]]
+
+
+def _build_case_index(all_cases: list[_CaseRow]) -> CaseIndex:
+    """Pre-group cases by (period, collegiate_bucket) for O(1) lookup.
+
+    Instead of scanning all 412K cases per flow, we look up only the
+    relevant bucket (~32K avg).  Each case appears exactly once per bucket
+    it belongs to — no duplicates.
+
+    Buckets:
+    - ``(period, "all")``: cases with that specific period
+    - ``(period, "colegiado"/"monocratico")``: cases with that period + collegiate
+    - ``(None, "all")``: ALL cases (for all-periods queries)
+    - ``(None, "colegiado"/"monocratico")``: all cases with that collegiate
+    """
+    index: dict[tuple[str | None, str], list[_CaseRow]] = defaultdict(list)
+    for case in all_cases:
+        # Specific period bucket (if case has a period)
+        if case.period is not None:
+            index[(case.period, "all")].append(case)
+            if case.is_collegiate is True:
+                index[(case.period, "colegiado")].append(case)
+            elif case.is_collegiate is False:
+                index[(case.period, "monocratico")].append(case)
+        # "All periods" bucket — every case goes here exactly once
+        index[(None, "all")].append(case)
+        if case.is_collegiate is True:
+            index[(None, "colegiado")].append(case)
+        elif case.is_collegiate is False:
+            index[(None, "monocratico")].append(case)
+    return dict(index)
+
+
+def _filter_from_bucket(
+    bucket: list[_CaseRow], filters: QueryFilters,
+) -> list[_CaseRow]:
+    """Filter cases from a pre-grouped bucket (period+collegiate already matched)."""
+    result: list[_CaseRow] = []
+    minister_lower = filters.minister.lower() if filters.minister else None
+    for c in bucket:
+        if minister_lower and minister_lower not in (c.current_rapporteur or "").lower():
+            continue
+        if filters.judging_body and c.judging_body != filters.judging_body:
+            continue
+        if filters.process_class and c.process_class != filters.process_class:
+            continue
+        result.append(c)
+    return result
+
+
 def _compute_flow(
-    all_cases: list[_CaseRow],
+    case_index: CaseIndex,
     alert_event_ids: frozenset[str],
     filters: QueryFilters,
 ) -> dict:
-    """Compute a minister flow entirely in-memory (no SQL)."""
-    monthly_cases = [c for c in all_cases if _matches_filter(c, filters)]
+    """Compute a minister flow using pre-indexed case buckets."""
+    bucket_key = (filters.period, filters.collegiate)
+    bucket = case_index.get(bucket_key, [])
+    monthly_cases = _filter_from_bucket(bucket, filters)
     monthly_cases.sort(key=lambda c: (c.decision_date or date.min, c.decision_event_id))
 
     historical_cases: list[_CaseRow] = []
     historical_start: date | None = None
     if filters.period:
         historical_start = date.fromisoformat(f"{filters.period}-01")
-        hist_filters = QueryFilters(
+        # Historical = same filters but ALL periods before this one
+        hist_bucket = case_index.get((None, filters.collegiate), [])
+        hist_filtered = _filter_from_bucket(hist_bucket, QueryFilters(
             minister=filters.minister,
             collegiate=filters.collegiate,
             judging_body=filters.judging_body,
             process_class=filters.process_class,
-        )
+        ))
         historical_cases = [
-            c
-            for c in all_cases
-            if _matches_filter(c, hist_filters) and c.decision_date is not None and c.decision_date < historical_start
+            c for c in hist_filtered
+            if c.decision_date is not None and c.decision_date < historical_start
         ]
         historical_cases.sort(key=lambda c: (c.decision_date or date.min,))
 
@@ -242,7 +279,7 @@ def _compute_flow(
 def _worker_compute_flow(item: tuple[str, QueryFilters]) -> tuple[str, QueryFilters, dict]:
     """Multiprocessing worker — uses module-level state inherited via fork."""
     key, filters = item
-    payload = _compute_flow(_worker_cases, _worker_alert_ids, filters)
+    payload = _compute_flow(_worker_case_index, _worker_alert_ids, filters)
     return key, filters, payload
 
 
@@ -314,20 +351,19 @@ def _materialize_minister_flows(session: Session) -> list[ServingMinisterFlow]:
     alert_event_ids = frozenset(eid for eid in session.scalars(select(ServingAlert.decision_event_id)) if eid)
     logger.info("Minister flows: %d cases, %d alert events loaded", len(all_cases), len(alert_event_ids))
 
-    # Phase 2: Enumerate all filter combinations in-memory.
+    # Phase 2: Build case index + enumerate filter combinations.
+    case_index = _build_case_index(all_cases)
     periods = sorted({c.period for c in all_cases if c.period}, reverse=True)
+    del all_cases  # free the flat list; only index is needed
+
     periods_with_all: list[str | None] = [None, *periods]
     tasks: list[tuple[str, QueryFilters]] = []
     seen_keys: set[str] = set()
 
     for period in periods_with_all:
-        period_cases = all_cases if period is None else [c for c in all_cases if c.period == period]
         for collegiate in ("all", "colegiado", "monocratico"):
-            col_cases = period_cases
-            if collegiate == "colegiado":
-                col_cases = [c for c in period_cases if c.is_collegiate is True]
-            elif collegiate == "monocratico":
-                col_cases = [c for c in period_cases if c.is_collegiate is False]
+            bucket_key = (period, collegiate)
+            col_cases = case_index.get(bucket_key, [])
 
             for shape in FLOW_SHAPES:
                 if not shape:
@@ -367,9 +403,9 @@ def _materialize_minister_flows(session: Session) -> list[ServingMinisterFlow]:
     logger.info("Minister flows: %d unique filter combinations to compute", len(tasks))
 
     # Phase 3: Compute flows in parallel using fork-based multiprocessing.
-    # Workers inherit all_cases + alert_event_ids via copy-on-write (no serialization).
-    global _worker_cases, _worker_alert_ids  # noqa: PLW0603
-    _worker_cases = all_cases
+    # Workers inherit case_index + alert_event_ids via copy-on-write (no serialization).
+    global _worker_case_index, _worker_alert_ids  # noqa: PLW0603
+    _worker_case_index = case_index
     _worker_alert_ids = alert_event_ids
 
     max_workers = min(
@@ -409,7 +445,7 @@ def _materialize_minister_flows(session: Session) -> list[ServingMinisterFlow]:
                     if done % 5000 == 0:
                         logger.info("Minister flows: %d / %d computed", done, len(tasks))
     finally:
-        _worker_cases = []
+        _worker_case_index = {}
         _worker_alert_ids = frozenset()
 
     logger.info("Minister flows: %d flows materialized", len(results))

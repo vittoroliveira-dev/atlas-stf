@@ -25,6 +25,7 @@ export type CompoundRiskItem = {
   sanction_sources: string[];
   donation_match_count: number;
   donation_total_brl: number | null;
+  donation_total_scope: "donor_global_sum";
   corporate_conflict_count: number;
   corporate_conflict_ids: string[];
   corporate_companies: CompoundRiskCompany[];

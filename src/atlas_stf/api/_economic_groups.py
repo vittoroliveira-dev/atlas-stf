@@ -2,38 +2,28 @@
 
 from __future__ import annotations
 
-import json
 from typing import cast
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..serving.models import ServingEconomicGroup
+from ._json_helpers import parse_json_list
 from .schemas import (
     EconomicGroupItem,
     PaginatedEconomicGroupResponse,
 )
 
 
-def _parse_json_list(raw: str | None) -> list:
-    if not raw:
-        return []
-    try:
-        result = json.loads(raw)
-        return result if isinstance(result, list) else []
-    except json.JSONDecodeError, TypeError:
-        return []
-
-
 def _row_to_item(row: ServingEconomicGroup) -> EconomicGroupItem:
     return EconomicGroupItem(
         group_id=row.group_id,
-        member_cnpjs=_parse_json_list(row.member_cnpjs_json),
-        razoes_sociais=_parse_json_list(row.razoes_sociais_json),
+        member_cnpjs=parse_json_list(row.member_cnpjs_json),
+        razoes_sociais=parse_json_list(row.razoes_sociais_json),
         member_count=row.member_count,
         total_capital_social=row.total_capital_social,
-        cnae_labels=_parse_json_list(row.cnae_labels_json),
-        ufs=_parse_json_list(row.ufs_json),
+        cnae_labels=parse_json_list(row.cnae_labels_json),
+        ufs=parse_json_list(row.ufs_json),
         active_establishment_count=row.active_establishment_count,
         total_establishment_count=row.total_establishment_count,
         is_law_firm_group=row.is_law_firm_group,

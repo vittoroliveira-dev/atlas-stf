@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import cast
 
 from sqlalchemy import func, select
@@ -10,20 +9,12 @@ from sqlalchemy.orm import Session
 
 from ..serving.models import ServingCounselAffinity
 from ._filters import _normalized_like
+from ._json_helpers import parse_json_list
 from .schemas import (
     CounselAffinityItem,
     CounselAffinityRedFlagsResponse,
     PaginatedCounselAffinityResponse,
 )
-
-
-def _parse_json_list(raw: str | None) -> list:
-    if not raw:
-        return []
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError, TypeError:
-        return []
 
 
 def _row_to_item(row: ServingCounselAffinity) -> CounselAffinityItem:
@@ -41,7 +32,7 @@ def _row_to_item(row: ServingCounselAffinity) -> CounselAffinityItem:
         pair_delta_vs_minister=row.pair_delta_vs_minister,
         pair_delta_vs_counsel=row.pair_delta_vs_counsel,
         red_flag=row.red_flag,
-        top_process_classes=_parse_json_list(row.top_process_classes_json),
+        top_process_classes=parse_json_list(row.top_process_classes_json),
     )
 
 

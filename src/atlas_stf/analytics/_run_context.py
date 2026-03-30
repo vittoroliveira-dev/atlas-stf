@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import resource
+import tempfile
 import threading
 import time
 from collections.abc import Callable
@@ -48,9 +49,15 @@ def _read_mem_available_mb() -> float | None:
 def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(path)
+        fd, tmp_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+        try:
+            os.write(fd, json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"))
+            os.close(fd)
+            os.replace(tmp_name, path)
+        except BaseException:
+            os.close(fd)
+            os.unlink(tmp_name)
+            raise
     except OSError:
         pass
 

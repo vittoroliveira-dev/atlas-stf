@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import json
-from typing import Any
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -15,6 +12,7 @@ from ..serving.models import (
 )
 from ._filters import _normalized_like
 from ._formatters import _metrics, _source_files
+from ._json_helpers import parse_json_dict, parse_json_list
 from .schemas import (
     AssignmentAuditResponse,
     HealthResponse,
@@ -25,26 +23,6 @@ from .schemas import (
     SequentialAnalysisResponse,
     SourcesAuditResponse,
 )
-
-
-def _parse_json_dict(raw: str | None) -> dict[str, Any]:
-    if not raw:
-        return {}
-    try:
-        parsed = json.loads(raw)
-    except TypeError, json.JSONDecodeError:
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
-
-
-def _parse_json_list(raw: str | None) -> list[Any]:
-    if not raw:
-        return []
-    try:
-        parsed = json.loads(raw)
-    except TypeError, json.JSONDecodeError:
-        return []
-    return parsed if isinstance(parsed, list) else []
 
 
 def get_sources_audit(session: Session) -> SourcesAuditResponse:
@@ -76,8 +54,8 @@ def get_minister_profile_data(
             p_value_approx=row.p_value_approx,
             deviation_flag=row.deviation_flag,
             deviation_direction=row.deviation_direction,
-            progress_distribution=_parse_json_dict(row.progress_distribution_json),
-            group_progress_distribution=_parse_json_dict(row.group_progress_distribution_json),
+            progress_distribution=parse_json_dict(row.progress_distribution_json),
+            group_progress_distribution=parse_json_dict(row.group_progress_distribution_json),
         )
         for row in rows
     ]
@@ -131,7 +109,7 @@ def get_assignment_audit(session: Session, *, limit: int = 100) -> list[Assignme
             uniformity_flag=row.uniformity_flag,
             most_overrepresented_rapporteur=row.most_overrepresented_rapporteur,
             most_underrepresented_rapporteur=row.most_underrepresented_rapporteur,
-            rapporteur_distribution=_parse_json_dict(row.rapporteur_distribution_json),
+            rapporteur_distribution=parse_json_dict(row.rapporteur_distribution_json),
         )
         for row in rows
     ]
@@ -152,10 +130,10 @@ def get_minister_bio(session: Session, minister: str) -> MinisterBioResponse | N
         birth_state=row.birth_state,
         career_summary=row.career_summary,
         political_party_history=(
-            _parse_json_list(row.political_party_history_json) if row.political_party_history_json else None
+            parse_json_list(row.political_party_history_json) if row.political_party_history_json else None
         ),
-        known_connections=(_parse_json_list(row.known_connections_json) if row.known_connections_json else None),
-        news_references=(_parse_json_list(row.news_references_json) if row.news_references_json else None),
+        known_connections=(parse_json_list(row.known_connections_json) if row.known_connections_json else None),
+        news_references=(parse_json_list(row.news_references_json) if row.news_references_json else None),
     )
 
 
@@ -172,9 +150,9 @@ def get_origin_context(session: Session, state: str | None = None) -> OriginCont
             datajud_total_processes=row.datajud_total_processes,
             stf_process_count=row.stf_process_count,
             stf_share_pct=row.stf_share_pct,
-            top_assuntos=_parse_json_list(row.top_assuntos_json),
-            top_orgaos_julgadores=_parse_json_list(row.top_orgaos_julgadores_json),
-            class_distribution=_parse_json_list(row.class_distribution_json),
+            top_assuntos=parse_json_list(row.top_assuntos_json),
+            top_orgaos_julgadores=parse_json_list(row.top_orgaos_julgadores_json),
+            class_distribution=parse_json_list(row.class_distribution_json),
         )
         for row in rows
     ]

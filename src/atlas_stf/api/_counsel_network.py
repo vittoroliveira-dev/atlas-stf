@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import cast
 
@@ -10,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..serving.models import ServingCounselNetworkCluster
+from ._json_helpers import parse_json_list
 from ._schemas_velocity import (
     CounselNetworkClusterItem,
     CounselNetworkRedFlagsResponse,
@@ -19,25 +19,15 @@ from ._schemas_velocity import (
 logger = logging.getLogger(__name__)
 
 
-def _parse_json_list(raw: str | None) -> list:
-    if not raw:
-        return []
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError, TypeError:
-        logger.warning("Failed to parse JSON list: %r", raw[:200] if raw else raw)
-        return []
-
-
 def _row_to_item(row: ServingCounselNetworkCluster) -> CounselNetworkClusterItem:
     return CounselNetworkClusterItem(
         cluster_id=row.cluster_id,
-        counsel_ids=_parse_json_list(row.counsel_ids_json),
-        counsel_names=_parse_json_list(row.counsel_names_json),
+        counsel_ids=parse_json_list(row.counsel_ids_json),
+        counsel_names=parse_json_list(row.counsel_names_json),
         cluster_size=row.cluster_size,
         shared_client_count=row.shared_client_count,
         shared_process_count=row.shared_process_count,
-        minister_names=_parse_json_list(row.minister_names_json),
+        minister_names=parse_json_list(row.minister_names_json),
         cluster_favorable_rate=row.cluster_favorable_rate,
         baseline_rate=row.baseline_rate,
         cluster_case_count=row.cluster_case_count,

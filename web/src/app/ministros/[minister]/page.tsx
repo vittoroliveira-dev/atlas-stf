@@ -134,18 +134,18 @@ function SequentialTable({ rows }: { rows: SequentialAnalysis[] }) {
 
 function CorporateConflictsSection({ conflicts }: { conflicts: CorporateConflict[] }) {
   if (conflicts.length === 0) {
-    return <p className="text-sm text-slate-500">Nenhum vinculo societario encontrado.</p>;
+    return <p className="text-sm text-slate-500">Nenhum vínculo societário encontrado.</p>;
   }
   return (
     <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
-      <h2 className="mb-4 text-lg font-semibold text-slate-950">Vinculos societarios</h2>
+      <h2 className="mb-4 text-lg font-semibold text-slate-950">Vínculos societários</h2>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
               <th className="px-3 py-2">Empresa</th>
               <th className="px-3 py-2">CNPJ</th>
-              <th className="px-3 py-2">Vinculado</th>
+              <th className="px-3 py-2">Vinculado(a)</th>
               <th className="px-3 py-2">Tipo</th>
               <th className="px-3 py-2">Grau</th>
               <th className="px-3 py-2">Casos</th>
@@ -188,7 +188,7 @@ function CorporateConflictsSection({ conflicts }: { conflicts: CorporateConflict
                   {c.red_flag ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
                       <AlertTriangle className="h-3 w-3" />
-                      Ponto critico
+                      Ponto crítico
                     </span>
                   ) : (
                     <span className="text-slate-400">—</span>
@@ -205,7 +205,7 @@ function CorporateConflictsSection({ conflicts }: { conflicts: CorporateConflict
 
 function CounselAffinitySection({ affinities }: { affinities: CounselAffinity[] }) {
   if (affinities.length === 0) {
-    return <p className="text-sm text-slate-500">Nenhuma afinidade atipica encontrada.</p>;
+    return <p className="text-sm text-slate-500">Nenhuma afinidade atípica encontrada.</p>;
   }
   return (
     <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
@@ -253,7 +253,7 @@ function CounselAffinitySection({ affinities }: { affinities: CounselAffinity[] 
                   {a.red_flag ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
                       <AlertTriangle className="h-3 w-3" />
-                      Ponto critico
+                      Ponto crítico
                     </span>
                   ) : (
                     <span className="text-slate-400">—</span>
@@ -300,8 +300,8 @@ export default async function MinisterProfilePage({
         <StatCard icon={BarChart3} label="Eventos totais" value={String(totalEvents)} help="Total de decisões consideradas nos perfis." />
         <StatCard icon={AlertTriangle} label="Desvios detectados" value={String(deviationCount)} help="Perfis com desvio estatístico significativo (p < 0.05)." />
         <StatCard icon={Activity} label="Anos com bias sequencial" value={String(biasCount)} help="Anos em que foi detectado bias sequencial nas decisões." />
-        <StatCard icon={Link2} label="Vinculos societarios" value={String(corporateConflicts.length)} help="Vinculos corporativos detectados via Receita Federal." />
-        <StatCard icon={Users} label="Afinidades atipicas" value={String(counselAffinities.filter(a => a.red_flag).length)} help="Pares ministro-advogado com taxa de vitoria anomala." />
+        <StatCard icon={Link2} label="Vínculos societários" value={String(corporateConflicts.length)} help="Vínculos corporativos detectados via Receita Federal." />
+        <StatCard icon={Users} label="Afinidades atípicas" value={String(counselAffinities.filter(a => a.red_flag).length)} help="Pares ministro-advogado com taxa de vitória anômala." />
       </section>
 
       {bio ? <BioSection bio={bio} /> : null}

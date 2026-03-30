@@ -78,28 +78,28 @@ export default async function ConvergenciaPage({
           : redFlags.total === 0
             ? {
                 status: "inconclusivo",
-                title: "Ha pares cruzados, mas sem convergencia forte o suficiente para ponto critico composto",
+                title: "Há pares cruzados, mas sem convergência forte o suficiente para ponto crítico composto",
                 description:
-                  "O ranking ainda ajuda a priorizar leitura, mas os sinais distribuidos permanecem abaixo do corte atual.",
+                  "O ranking ainda ajuda a priorizar leitura, mas os sinais distribuídos permanecem abaixo do corte atual.",
               }
             : {
                 status: "ok",
-                title: "Os sinais compostos ja permitem priorizar os pares mais densos",
+                title: "Os sinais compostos já permitem priorizar os pares mais densos",
                 description:
-                  "Use o heatmap para localizar concentracoes e o ranking para abrir os pares com mais convergencia entre sancoes, doacoes, vinculos, afinidade e alertas.",
+                  "Use o heatmap para localizar concentrações e o ranking para abrir os pares com mais convergência entre sanções, doações, vínculos, afinidade e alertas.",
               }
       }
-      eyebrow="Atlas STF · sobreposicao de indicadores"
+      eyebrow="Atlas STF · sobreposição de indicadores"
       title="Sinais combinados"
-      description="Pares onde multiplos indicadores de cruzamento convergem."
+      description="Pares onde múltiplos indicadores de cruzamento convergem."
       guidance={{
         title: "Como interpretar esta tela",
         summary:
-          "Esta visao prioriza densidade de sinais, nao conclusoes. A utilidade aqui e reduzir o custo de cruzamento manual entre paginas.",
+          "Esta visão prioriza densidade de sinais, não conclusões. A utilidade aqui é reduzir o custo de cruzamento manual entre páginas.",
         bullets: [
-          "Cada celula mostra quantos sinais convergem no mesmo par ministro-entidade.",
-          "Ponto critico composto indica apenas convergencia relevante no recorte atual; nao implica causalidade nem irregularidade.",
-          "Abra o ranking para ver quais sinais contribuiram, classes processuais e contexto adicional do par.",
+          "Cada célula mostra quantos sinais convergem no mesmo par ministro-entidade.",
+          "Ponto crítico composto indica apenas convergência relevante no recorte atual; não implica causalidade nem irregularidade.",
+          "Abra o ranking para ver quais sinais contribuíram, classes processuais e contexto adicional do par.",
         ],
       }}
     >
@@ -109,15 +109,15 @@ export default async function ConvergenciaPage({
           <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{data.total}</p>
         </div>
         <div className="rounded-[28px] border border-rose-200/80 bg-rose-50/90 p-5 shadow-[0_20px_70px_rgba(225,29,72,0.10)]">
-          <p className="text-sm text-rose-700">Pontos criticos compostos</p>
+          <p className="text-sm text-rose-700">Pontos críticos compostos</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-rose-800">{redFlags.total}</p>
         </div>
         <div className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-          <p className="text-sm text-slate-500">Partes nesta pagina</p>
+          <p className="text-sm text-slate-500">Partes nesta página</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{partyCount}</p>
         </div>
         <div className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-          <p className="text-sm text-slate-500">Advogados nesta pagina</p>
+          <p className="text-sm text-slate-500">Advogados nesta página</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{counselCount}</p>
         </div>
         <div className="rounded-[28px] border border-amber-200/80 bg-amber-50/90 p-5 shadow-[0_20px_70px_rgba(217,119,6,0.10)]">

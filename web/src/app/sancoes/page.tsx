@@ -24,8 +24,8 @@ function matchConfidenceLabel(confidence: string | null, score: number | null): 
     case "deterministic": return "CPF/CNPJ exato";
     case "exact_name": return "Nome exato";
     case "fuzzy": return score != null ? `Match fuzzy (${score.toFixed(2)})` : "Match fuzzy";
-    case "nominal_review_needed": return "Revisao manual necessaria";
-    default: return "Confianca nao determinada";
+    case "nominal_review_needed": return "Revisão manual necessária";
+    default: return "Confiança não determinada";
   }
 }
 
@@ -78,19 +78,19 @@ export default async function SancoesPage({
     <AppShell
       currentPath="/sancoes"
       eyebrow="Atlas STF · entidades sancionadas"
-      title="Sancoes"
-      description="Entidades do STF que constam em cadastros oficiais de sancao."
+      title="Sanções"
+      description="Entidades do STF que constam em cadastros oficiais de sanção."
       guidance={{
         title: "Como interpretar esta tela",
         summary:
-          "Mostra partes e advogados que constam em bases de sancoes administrativas (CGU), acordos de leniencia (CGU) e de mercado de capitais (CVM) e que litigam no STF.",
+          "Mostra partes e advogados que constam em bases de sanções administrativas (CGU), acordos de leniência (CGU) e de mercado de capitais (CVM) e que litigam no STF.",
         bullets: [
-          "Ponto critico indica taxa de exito significativamente acima da media para a classe processual.",
-          "CEIS = Cadastro de Empresas Inidoneas e Suspensas (CGU).",
+          "Ponto crítico indica taxa de êxito significativamente acima da média para a classe processual.",
+          "CEIS = Cadastro de Empresas Inidôneas e Suspensas (CGU).",
           "CNEP = Cadastro Nacional de Empresas Punidas (CGU).",
-          "Leniencia = Acordos de Leniencia firmados com a CGU (delacao premiada corporativa).",
+          "Leniência = Acordos de Leniência firmados com a CGU (delação premiada corporativa).",
           "CVM = Processos Administrativos Sancionadores (mercado de capitais).",
-          "A secao de advogados identifica profissionais que constam nas bases de sancoes e atuam no STF.",
+          "A seção de advogados identifica profissionais que constam nas bases de sanções e atuam no STF.",
         ],
       }}
     >
@@ -105,15 +105,15 @@ export default async function SancoesPage({
           <p className="mt-1 text-3xl font-semibold text-slate-900">{counselData.total}</p>
         </div>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
-          <p className="text-sm text-red-600">Pontos criticos (partes)</p>
+          <p className="text-sm text-red-600">Pontos críticos (partes)</p>
           <p className="mt-1 text-3xl font-semibold text-red-700">{redFlags.totalPartyFlags}</p>
         </div>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
-          <p className="text-sm text-red-600">Pontos criticos (advogados)</p>
+          <p className="text-sm text-red-600">Pontos críticos (advogados)</p>
           <p className="mt-1 text-3xl font-semibold text-red-700">{redFlags.totalCounselFlags}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Vinculos corporativos indiretos</p>
+          <p className="text-sm text-slate-500">Vínculos corporativos indiretos</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{sclData.total}</p>
         </div>
       </section>
@@ -168,7 +168,7 @@ export default async function SancoesPage({
               : "border-slate-200 text-slate-600 hover:border-slate-400"
           }`}
         >
-          Leniencia
+          Leniência
         </Link>
         <Link
           href={buildFilterHref({ red_flag_only: "true" })}
@@ -178,7 +178,7 @@ export default async function SancoesPage({
               : "border-slate-200 text-slate-600 hover:border-slate-400"
           }`}
         >
-          Apenas pontos criticos
+          Apenas pontos críticos
         </Link>
       </section>
 
@@ -192,7 +192,7 @@ export default async function SancoesPage({
           page={partyData.page}
           pageSize={partyData.pageSize}
           total={partyData.total}
-          orderingLabel="cruzamentos de sancoes (partes)"
+          orderingLabel="cruzamentos de sanções (partes)"
           pageSizeOptions={[8, 16, 24]}
         />
 
@@ -231,20 +231,20 @@ export default async function SancoesPage({
                     <RateComparisonBar
                       rate={s.favorable_rate}
                       baseline={s.baseline_favorable_rate}
-                      rateLabel="Taxa favoravel"
-                      baselineLabel="media"
+                      rateLabel="Taxa favorável"
+                      baselineLabel="média"
                     />
                     <dl className="grid gap-2 text-sm sm:grid-cols-2">
                       <div>
-                        <dt className="text-slate-500">Tipo de sancao</dt>
+                        <dt className="text-slate-500">Tipo de sanção</dt>
                         <dd className="font-medium text-slate-900">{s.sanction_type ?? "---"}</dd>
                       </div>
                       <div>
-                        <dt className="text-slate-500">Orgao sancionador</dt>
+                        <dt className="text-slate-500">Órgão sancionador</dt>
                         <dd className="font-medium text-slate-900">{s.sanctioning_body ?? "---"}</dd>
                       </div>
                       <div>
-                        <dt className="text-slate-500">Inicio</dt>
+                        <dt className="text-slate-500">Início</dt>
                         <dd className="font-medium text-slate-900">{s.sanction_start_date ?? "---"}</dd>
                       </div>
                       <div>
@@ -270,7 +270,7 @@ export default async function SancoesPage({
           page={counselData.page}
           pageSize={counselData.pageSize}
           total={counselData.total}
-          orderingLabel="cruzamentos de sancoes (advogados)"
+          orderingLabel="cruzamentos de sanções (advogados)"
           pageParam="counsel_page"
           pageSizeParam="counsel_page_size"
           pageSizeOptions={[8, 16, 24]}
@@ -311,20 +311,20 @@ export default async function SancoesPage({
                     <RateComparisonBar
                       rate={s.favorable_rate}
                       baseline={s.baseline_favorable_rate}
-                      rateLabel="Taxa favoravel"
-                      baselineLabel="media"
+                      rateLabel="Taxa favorável"
+                      baselineLabel="média"
                     />
                     <dl className="grid gap-2 text-sm sm:grid-cols-2">
                       <div>
-                        <dt className="text-slate-500">Tipo de sancao</dt>
+                        <dt className="text-slate-500">Tipo de sanção</dt>
                         <dd className="font-medium text-slate-900">{s.sanction_type ?? "---"}</dd>
                       </div>
                       <div>
-                        <dt className="text-slate-500">Orgao sancionador</dt>
+                        <dt className="text-slate-500">Órgão sancionador</dt>
                         <dd className="font-medium text-slate-900">{s.sanctioning_body ?? "---"}</dd>
                       </div>
                       <div>
-                        <dt className="text-slate-500">Inicio</dt>
+                        <dt className="text-slate-500">Início</dt>
                         <dd className="font-medium text-slate-900">{s.sanction_start_date ?? "---"}</dd>
                       </div>
                       <div>
@@ -341,10 +341,10 @@ export default async function SancoesPage({
       </section>
       {/* Vinculos corporativos indiretos */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">Vinculos corporativos indiretos</h2>
+        <h2 className="mb-4 text-lg font-semibold text-slate-900">Vínculos corporativos indiretos</h2>
         <p className="mb-4 text-sm text-slate-500">
           Entidades sancionadas conectadas a atores STF via empresas-ponte (RFB).
-          O grau indica o numero de saltos na cadeia societaria.
+          O grau indica o número de saltos na cadeia societária.
         </p>
 
         <PaginationControls
@@ -357,7 +357,7 @@ export default async function SancoesPage({
           page={sclData.page}
           pageSize={sclData.pageSize}
           total={sclData.total}
-          orderingLabel="vinculos corporativos indiretos"
+          orderingLabel="vínculos corporativos indiretos"
           pageParam="scl_page"
           pageSizeParam="scl_page_size"
           pageSizeOptions={[8, 16, 24]}
@@ -378,7 +378,7 @@ export default async function SancoesPage({
                   <th className="px-4 py-3 text-left">Ator STF</th>
                   <th className="px-4 py-3 text-center">Grau</th>
                   <th className="px-4 py-3 text-right">Risk score</th>
-                  <th className="px-4 py-3 text-center">Ponto critico</th>
+                  <th className="px-4 py-3 text-center">Ponto crítico</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 text-sm">

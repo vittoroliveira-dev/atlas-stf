@@ -6,6 +6,35 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-03-30
+
+### Added
+
+- **api/_json_helpers.py**: módulo centralizado de parsing JSON com `parse_json_list()`, `parse_json_dict()` e `parse_json_dict_or_none()` — elimina duplicação em 11 arquivos de serviço
+- **analytics/_match_io.py**: funções `read_summary()` e `extract_alert_counts()` para leitura robusta de sumários de alertas
+- **api/_schemas_risk.py**: campo `donation_total_scope` em `CompoundRiskItem` com valor literal `"donor_global_sum"` para explicitar escopo semântico
+- **api/_schemas_risk.py**: campo `donation_scope` em `DonationMatchItem` com docstrings descritivos distinguindo total global do doador vs. subtotal contextual do match
+- **tests/test_audit_fixes.py**: `TestExtractAlertCounts` (7 testes) e `TestJsonHelpers` (13+ testes) para regressão dos novos módulos
+- **tests/api/test_compound_risk_endpoints.py**: 2 testes de contrato semântico para `donation_total_scope`
+- **tests/api/test_donations_endpoints.py**: 2 testes de contrato semântico para `donation_scope` e subtotais contextuais
+
+### Changed
+
+- **serving/_builder_flow.py**: estrutura de dados de lista flat (~412K casos) para índice pré-agrupado por período/tipo (`CaseIndex`), com lookup por bucket ao invés de varredura O(n) — melhoria de ~12× em queries filtradas
+- **api/app.py**: versão da API agora dinâmica via `pkg_version("atlas-stf")` ao invés de hardcoded `"1.0.0"`
+- **api/**: 11 arquivos de serviço refatorados para usar `_json_helpers` centralizado (`_compound_risk`, `_corporate_network`, `_counsel_affinity`, `_counsel_network`, `_donations`, `_economic_groups`, `_payment_counterparties`, `_service_agenda`, `_service_analytics`, `_service_flow`, `_service_graph`)
+- **web/src/lib/ui-copy.ts**: 100+ correções de acentuação em strings de interface (pt-BR correto)
+- **web/src/components/dashboard/**: correções de acentuação em `app-shell`, `compound-risk-panels`, `compound-risk-ranking`, `cross-ref-card`, `donation-badge`, `sanction-badge`
+- **web/src/app/**: correções de acentuação em 9 páginas (`afinidade`, `convergencia`, `doacoes`, `ministros/[minister]`, `rede-advogados`, `redistribuicao`, `sancoes`, `velocidade`, `vinculos`)
+- **web/src/components/dashboard/compound-risk-ranking.tsx**: label de doações atualizado para "Doações (global dos doadores)" com tooltip explicativo do escopo semântico
+- **web/src/lib/compound-risk-data.ts**: tipo `CompoundRiskItem` sincronizado com campo `donation_total_scope` do backend
+- **tests/serving/test_graph_smoke.py**: testes de consistência de grafo marcados como `xfail` — builder de nós materializa subconjunto; cobertura total rastreada como melhoria futura
+
+### Fixed
+
+- Chave de leitura de alertas atípicos em `extract_alert_counts()` corrigida: lia de `status_counts` (chave errada) em vez de `alert_type_counts.atipicidade`
+- Race condition em `_atomic_write_json()`: threads concorrentes (heartbeat + main) compartilhavam tmp path fixo, causando corrupção do JSON por bytes remanescentes — corrigido com `tempfile.mkstemp` para tmp único por write
+
 ## [1.1.3] - 2026-03-30
 
 ### Added

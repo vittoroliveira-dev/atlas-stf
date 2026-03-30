@@ -148,18 +148,18 @@ export function sourceDescriptionHuman(label: string): string {
 
 export function fieldLabel(field: string): string {
   switch (field) {
-    case "red_flag": return "Ponto critico";
-    case "favorable_rate": return "Resultado favoravel";
-    case "favorable_rate_delta": return "Diferenca da media";
-    case "baseline_minister": return "Media do ministro";
-    case "baseline_counsel": return "Media do advogado";
+    case "red_flag": return "Ponto crítico";
+    case "favorable_rate": return "Resultado favorável";
+    case "favorable_rate_delta": return "Diferença da média";
+    case "baseline_minister": return "Média do ministro";
+    case "baseline_counsel": return "Média do advogado";
     case "stf_case_count": return "Processos no STF";
-    case "sanction_source": return "Origem da sancao";
-    case "risk_score": return "Indice de relevancia";
+    case "sanction_source": return "Origem da sanção";
+    case "risk_score": return "Índice de relevância";
     case "total_donated_brl": return "Total doado (global do doador)";
-    case "election_years": return "Eleicoes";
+    case "election_years": return "Eleições";
     case "parties_donated_to": return "Partidos";
-    case "link_degree": return "Grau de vinculo";
+    case "link_degree": return "Grau de vínculo";
     case "shared_case_count": return "Processos em comum";
     case "pair_favorable_rate": return "Taxa do par";
     default: return field.replace(/_/g, " ");
@@ -168,14 +168,14 @@ export function fieldLabel(field: string): string {
 
 export function fieldTooltip(field: string): string {
   switch (field) {
-    case "red_flag": return "Resultado fora do padrao esperado";
-    case "favorable_rate": return "Percentual de decisoes favoraveis no STF";
-    case "favorable_rate_delta": return "Pontos percentuais acima ou abaixo da media";
+    case "red_flag": return "Resultado fora do padrão esperado";
+    case "favorable_rate": return "Percentual de decisões favoráveis no STF";
+    case "favorable_rate_delta": return "Pontos percentuais acima ou abaixo da média";
     case "baseline_minister": return "Taxa geral do ministro em processos semelhantes";
     case "baseline_counsel": return "Taxa geral do advogado com qualquer ministro";
     case "stf_case_count": return "Quantidade de processos no STF";
-    case "sanction_source": return "Cadastro onde a sancao foi registrada";
-    case "risk_score": return "Combinacao de delta e distancia empresarial";
+    case "sanction_source": return "Cadastro onde a sanção foi registrada";
+    case "risk_score": return "Combinação de delta e distância empresarial";
     default: return "";
   }
 }
@@ -185,16 +185,16 @@ export function sanctionSourceLabel(source: string): string {
     case "ceis": return "CEIS";
     case "cnep": return "CNEP";
     case "cvm": return "CVM";
-    case "leniencia": return "Leniencia";
+    case "leniencia": return "Leniência";
     default: return source.toUpperCase();
   }
 }
 
 export function signalLabelSimple(signal: string): string {
   switch (signal) {
-    case "sanction": return "Sancao";
-    case "donation": return "Doacao";
-    case "corporate": return "Vinculo";
+    case "sanction": return "Sanção";
+    case "donation": return "Doação";
+    case "corporate": return "Vínculo";
     case "affinity": return "Afinidade";
     case "alert": return "Alerta";
     default: return signal;
@@ -217,11 +217,11 @@ export function emptyStateMessage(context: string): string {
   switch (context) {
     case "sanctions": return "Nenhuma entidade sancionada encontrada. Tente remover algum filtro para ampliar a busca.";
     case "donations": return "Nenhum doador encontrado. Tente remover algum filtro para ampliar a busca.";
-    case "corporate": return "Nenhum vinculo empresarial encontrado. Tente remover algum filtro para ampliar a busca.";
-    case "affinity": return "Nenhum par com afinidade atipica encontrado. Tente remover algum filtro para ampliar a busca.";
+    case "corporate": return "Nenhum vínculo empresarial encontrado. Tente remover algum filtro para ampliar a busca.";
+    case "affinity": return "Nenhum par com afinidade atípica encontrado. Tente remover algum filtro para ampliar a busca.";
     case "convergence": return "Nenhum par com sinais combinados encontrado. Tente remover algum filtro para ampliar a busca.";
     case "velocity": return "Nenhuma anomalia de velocidade encontrada. Tente remover algum filtro para ampliar a busca.";
-    case "redistribution": return "Nenhuma mudanca de relatoria encontrada. Tente remover algum filtro para ampliar a busca.";
+    case "redistribution": return "Nenhuma mudança de relatoria encontrada. Tente remover algum filtro para ampliar a busca.";
     case "counsel_network": return "Nenhum cluster de advogados encontrado. Tente remover algum filtro para ampliar a busca.";
     default: return "Nenhum resultado encontrado. Tente remover algum filtro para ampliar a busca.";
   }
@@ -229,13 +229,13 @@ export function emptyStateMessage(context: string): string {
 
 export function riskBadgeLabel(hasFlag: boolean): { text: string; ariaLabel: string } {
   return hasFlag
-    ? { text: "Ponto critico", ariaLabel: "Ponto critico: resultado fora do padrao esperado" }
-    : { text: "Normal", ariaLabel: "Sem ponto critico" };
+    ? { text: "Ponto crítico", ariaLabel: "Ponto crítico: resultado fora do padrão esperado" }
+    : { text: "Normal", ariaLabel: "Sem ponto crítico" };
 }
 
 export function deltaAriaLabel(value: number | null): string {
-  if (value == null) return "Diferenca da media nao disponivel";
+  if (value == null) return "Diferença da média não disponível";
   const pp = value * 100;
   const sign = pp > 0 ? "+" : "";
-  return `Diferenca da media: ${sign}${pp.toFixed(1)} pontos percentuais`;
+  return `Diferença da média: ${sign}${pp.toFixed(1)} pontos percentuais`;
 }

@@ -13,7 +13,6 @@ Contract:
 
 from __future__ import annotations
 
-import json
 from typing import Any, cast
 
 from sqlalchemy import func, select
@@ -21,27 +20,8 @@ from sqlalchemy.orm import Session
 
 from ..serving.models import ServingMinisterFlow
 from ._filters import QueryFilters, _normalized_like, resolve_filters
+from ._json_helpers import parse_json_dict, parse_json_list
 from .schemas import MinisterFlowResponse
-
-
-def _parse_json_dict(raw: str | None) -> dict[str, Any]:
-    if not raw:
-        return {}
-    try:
-        parsed = json.loads(raw)
-    except TypeError, json.JSONDecodeError:
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
-
-
-def _parse_json_list(raw: str | None) -> list[Any]:
-    if not raw:
-        return []
-    try:
-        parsed = json.loads(raw)
-    except TypeError, json.JSONDecodeError:
-        return []
-    return parsed if isinstance(parsed, list) else []
 
 
 def _empty_minister_flow(
@@ -115,22 +95,22 @@ def _minister_flow_from_row(
         historical_average_events_per_active_day=row.historical_average_events_per_active_day,
         linked_alert_count=row.linked_alert_count,
         thematic_key_rule=row.thematic_key_rule,
-        thematic_source_distribution=_parse_json_dict(row.thematic_source_distribution_json),
-        historical_thematic_source_distribution=_parse_json_dict(row.historical_thematic_source_distribution_json),
+        thematic_source_distribution=parse_json_dict(row.thematic_source_distribution_json),
+        historical_thematic_source_distribution=parse_json_dict(row.historical_thematic_source_distribution_json),
         thematic_flow_interpretation_status=cast(Any, row.thematic_flow_interpretation_status),
-        thematic_flow_interpretation_reasons=_parse_json_list(row.thematic_flow_interpretation_reasons_json),
-        decision_type_distribution=_parse_json_dict(row.decision_type_distribution_json),
-        decision_progress_distribution=_parse_json_dict(row.decision_progress_distribution_json),
-        judging_body_distribution=_parse_json_dict(row.judging_body_distribution_json),
-        collegiate_distribution=_parse_json_dict(row.collegiate_distribution_json),
-        process_class_distribution=_parse_json_dict(row.process_class_distribution_json),
-        thematic_distribution=_parse_json_dict(row.thematic_distribution_json),
-        daily_counts=_parse_json_list(row.daily_counts_json),
-        decision_type_flow=_parse_json_list(row.decision_type_flow_json),
-        judging_body_flow=_parse_json_list(row.judging_body_flow_json),
-        decision_progress_flow=_parse_json_list(row.decision_progress_flow_json),
-        process_class_flow=_parse_json_list(row.process_class_flow_json),
-        thematic_flow=_parse_json_list(row.thematic_flow_json),
+        thematic_flow_interpretation_reasons=parse_json_list(row.thematic_flow_interpretation_reasons_json),
+        decision_type_distribution=parse_json_dict(row.decision_type_distribution_json),
+        decision_progress_distribution=parse_json_dict(row.decision_progress_distribution_json),
+        judging_body_distribution=parse_json_dict(row.judging_body_distribution_json),
+        collegiate_distribution=parse_json_dict(row.collegiate_distribution_json),
+        process_class_distribution=parse_json_dict(row.process_class_distribution_json),
+        thematic_distribution=parse_json_dict(row.thematic_distribution_json),
+        daily_counts=parse_json_list(row.daily_counts_json),
+        decision_type_flow=parse_json_list(row.decision_type_flow_json),
+        judging_body_flow=parse_json_list(row.judging_body_flow_json),
+        decision_progress_flow=parse_json_list(row.decision_progress_flow_json),
+        process_class_flow=parse_json_list(row.process_class_flow_json),
+        thematic_flow=parse_json_list(row.thematic_flow_json),
     )
 
 

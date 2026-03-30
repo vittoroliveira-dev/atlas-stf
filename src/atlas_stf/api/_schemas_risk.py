@@ -67,11 +67,27 @@ class DonationMatchItem(BaseModel):
     donor_cpf_cnpj: str
     donor_name_normalized: str | None = None
     donor_name_originator: str | None = None
-    total_donated_brl: float
-    donation_count: int
-    matched_events_total_brl: float | None = None
-    matched_events_count: int | None = None
-    donation_scope: Literal["donor_global"] = "donor_global"
+    total_donated_brl: float = Field(
+        description="Total de doações do doador em TODAS as eleições e partidos (global).",
+    )
+    donation_count: int = Field(
+        description="Contagem global de registros de doação do doador.",
+    )
+    matched_events_total_brl: float | None = Field(
+        default=None,
+        description="Soma real dos eventos vinculados a este match específico (subtotal contextual).",
+    )
+    matched_events_count: int | None = Field(
+        default=None,
+        description="Contagem dos eventos vinculados a este match específico.",
+    )
+    donation_scope: Literal["donor_global"] = Field(
+        default="donor_global",
+        description=(
+            "Escopo de total_donated_brl e donation_count: "
+            "'donor_global' = total do doador em todas as eleições/partidos."
+        ),
+    )
     election_years: list[int] = []
     parties_donated_to: list[str] = []
     candidates_donated_to: list[str] = []
@@ -309,7 +325,22 @@ class CompoundRiskItem(BaseModel):
     sanction_match_count: int
     sanction_sources: list[str] = []
     donation_match_count: int
-    donation_total_brl: float | None = None
+    donation_total_brl: float | None = Field(
+        default=None,
+        description=(
+            "Soma dos totais globais dos doadores vinculados a este par. "
+            "Cada parcela é o total do doador em TODAS as eleições e partidos, "
+            "não o subtotal das doações relevantes para este match. "
+            "Usar donation_total_scope para confirmar a semântica."
+        ),
+    )
+    donation_total_scope: Literal["donor_global_sum"] = Field(
+        default="donor_global_sum",
+        description=(
+            "Escopo semântico de donation_total_brl: "
+            "'donor_global_sum' = soma de totais globais por doador."
+        ),
+    )
     corporate_conflict_count: int
     corporate_conflict_ids: list[str] = []
     corporate_companies: list[CompoundRiskCompanyItem] = []

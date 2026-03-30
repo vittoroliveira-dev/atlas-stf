@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from datetime import date
 from typing import cast
 
@@ -10,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..serving._models_agenda import ServingAgendaCoverage, ServingAgendaEvent, ServingAgendaExposure
+from ._json_helpers import parse_json_list
 from ._schemas_agenda import (
     AgendaCoverageItem,
     AgendaEventItem,
@@ -25,15 +25,6 @@ _DISCLAIMER = (
     "Ausencia de registro nao significa ausencia de contato. "
     "Dados servem para priorizacao investigativa, nao para inferencia causal."
 )
-
-
-def _safe_json(val: str | None) -> list:
-    if not val:
-        return []
-    try:
-        return json.loads(val)
-    except json.JSONDecodeError, TypeError:
-        return []
 
 
 def _ev_item(r: ServingAgendaEvent) -> AgendaEventItem:
@@ -53,7 +44,7 @@ def _ev_item(r: ServingAgendaEvent) -> AgendaEventItem:
         has_process_ref=r.has_process_ref,
         classification_confidence=r.classification_confidence,
         relevance_track=r.relevance_track,
-        process_refs=_safe_json(r.process_refs_json),
+        process_refs=parse_json_list(r.process_refs_json),
         process_id=r.process_id,
         process_class=r.process_class,
         is_own_process=r.is_own_process,

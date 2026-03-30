@@ -66,30 +66,30 @@ export default async function VinculosPage({
     <AppShell
       currentPath="/vinculos"
       eyebrow="Atlas STF · rede corporativa RFB"
-      title="Vinculos empresariais"
+      title="Vínculos empresariais"
       description="Empresas em comum entre ministros e quem litiga no STF."
       guidance={{
         title: "Como interpretar esta tela",
         summary:
-          "Mostra vinculos societarios entre ministros do STF e partes/advogados que litigam perante eles.",
+          "Mostra vínculos societários entre ministros do STF e partes/advogados que litigam perante eles.",
         bullets: [
-          "Grau 1: ministro e parte/advogado sao socios diretos na mesma empresa.",
-          "Grau 2: vinculo indireto -- empresa do ministro tem socio PJ que participa de outra empresa junto com a parte/advogado.",
-          "Graus 3+ seguem busca em largura por cadeia societaria; o score de risco recebe decay conforme a distancia.",
-          "Ponto critico indica taxa de exito significativamente acima da media para a classe processual, com pelo menos 3 casos compartilhados.",
-          "Os dados vem do cadastro de socios da Receita Federal (CNPJ aberto).",
-          "Vinculo societario nao implica irregularidade -- indica potencial conflito de interesse a ser verificado.",
+          "Grau 1: ministro e parte/advogado são sócios diretos na mesma empresa.",
+          "Grau 2: vínculo indireto -- empresa do ministro tem sócio PJ que participa de outra empresa junto com a parte/advogado.",
+          "Graus 3+ seguem busca em largura por cadeia societária; o score de risco recebe decay conforme a distância.",
+          "Ponto crítico indica taxa de êxito significativamente acima da média para a classe processual, com pelo menos 3 casos compartilhados.",
+          "Os dados vêm do cadastro de sócios da Receita Federal (CNPJ aberto).",
+          "Vínculo societário não implica irregularidade -- indica potencial conflito de interesse a ser verificado.",
         ],
       }}
     >
       {/* KPI cards */}
       <section className="grid gap-4 md:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Total de vinculos</p>
+          <p className="text-sm text-slate-500">Total de vínculos</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.total}</p>
         </div>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
-          <p className="text-sm text-red-600">Pontos criticos</p>
+          <p className="text-sm text-red-600">Pontos críticos</p>
           <p className="mt-1 text-3xl font-semibold text-red-700">{redFlags.total}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -99,7 +99,7 @@ export default async function VinculosPage({
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
           <p className="text-sm text-amber-600">Graus 2+ (indireto)</p>
           <p className="mt-1 text-3xl font-semibold text-amber-700">{indirectCount}</p>
-          <p className="mt-1 text-xs text-amber-700/80">Maior grau na pagina: {maxDegree}</p>
+          <p className="mt-1 text-xs text-amber-700/80">Maior grau na página: {maxDegree}</p>
         </div>
       </section>
 
@@ -123,7 +123,7 @@ export default async function VinculosPage({
               : "border-slate-200 text-slate-600 hover:border-slate-400"
           }`}
         >
-          Apenas pontos criticos
+          Apenas pontos críticos
         </Link>
         {degreeOptions.map((degree) => (
           <Link
@@ -157,7 +157,7 @@ export default async function VinculosPage({
         page={data.page}
         pageSize={data.pageSize}
         total={data.total}
-        orderingLabel="vinculos societarios"
+        orderingLabel="vínculos societários"
         pageSizeOptions={[8, 16, 24]}
       />
 
@@ -196,8 +196,8 @@ export default async function VinculosPage({
                   <RateComparisonBar
                     rate={c.favorable_rate}
                     baseline={c.baseline_favorable_rate}
-                    rateLabel="Taxa favoravel"
-                    baselineLabel="media"
+                    rateLabel="Taxa favorável"
+                    baselineLabel="média"
                   />
 
                   {/* Provenance badges */}
@@ -220,7 +220,7 @@ export default async function VinculosPage({
                     )}
                     {c.economic_group_id && (
                       <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                        Grupo economico ({c.economic_group_member_count ?? 0} membros)
+                        Grupo econômico ({c.economic_group_member_count ?? 0} membros)
                       </span>
                     )}
                   </div>
@@ -237,20 +237,20 @@ export default async function VinculosPage({
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-slate-500">Qualificacao ministro</dt>
+                      <dt className="text-slate-500">Qualificação ministro</dt>
                       <dd className="font-medium text-slate-900">
                         {c.minister_qualification_label || c.minister_qualification || "---"}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-slate-500">Qualificacao entidade</dt>
+                      <dt className="text-slate-500">Qualificação entidade</dt>
                       <dd className="font-medium text-slate-900">
                         {c.entity_qualification_label || c.entity_qualification || "---"}
                       </dd>
                     </div>
                     {c.company_natureza_juridica_label && (
                       <div>
-                        <dt className="text-slate-500">Natureza juridica</dt>
+                        <dt className="text-slate-500">Natureza jurídica</dt>
                         <dd className="font-medium text-slate-900">{c.company_natureza_juridica_label}</dd>
                       </div>
                     )}
@@ -294,7 +294,7 @@ export default async function VinculosPage({
                     )}
                     {c.headquarters_situacao_cadastral && c.headquarters_situacao_cadastral !== "02" && (
                       <div>
-                        <dt className="text-slate-500">Situacao sede</dt>
+                        <dt className="text-slate-500">Situação sede</dt>
                         <dd className="font-medium text-red-700">
                           {c.headquarters_situacao_cadastral === "03" ? "Suspensa"
                             : c.headquarters_situacao_cadastral === "04" ? "Inapta"
@@ -311,7 +311,7 @@ export default async function VinculosPage({
                   {/* Economic group details */}
                   {c.economic_group_razoes_sociais && c.economic_group_razoes_sociais.length > 1 && (
                     <div>
-                      <p className="mb-1.5 text-sm text-slate-500">Grupo economico</p>
+                      <p className="mb-1.5 text-sm text-slate-500">Grupo econômico</p>
                       <div className="flex flex-wrap gap-1.5">
                         {c.economic_group_razoes_sociais.slice(0, 5).map((name, i) => (
                           <span key={i} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
@@ -329,7 +329,7 @@ export default async function VinculosPage({
 
                   {c.link_chain && c.link_degree >= 2 && (
                     <div>
-                      <p className="mb-1.5 text-sm text-slate-500">Cadeia de vinculo</p>
+                      <p className="mb-1.5 text-sm text-slate-500">Cadeia de vínculo</p>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {c.link_chain.split(" -> ").map((step, i) => (
                           <span key={i} className="inline-flex items-center">

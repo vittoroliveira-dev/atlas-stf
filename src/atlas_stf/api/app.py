@@ -144,7 +144,10 @@ def create_app(*, database_url: str | None = None) -> FastAPI:
 
     factory = sessionmaker(engine)
 
-    app = FastAPI(title="Atlas STF API", version="1.0.0", lifespan=_lifespan)
+    from importlib.metadata import version as pkg_version
+
+    api_version = pkg_version("atlas-stf")
+    app = FastAPI(title="Atlas STF API", version=api_version, lifespan=_lifespan)
     app.state.database_url = resolved_database_url
     app.state.engine = engine
     app.state.session_factory = factory

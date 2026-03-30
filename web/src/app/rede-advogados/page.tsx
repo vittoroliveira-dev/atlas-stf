@@ -38,12 +38,12 @@ export default async function RedeAdvogadosPage({
       guidance={{
         title: "Como interpretar esta tela",
         summary:
-          "Identifica escritorios ou redes de advogados que representam os mesmos clientes perante o STF.",
+          "Identifica escritórios ou redes de advogados que representam os mesmos clientes perante o STF.",
         bullets: [
           "Cluster: grupo de advogados conectados por compartilharem pelo menos 2 clientes em comum.",
-          "Taxa favoravel do cluster: taxa de resultado favoravel dos processos do grupo inteiro.",
-          "Ponto critico: cluster com taxa favoravel > 65% e pelo menos 5 processos.",
-          "Clusters grandes podem representar escritorios legitimos -- o indicador complementa a analise de afinidade individual.",
+          "Taxa favorável do cluster: taxa de resultado favorável dos processos do grupo inteiro.",
+          "Ponto crítico: cluster com taxa favorável > 65% e pelo menos 5 processos.",
+          "Clusters grandes podem representar escritórios legítimos -- o indicador complementa a análise de afinidade individual.",
         ],
       }}
     >
@@ -54,15 +54,15 @@ export default async function RedeAdvogadosPage({
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.total.toLocaleString("pt-BR")}</p>
         </div>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
-          <p className="text-sm text-red-600">Pontos criticos</p>
+          <p className="text-sm text-red-600">Pontos críticos</p>
           <p className="mt-1 text-3xl font-semibold text-red-700">{redFlags.total}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Na pagina</p>
+          <p className="text-sm text-slate-500">Na página</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.items.length}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Pagina</p>
+          <p className="text-sm text-slate-500">Página</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">
             {data.page}/{Math.max(1, Math.ceil(data.total / data.pageSize))}
           </p>
@@ -89,7 +89,7 @@ export default async function RedeAdvogadosPage({
               : "border-slate-200 text-slate-600 hover:border-slate-400"
           }`}
         >
-          Apenas pontos criticos
+          Apenas pontos críticos
         </Link>
       </section>
 

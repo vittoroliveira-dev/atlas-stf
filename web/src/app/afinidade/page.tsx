@@ -36,18 +36,18 @@ export default async function AfinidadePage({
   return (
     <AppShell
       currentPath="/afinidade"
-      eyebrow="Atlas STF · pares com resultado atipico"
+      eyebrow="Atlas STF · pares com resultado atípico"
       title="Afinidade ministro-advogado"
-      description="Pares com taxa de resultado favoravel atipica."
+      description="Pares com taxa de resultado favorável atípica."
       guidance={{
         title: "Como interpretar esta tela",
         summary:
-          "Mostra pares ministro-advogado com taxa de vitoria anomala comparada aos baselines.",
+          "Mostra pares ministro-advogado com taxa de vitória anômala comparada aos baselines.",
         bullets: [
-          "Ponto critico indica que o par tem delta > 15pp em relacao ao baseline do ministro ou do advogado, com pelo menos 5 casos compartilhados.",
+          "Ponto crítico indica que o par tem delta > 15pp em relação ao baseline do ministro ou do advogado, com pelo menos 5 casos compartilhados.",
           "Delta vs. ministro compara a taxa do par com a taxa geral do ministro nas mesmas classes processuais.",
           "Delta vs. advogado compara a taxa do par com a taxa geral do advogado com qualquer ministro.",
-          "Afinidade alta nao implica irregularidade -- pode refletir especializacao tematica do advogado.",
+          "Afinidade alta não implica irregularidade -- pode refletir especialização temática do advogado.",
         ],
       }}
     >
@@ -58,15 +58,15 @@ export default async function AfinidadePage({
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.total}</p>
         </div>
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
-          <p className="text-sm text-red-600">Pontos criticos</p>
+          <p className="text-sm text-red-600">Pontos críticos</p>
           <p className="mt-1 text-3xl font-semibold text-red-700">{redFlags.total}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Pares na pagina</p>
+          <p className="text-sm text-slate-500">Pares na página</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.affinities.length}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Pagina</p>
+          <p className="text-sm text-slate-500">Página</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.page}/{Math.max(1, Math.ceil(data.total / data.pageSize))}</p>
         </div>
       </section>
@@ -91,7 +91,7 @@ export default async function AfinidadePage({
               : "border-slate-200 text-slate-600 hover:border-slate-400"
           }`}
         >
-          Apenas pontos criticos
+          Apenas pontos críticos
         </Link>
       </section>
 
@@ -159,7 +159,7 @@ export default async function AfinidadePage({
                       <RateComparisonBar
                         rate={a.pair_favorable_rate}
                         baseline={null}
-                        rateLabel="Taxa favoravel"
+                        rateLabel="Taxa favorável"
                       />
                     </div>
                   </div>
