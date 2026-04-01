@@ -11,38 +11,34 @@
     "companies_involved",
     "max_link_degree",
     "degree_counts",
-    "generated_at"
+    "generated_at",
+    "run_status",
+    "funnel"
   ],
   "properties": {
-    "total_conflicts": {
-      "type": "integer"
+    "total_conflicts": { "type": "integer" },
+    "red_flag_count": { "type": "integer" },
+    "ministers_involved": { "type": "integer" },
+    "companies_involved": { "type": "integer" },
+    "max_link_degree": { "type": "integer" },
+    "degree_counts": { "type": "object" },
+    "generated_at": { "type": "string" },
+    "run_status": { "type": "string" },
+    "run_phase": { "type": "string" },
+    "run_started_at": { "type": "string" },
+    "run_finished_at": { "type": "string" },
+    "run_error_type": { "type": ["string", "null"] },
+    "run_error_message": { "type": ["string", "null"] },
+    "resolved_rfb_dir": { "type": "string" },
+    "resolved_output_dir": { "type": "string" },
+    "summary_schema_valid": { "type": "boolean" },
+    "summary_validation_error": { "type": ["string", "null"] },
+    "funnel": {
+      "type": "object",
+      "description": "Funnel counters for pipeline observability"
     },
-    "red_flag_count": {
-      "type": "integer"
-    },
-    "ministers_involved": {
-      "type": "integer"
-    },
-    "companies_involved": {
-      "type": "integer"
-    },
-    "max_link_degree": {
-      "type": "integer"
-    },
-    "degree_counts": {
-      "type": "object"
-    },
-    "generated_at": {
-      "type": "string"
-    },
-    "degree_1_count": {
-      "type": "integer"
-    },
-    "degree_2_count": {
-      "type": "integer"
-    },
-    "degree_3_count": {
-      "type": "integer"
-    }
+    "degree_1_count": { "type": "integer" },
+    "degree_2_count": { "type": "integer" },
+    "degree_3_count": { "type": "integer" }
   }
 }

@@ -8,6 +8,11 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, Iterable
 
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from .models import ServingAlert, ServingCase, ServingCounsel, ServingMinisterFlow, ServingParty, ServingSchemaMeta
+
 logger = logging.getLogger(__name__)
 
 
@@ -349,3 +354,62 @@ def _validate_inputs(
 
     logger.info("Input validation: %s (%d files verified)", decision, len(results))
     return results
+
+
+_EG_BATCH_SIZE = 5000
+
+_CRITICAL_TABLES: dict[type, int] = {
+    ServingCase: 1,
+    ServingAlert: 1,
+    ServingCounsel: 1,
+    ServingParty: 1,
+    ServingMinisterFlow: 1,
+    ServingSchemaMeta: 1,
+}
+
+
+def _rss_mb() -> float:
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024.0
+    except OSError:
+        pass
+    return 0.0
+
+
+def _log_phase(
+    phase: str,
+    *,
+    rss_before: float,
+    rss_after: float,
+    row_count: int,
+    elapsed: float,
+) -> None:
+    logger.info(
+        "Phase %s: %d rows, %.1fs, RSS %.0f→%.0f MB",
+        phase,
+        row_count,
+        elapsed,
+        rss_before,
+        rss_after,
+    )
+
+
+def _extract_db_path(database_url: str) -> Path:
+    prefix = "sqlite+pysqlite:///"
+    if not database_url.startswith(prefix):
+        msg = f"Expected sqlite+pysqlite:/// URL, got: {database_url}"
+        raise ValueError(msg)
+    return Path(database_url[len(prefix) :])
+
+
+def _validate_critical_tables(engine: Any) -> None:
+    with Session(engine) as session:
+        for model, min_rows in _CRITICAL_TABLES.items():
+            count = session.scalar(select(func.count()).select_from(model)) or 0
+            if count < min_rows:
+                table_name = model.__tablename__  # type: ignore[attr-defined]
+                msg = f"Validation failed: {table_name} has {count} rows, expected at least {min_rows}"
+                raise RuntimeError(msg)

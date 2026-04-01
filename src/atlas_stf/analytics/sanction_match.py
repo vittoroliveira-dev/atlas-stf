@@ -1,4 +1,4 @@
-"""Build sanction match analytics from CGU raw data + curated entities."""
+"""Sanction match analytics from CGU/CVM + curated entities."""
 
 from __future__ import annotations
 
@@ -36,35 +36,57 @@ logger = logging.getLogger(__name__)
 
 SCHEMA_PATH = Path("schemas/sanction_match.schema.json")
 SUMMARY_SCHEMA_PATH = Path("schemas/sanction_match_summary.schema.json")
-DEFAULT_CGU_DIR = Path("data/raw/cgu")
-DEFAULT_CVM_DIR = Path("data/raw/cvm")
-DEFAULT_PARTY_PATH = Path("data/curated/party.jsonl")
-DEFAULT_COUNSEL_PATH = Path("data/curated/counsel.jsonl")
-DEFAULT_PROCESS_PATH = Path("data/curated/process.jsonl")
-DEFAULT_DECISION_EVENT_PATH = Path("data/curated/decision_event.jsonl")
-DEFAULT_PROCESS_PARTY_LINK_PATH = Path("data/curated/process_party_link.jsonl")
-DEFAULT_PROCESS_COUNSEL_LINK_PATH = Path("data/curated/process_counsel_link.jsonl")
-DEFAULT_OUTPUT_DIR = Path("data/analytics")
+_CGU = Path("data/raw/cgu")
+_CVM = Path("data/raw/cvm")
+_PARTY = Path("data/curated/party.jsonl")
+_COUNSEL = Path("data/curated/counsel.jsonl")
+_PROCESS = Path("data/curated/process.jsonl")
+_DEC_EVT = Path("data/curated/decision_event.jsonl")
+_PPL = Path("data/curated/process_party_link.jsonl")
+_PCL = Path("data/curated/process_counsel_link.jsonl")
+_OUTPUT = Path("data/analytics")
 
 RED_FLAG_DELTA_THRESHOLD = 0.15
 MIN_CASES_FOR_RED_FLAG = 3
 
 
+def _ambiguous_record(
+    norm_name: str,
+    sanction: dict,
+    entity_type: str,
+    match: Any,
+    nf: str,
+    idf: str,
+) -> dict[str, Any]:
+    cands = match.candidates or ()
+    return {
+        "sanction_entity_name": norm_name,
+        "entity_type": entity_type,
+        "sanction_source": sanction.get("sanction_source", ""),
+        "sanction_id": sanction.get("sanction_id", ""),
+        "match_strategy": "ambiguous",
+        "match_score": match.score,
+        "uncertainty_note": match.uncertainty_note,
+        "candidate_count": match.candidate_count,
+        "candidates": [{"name": str(c.get(nf, "")), "id": c.get(idf, "")} for c in cands],
+        "sample_candidate_name": str(cands[0].get(nf, "") if cands else ""),
+    }
+
+
 def build_sanction_matches(
     *,
-    cgu_dir: Path = DEFAULT_CGU_DIR,
-    cvm_dir: Path = DEFAULT_CVM_DIR,
-    party_path: Path = DEFAULT_PARTY_PATH,
-    counsel_path: Path = DEFAULT_COUNSEL_PATH,
-    process_path: Path = DEFAULT_PROCESS_PATH,
-    decision_event_path: Path = DEFAULT_DECISION_EVENT_PATH,
-    process_party_link_path: Path = DEFAULT_PROCESS_PARTY_LINK_PATH,
-    process_counsel_link_path: Path = DEFAULT_PROCESS_COUNSEL_LINK_PATH,
-    output_dir: Path = DEFAULT_OUTPUT_DIR,
+    cgu_dir: Path = _CGU,
+    cvm_dir: Path = _CVM,
+    party_path: Path = _PARTY,
+    counsel_path: Path = _COUNSEL,
+    process_path: Path = _PROCESS,
+    decision_event_path: Path = _DEC_EVT,
+    process_party_link_path: Path = _PPL,
+    process_counsel_link_path: Path = _PCL,
+    output_dir: Path = _OUTPUT,
     alias_path: Path = DEFAULT_ALIAS_PATH,
     on_progress: Callable[[int, int, str], None] | None = None,
 ) -> Path:
-    """Build sanction match analytics from CGU raw data + curated entities."""
     output_dir.mkdir(parents=True, exist_ok=True)
     ctx = RunContext("sanction-match", output_dir, total_steps=7, on_progress=on_progress)
 
@@ -143,6 +165,7 @@ def build_sanction_matches(
     )
 
     matches: list[dict[str, Any]] = []
+    ambiguous_records: list[dict[str, Any]] = []
     seen_matches: set[str] = set()
     matched_party_names: set[str] = set()
     ambiguous_candidate_count = 0
@@ -155,6 +178,10 @@ def build_sanction_matches(
             continue
         if match.strategy == "ambiguous":
             ambiguous_candidate_count += 1
+            for sanction in sanction_list:
+                ambiguous_records.append(
+                    _ambiguous_record(norm_name, sanction, "party", match, "party_name_normalized", "party_id")
+                )
             continue
 
         party = match.record
@@ -289,6 +316,10 @@ def build_sanction_matches(
             continue
         if match.strategy == "ambiguous":
             counsel_ambiguous_count += 1
+            for sanction in sanction_list:
+                ambiguous_records.append(
+                    _ambiguous_record(norm_name, sanction, "counsel", match, "counsel_name_normalized", "counsel_id")
+                )
             continue
 
         counsel = match.record
@@ -377,6 +408,14 @@ def build_sanction_matches(
         for m in matches:
             fh.write(json.dumps(m, ensure_ascii=False) + "\n")
 
+    # Write ambiguous records (preserves cases previously discarded)
+    ambiguous_path = output_dir / "sanction_match_ambiguous.jsonl"
+    with AtomicJsonlWriter(ambiguous_path) as fh:
+        for a in ambiguous_records:
+            fh.write(json.dumps(a, ensure_ascii=False) + "\n")
+    if ambiguous_records:
+        logger.info("Wrote %d ambiguous records to %s", len(ambiguous_records), ambiguous_path)
+
     # Build counsel sanction profiles (indirect, via party clients)
     ctx.start_step(5, "Perfis de advogados...")
     counsel_client_map = build_counsel_client_map_from_links(
@@ -439,6 +478,11 @@ def build_sanction_matches(
             match_strategy_counts.get("jaccard", 0) + match_strategy_counts.get("levenshtein", 0)
         ),
         "ambiguous_candidate_count": ambiguous_candidate_count,
+        "counsel_ambiguous_count": counsel_ambiguous_count,
+        "total_ambiguous_records": len(ambiguous_records),
+        "ambiguous_by_entity_type": dict(Counter(a["entity_type"] for a in ambiguous_records)),
+        "ambiguous_by_reason": dict(Counter(a["uncertainty_note"] for a in ambiguous_records)),
+        "ambiguous_by_score": dict(Counter(str(a["match_score"]) for a in ambiguous_records)),
         "generated_at": now_iso,
     }
     validate_records([summary], SUMMARY_SCHEMA_PATH)

@@ -7,7 +7,12 @@
   "required": [
     "total_donors_evaluated",
     "entity_types",
-    "generated_at"
+    "generated_at",
+    "git_commit",
+    "source_dataset",
+    "input_files",
+    "thresholds_evaluated",
+    "execution_status"
   ],
   "properties": {
     "total_donors_evaluated": {
@@ -18,6 +23,39 @@
     },
     "generated_at": {
       "type": "string"
+    },
+    "git_commit": {
+      "type": ["string", "null"],
+      "description": "Git commit SHA at generation time (null if not in a git repo)"
+    },
+    "source_dataset": {
+      "type": "string",
+      "description": "Path to raw donations file used as input"
+    },
+    "input_files": {
+      "type": "object",
+      "description": "Map of input file role to path and record count",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "thresholds_evaluated": {
+      "type": "array",
+      "description": "List of threshold configurations evaluated",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "jaccard_min": { "type": "number" },
+          "levenshtein_max": { "type": "integer" }
+        },
+        "required": ["name", "jaccard_min", "levenshtein_max"]
+      }
+    },
+    "execution_status": {
+      "type": "string",
+      "enum": ["complete"],
+      "description": "Must be 'complete' for a valid final summary"
     }
   }
 }

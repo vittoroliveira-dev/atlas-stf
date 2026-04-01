@@ -68,6 +68,23 @@
     "ambiguous_candidate_count": {
       "type": "integer"
     },
+    "counsel_ambiguous_count": {
+      "type": "integer"
+    },
+    "total_ambiguous_records": {
+      "type": "integer"
+    },
+    "ambiguous_by_entity_type": {
+      "type": "object"
+    },
+    "ambiguous_by_reason": {
+      "type": "object",
+      "description": "Count by uncertainty_note"
+    },
+    "ambiguous_by_score": {
+      "type": "object",
+      "description": "Count by match_score"
+    },
     "generated_at": {
       "type": "string"
     }

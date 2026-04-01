@@ -1,4 +1,4 @@
-"""Corporate network context dataclass and helper index builders."""
+"""Corporate network context dataclass, index builders, and run infrastructure."""
 
 from __future__ import annotations
 
@@ -6,11 +6,13 @@ import json
 import logging
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ..core.identity import normalize_entity_name, stable_id
 from ..core.stats import red_flag_confidence_label, red_flag_power
+from ..schema_validate import validate_records
 from ._match_helpers import (
     compute_favorable_rate_role_aware,
     compute_favorable_rate_substantive,
@@ -350,3 +352,98 @@ def _compute_conflict(
         "source_snapshot": None,
         "evidence_strength": evidence_strength,
     }
+
+
+# ---------------------------------------------------------------------------
+# Run infrastructure (shared between main module and tests)
+# ---------------------------------------------------------------------------
+
+SUMMARY_SCHEMA_PATH = Path("schemas/corporate_network_summary.schema.json")
+
+
+@dataclass
+class _RunStats:
+    """Funnel counters — always written to summary, even on failure."""
+
+    started_at: str = ""
+    finished_at: str = ""
+    status: str = "running"
+    phase: str = "init"
+    error_type: str | None = None
+    error_message: str | None = None
+    resolved_rfb_dir: str = ""
+    resolved_output_dir: str = ""
+    partner_index_size: int = 0
+    minister_names_loaded: int = 0
+    ministers_with_companies: int = 0
+    companies_linked_to_ministers: int = 0
+    co_partners_seen: int = 0
+    co_partners_in_party_index: int = 0
+    co_partners_in_counsel_index: int = 0
+    candidate_entities_total: int = 0
+    compute_conflict_calls: int = 0
+    conflicts_appended: int = 0
+    conflicts_with_shared_processes: int = 0
+    jsonl_records_written: int = 0
+    degree_counts: dict[str, int] = field(default_factory=dict)
+    summary_schema_valid: bool = True
+    summary_validation_error: str | None = None
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _write_summary(summary_path: Path, run: _RunStats, conflicts: list[dict[str, Any]], max_link_degree: int) -> None:
+    """Write summary at every phase checkpoint. Write first, validate after."""
+    dc: dict[int, int] = defaultdict(int)
+    for c in conflicts:
+        dc[int(c.get("link_degree", 0))] += 1
+    run.degree_counts = {str(k): dc[k] for k in sorted(dc)}
+    summary: dict[str, Any] = {
+        "total_conflicts": len(conflicts),
+        "red_flag_count": sum(1 for c in conflicts if c.get("red_flag")),
+        "ministers_involved": len({c["minister_name"] for c in conflicts}),
+        "companies_involved": len({c["company_cnpj_basico"] for c in conflicts}),
+        "max_link_degree": max_link_degree,
+        "degree_counts": run.degree_counts,
+        "generated_at": _now(),
+        "run_status": run.status,
+        "run_phase": run.phase,
+        "run_started_at": run.started_at,
+        "run_finished_at": run.finished_at,
+        "run_error_type": run.error_type,
+        "run_error_message": run.error_message,
+        "resolved_rfb_dir": run.resolved_rfb_dir,
+        "resolved_output_dir": run.resolved_output_dir,
+        "summary_schema_valid": run.summary_schema_valid,
+        "summary_validation_error": run.summary_validation_error,
+        "funnel": {
+            "partner_index_size": run.partner_index_size,
+            "minister_names_loaded": run.minister_names_loaded,
+            "ministers_with_companies": run.ministers_with_companies,
+            "companies_linked_to_ministers": run.companies_linked_to_ministers,
+            "co_partners_seen": run.co_partners_seen,
+            "co_partners_in_party_index": run.co_partners_in_party_index,
+            "co_partners_in_counsel_index": run.co_partners_in_counsel_index,
+            "candidate_entities_total": run.candidate_entities_total,
+            "compute_conflict_calls": run.compute_conflict_calls,
+            "conflicts_appended": run.conflicts_appended,
+            "conflicts_with_shared_processes": run.conflicts_with_shared_processes,
+            "jsonl_records_written": run.jsonl_records_written,
+        },
+    }
+    for degree in range(1, max_link_degree + 1):
+        summary[f"degree_{degree}_count"] = dc.get(degree, 0)
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    try:
+        validate_records([summary], SUMMARY_SCHEMA_PATH)
+        run.summary_schema_valid = True
+        run.summary_validation_error = None
+    except Exception as exc:
+        run.summary_schema_valid = False
+        run.summary_validation_error = str(exc)[:200]
+        logger.warning("Summary schema validation failed: %s", exc)
+        summary["summary_schema_valid"] = False
+        summary["summary_validation_error"] = run.summary_validation_error
+        summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")

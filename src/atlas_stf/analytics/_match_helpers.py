@@ -51,6 +51,7 @@ class EntityMatchResult:
     matched_tax_id: str | None = None
     uncertainty_note: str | None = None
     candidate_count: int | None = None
+    candidates: tuple[dict[str, Any], ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -275,6 +276,7 @@ def match_entity_record(
                     score=best_score,
                     uncertainty_note="multiple_candidates_same_jaccard_score",
                     candidate_count=len(best_records),
+                    candidates=tuple(best_records),
                 )
 
         # Levenshtein distance (token-filtered candidates)
@@ -306,6 +308,7 @@ def match_entity_record(
                 score=float(best_distance),
                 uncertainty_note="multiple_candidates_same_levenshtein_distance",
                 candidate_count=len(best_records),
+                candidates=tuple(best_records),
             )
 
     return None

@@ -64,6 +64,7 @@ def _match_one(item: tuple[str, str | None]) -> tuple[str, dict[str, Any] | None
         "matched_tax_id": result.matched_tax_id,
         "uncertainty_note": result.uncertainty_note,
         "candidate_count": result.candidate_count,
+        "candidates": result.candidates,
     }
 
 
@@ -77,6 +78,7 @@ def _result_from_dict(data: dict[str, Any]) -> EntityMatchResult:
         matched_tax_id=data["matched_tax_id"],
         uncertainty_note=data["uncertainty_note"],
         candidate_count=data.get("candidate_count"),
+        candidates=data.get("candidates"),
     )
 
 

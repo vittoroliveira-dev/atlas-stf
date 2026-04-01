@@ -24,6 +24,7 @@ from ._donation_aggregator import (
     _stream_aggregate_year,
 )
 from ._donation_match_counsel import build_counsel_match_context, process_counsel_match_results
+from ._donation_match_summary import build_donation_match_summary
 from ._match_helpers import (
     DEFAULT_ALIAS_PATH,
     EntityMatchResult,
@@ -462,55 +463,25 @@ def build_donation_matches(  # noqa: C901
     ctx.start_step(10, "Resumo...")
     party_matches = [m for m in matches if m["entity_type"] == "party"]
     counsel_direct_matches = [m for m in matches if m["entity_type"] == "counsel"]
-    total_donated_matched = sum(m["total_donated_brl"] for m in party_matches)
-
-    summary = {
-        "total_donations_raw": raw_count,
-        "unique_donors": unique_donor_count,
-        "matched_party_count": len(matched_party_names),
-        "matched_counsel_count": len(matched_counsel_names),
-        "donation_match_count": len(matches),
-        "party_match_count": len(party_matches),
-        "counsel_match_count": len(counsel_direct_matches),
-        "party_red_flag_count": sum(1 for m in party_matches if m["red_flag"]),
-        "counsel_direct_red_flag_count": sum(1 for m in counsel_direct_matches if m["red_flag"]),
-        "counsel_profile_count": len(counsel_profiles),
-        "counsel_red_flag_count": sum(1 for cp in counsel_profiles if cp["red_flag"]),
-        "total_donated_brl_matched": total_donated_matched,
-        "matched_by_tax_id_count": match_strategy_counts.get("tax_id", 0),
-        "matched_by_alias_count": match_strategy_counts.get("alias", 0),
-        "matched_by_similarity_count": (
-            match_strategy_counts.get("jaccard", 0) + match_strategy_counts.get("levenshtein", 0)
-        ),
-        "party_ambiguous_candidate_count": party_ambiguous_count,
-        "counsel_ambiguous_candidate_count": counsel_ambiguous_count,
-        "total_ambiguous_candidate_count": party_ambiguous_count + counsel_ambiguous_count,
-        "ambiguous_records_written": len(ambiguous_records),
-        "corporate_links_present": corp_index.has_corporate_links,
-        "economic_groups_present": corp_index.has_economic_groups,
-        "corporate_network_present": corp_index.has_corporate_network,
-        "corporate_enriched_count": corporate_enriched_count,
-        "donation_event_count": event_count,
-        "election_years_covered": sorted_years,
-        "resource_category_counts": dict(resource_category_counts),
-        "resource_subtype_counts": dict(resource_subtype_counts),
-        "resource_classification_unknown_count": resource_category_counts.get("unknown", 0),
-        "resource_classification_empty_count": resource_category_counts.get("empty", 0),
-        "resource_classification_coverage_rate": (
-            round((event_count - resource_category_counts.get("unknown", 0)) / event_count, 4)
-            if event_count > 0
-            else 0.0
-        ),
-        "resource_classification_nonempty_coverage_rate": (
-            round(
-                (nonempty_total - resource_category_counts.get("unknown", 0)) / nonempty_total,
-                4,
-            )
-            if (nonempty_total := event_count - resource_category_counts.get("empty", 0)) > 0
-            else 0.0
-        ),
-        "generated_at": now_iso,
-    }
+    summary = build_donation_match_summary(
+        matches=matches,
+        raw_count=raw_count,
+        unique_donor_count=unique_donor_count,
+        matched_party_names=matched_party_names,
+        matched_counsel_names=matched_counsel_names,
+        counsel_profiles=counsel_profiles,
+        match_strategy_counts=match_strategy_counts,
+        party_ambiguous_count=party_ambiguous_count,
+        counsel_ambiguous_count=counsel_ambiguous_count,
+        ambiguous_records=ambiguous_records,
+        corp_index=corp_index,
+        corporate_enriched_count=corporate_enriched_count,
+        event_count=event_count,
+        sorted_years=sorted_years,
+        resource_category_counts=resource_category_counts,
+        resource_subtype_counts=resource_subtype_counts,
+        now_iso=now_iso,
+    )
     validate_records([summary], SUMMARY_SCHEMA_PATH)
     summary_path = output_dir / "donation_match_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")

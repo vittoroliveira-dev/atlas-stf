@@ -371,6 +371,50 @@ class TestBuildDonationMatches:
         assert summary["party_ambiguous_candidate_count"] == 1
         assert summary["total_ambiguous_candidate_count"] >= 1
 
+    def test_ambiguous_record_includes_all_candidates(self, tmp_path: Path) -> None:
+        """Ambiguous records must include full candidate list, not just first."""
+        paths = _setup_test_data(tmp_path)
+        curated_dir = tmp_path / "curated"
+        _write_jsonl(
+            curated_dir / "party.jsonl",
+            [
+                {"party_id": "p1", "party_name_raw": "Joao Marcos Silva", "party_name_normalized": "JOAO MARCOS SILVA"},
+                {"party_id": "p2", "party_name_raw": "Joao Marcoz Silva", "party_name_normalized": "JOAO MARCOZ SILVA"},
+            ],
+        )
+        _write_jsonl(
+            paths["tse_dir"] / "donations_raw.jsonl",
+            [
+                {
+                    "election_year": 2022,
+                    "donor_name_normalized": "JOAO MARCOX SILVA",
+                    "donor_cpf_cnpj": "12345678000199",
+                    "donation_amount": 50000.0,
+                    "party_abbrev": "PT",
+                    "candidate_name": "FULANO",
+                    "position": "SENADOR",
+                },
+            ],
+        )
+        build_donation_matches(**paths)
+
+        ambig_path = paths["output_dir"] / "donation_match_ambiguous.jsonl"
+        assert ambig_path.exists()
+        records = [json.loads(line) for line in ambig_path.read_text().strip().split("\n") if line.strip()]
+        party_ambig = [r for r in records if r["entity_type"] == "party"]
+        assert len(party_ambig) >= 1
+        rec = party_ambig[0]
+        assert "candidates" in rec, "ambiguous record must include 'candidates' list"
+        assert isinstance(rec["candidates"], list)
+        assert len(rec["candidates"]) == rec["candidate_count"]
+        assert len(rec["candidates"]) >= 2, "ambiguous must have 2+ candidates"
+        for cand in rec["candidates"]:
+            assert "entity_id" in cand
+            assert "entity_name_normalized" in cand
+            assert "rank" in cand
+        entity_ids = {c["entity_id"] for c in rec["candidates"]}
+        assert len(entity_ids) == len(rec["candidates"]), "candidates must be distinct entities"
+
 
 class TestCounselDonationMatch:
     def test_counsel_direct_match(self, tmp_path: Path) -> None:

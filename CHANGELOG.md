@@ -6,6 +6,63 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-04-01
+
+### Added
+
+- **validation/crossref_audit.py**: módulo de auditoria de cruzamentos com inventário de regras, qualidade por estrato, sensibilidade e verificação de política — gate por registros adjudicados no gold set
+- **validation/_xref_metrics.py**: funções extraídas de `crossref_audit` — `inventory()`, `rule_quality()`, `sensitivity()`, `write_quality_observed()` e constantes de política
+- **analytics/_match_diagnostics.py**: funções de diagnóstico de matching extraídas de `match_calibration` — `MatchDiagnostic`, `match_entity_record_diagnostic()`, `CALIBRATION_CONFIGS`, histogramas de score
+- **analytics/_donation_match_summary.py**: construção de sumário de doações extraída de `donation_match` — `build_donation_match_summary()`
+- **analytics/_run_io.py**: I/O reutilizável de analytics — `read_jsonl()`, `write_jsonl()`, `read_summary()`, `write_summary()`
+- **evidence/_bundle_markdown.py**: renderização Markdown de bundles de evidência extraída de `build_bundle.py`
+- **serving/_builder_sources.py**: coleta de source files extraída de `builder.py` — `_collect_source_files()`, constantes de diretórios
+- **curated/_build_source_evidence.py**: builder de source evidence extraído de `_build_representation_edges.py`
+- **api/_schemas_corporate.py**: schemas Pydantic de rede societária extraídos de `_schemas_risk.py`
+- **cli/_parsers_portal.py**: subparsers do portal STF extraídos de `_parsers_external.py`
+- **cli/_parsers_sources.py**: subparsers de fontes externas extraídos de `_parsers_external.py`
+- **stf_portal/_runner_fetch.py**: lógica de fetch do portal STF extraída de `_runner.py`
+- **scripts/gold_set/**: pacote completo de geração e validação do gold set — 175 registros, 12 estratos, 2 níveis de labeling (heurístico + adjudicado), decisões curatoriais por fingerprint intrínseco
+- **scripts/build_gold_set.py**: CLI do gold set com subcomandos `generate`, `review --apply-curatorial` e `summary`
+- **scripts/benchmark_minister_flow.py**: benchmark de fluxo de ministros
+- **data/benchmarks/minister_flow.json**: dados do benchmark de fluxo de ministros
+- **docs/gold-set-protocol.md**: protocolo metodológico do gold set com labeling em dois níveis
+- **docs/benchmark-minister-flow.md**: documentação do benchmark de fluxo de ministros
+- **tests/validation/test_crossref_audit.py**: testes do módulo de auditoria de cruzamentos
+- **tests/serving/test_benchmark_minister_flow.py**: testes do benchmark de fluxo de ministros
+- **Makefile**: targets `validate-xref`, `calibrate-match`, `gold-set` e `check-filesize`
+
+### Changed
+
+- **analytics/match_calibration.py**: refatorado para execução em fases (aggregate → party → counsel → consolidate) com checkpoint/resume via JSONL e diagnósticos em streaming — pico de memória reduzido de ~26 GB para ~3.6 GB com 4.7M doadores
+- **analytics/corporate_network.py**: refatorado para arquitetura em duas fases (discovery → enrichment) com carregamento lazy de índices por BFS, contadores de funil (`_RunStats`) e sumário escrito em cada checkpoint — de 0 conflitos para 31 em produção
+- **analytics/sanction_match.py**: registros ambíguos preservados em `sanction_match_ambiguous.jsonl` com lista completa de candidatos, breakdown por razão e por score no sumário
+- **analytics/_parallel.py**: campo `candidates` incluído na serialização de `_match_one()` e reconstrução em `_result_from_dict()` — corrige perda silenciosa de candidatos em matching paralelo
+- **analytics/donation_match.py**: construção de sumário extraída para `_donation_match_summary.py`
+- **analytics/_run_context.py**: adaptado para novas dependências de I/O
+- **analytics/_match_helpers.py**: ajustes de interface para suportar streaming diagnostics
+- **serving/builder.py**: utilitários, constantes e coleta de fontes extraídos para `_builder_utils.py` e `_builder_sources.py`
+- **serving/_builder_flow.py**: refatorado para usar helpers extraídos
+- **serving/_builder_utils.py**: recebe funções de validação, logging e monitoramento de RSS extraídas de `builder.py`
+- **evidence/build_bundle.py**: renderização Markdown extraída para `_bundle_markdown.py`
+- **curated/_build_representation_edges.py**: source evidence extraído para `_build_source_evidence.py`
+- **api/_schemas_risk.py**: schemas corporativos extraídos para `_schemas_corporate.py`
+- **api/schemas.py**: imports atualizados para schemas extraídos
+- **cli/_parsers_external.py**: subparsers de portal e fontes extraídos para módulos dedicados
+- **stf_portal/_runner.py**: lógica de fetch extraída para `_runner_fetch.py`
+- **schemas/corporate_network_summary.schema.json**: campos `run_status`, `run_phase`, `funnel`, `summary_schema_valid`, `summary_validation_error`
+- **schemas/match_calibration_summary.schema.json**: campos `git_commit`, `source_dataset`, `input_files`, `thresholds_evaluated`, `execution_status`
+- **schemas/sanction_match_summary.schema.json**: campos `counsel_ambiguous_count`, `total_ambiguous_records`, `ambiguous_by_entity_type`, `ambiguous_by_reason`, `ambiguous_by_score`
+- **Makefile**: `check` agora inclui `check-filesize` (guarda de 500 linhas por arquivo Python)
+
+### Fixed
+
+- Serialização paralela de matching (`_parallel.py`) omitia campo `candidates`, causando perda de candidatos em todos os registros ambíguos
+- `corporate_network.py` carregava ~18 GB de índices antes de verificar existência de candidatos — refatorado para carregamento lazy por BFS
+- Sumário de `corporate_network` nunca era escrito quando o builder falhava — corrigido com escrita em `try/finally` a cada fase
+- `review_omitted_by_cap` sempre retornava 0 por truncação prematura do buffer — corrigido com contador incremental na coleta
+- `accent_impact` em match_calibration emitia 0 em vez de `null` quando contrafactual não era computado — corrigido para semântica correta
+
 ## [1.1.4] - 2026-03-30
 
 ### Added

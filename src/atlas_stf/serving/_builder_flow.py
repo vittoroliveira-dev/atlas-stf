@@ -1,13 +1,12 @@
-"""Materialized minister flows for serving database.
-
-Replaces ~136K sequential SQL queries with in-memory filtering + parallel computation.
-"""
+"""Materialized minister flows: in-memory filtering + parallel computation."""
 
 from __future__ import annotations
 
+import bisect
 import logging
 import multiprocessing
 import os
+import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date
@@ -23,9 +22,13 @@ from .models import ServingAlert, ServingCase, ServingMinisterFlow
 
 logger = logging.getLogger(__name__)
 
+CaseIndex = dict[tuple[str | None, str], list["_CaseRow"]]
+HistCache = dict[tuple[str | None, str | None, str | None, str], list["_CaseRow"]]
+
 # Module-level state shared with forked workers (copy-on-write).
 _worker_case_index: CaseIndex = {}
 _worker_alert_ids: frozenset[str] = frozenset()
+_worker_hist_cache: HistCache = {}
 
 FLOW_SHAPES: tuple[tuple[str, ...], ...] = (
     (),
@@ -48,6 +51,7 @@ class _CaseRow:
     decision_date: date | None
     period: str | None
     current_rapporteur: str | None
+    current_rapporteur_lower: str
     judging_body: str | None
     process_class: str | None
     is_collegiate: bool | None
@@ -67,7 +71,6 @@ def _minister_flow_key(filters: QueryFilters) -> str:
         ]
     )
     return sha256(signature.encode("utf-8")).hexdigest()
-
 
 
 def _group_counter(cases: list[_CaseRow], selector) -> dict[str, int]:
@@ -146,32 +149,17 @@ def _interpret_thematic_flow(
     return ("comparativo" if not reasons else "inconclusivo", reasons)
 
 
-CaseIndex = dict[tuple[str | None, str], list[_CaseRow]]
-
-
 def _build_case_index(all_cases: list[_CaseRow]) -> CaseIndex:
-    """Pre-group cases by (period, collegiate_bucket) for O(1) lookup.
-
-    Instead of scanning all 412K cases per flow, we look up only the
-    relevant bucket (~32K avg).  Each case appears exactly once per bucket
-    it belongs to — no duplicates.
-
-    Buckets:
-    - ``(period, "all")``: cases with that specific period
-    - ``(period, "colegiado"/"monocratico")``: cases with that period + collegiate
-    - ``(None, "all")``: ALL cases (for all-periods queries)
-    - ``(None, "colegiado"/"monocratico")``: all cases with that collegiate
-    """
+    """Pre-group cases by (period, collegiate_bucket), pre-sorted for downstream use."""
+    all_cases.sort(key=lambda c: (c.decision_date or date.min, c.decision_event_id))
     index: dict[tuple[str | None, str], list[_CaseRow]] = defaultdict(list)
     for case in all_cases:
-        # Specific period bucket (if case has a period)
         if case.period is not None:
             index[(case.period, "all")].append(case)
             if case.is_collegiate is True:
                 index[(case.period, "colegiado")].append(case)
             elif case.is_collegiate is False:
                 index[(case.period, "monocratico")].append(case)
-        # "All periods" bucket — every case goes here exactly once
         index[(None, "all")].append(case)
         if case.is_collegiate is True:
             index[(None, "colegiado")].append(case)
@@ -181,13 +169,14 @@ def _build_case_index(all_cases: list[_CaseRow]) -> CaseIndex:
 
 
 def _filter_from_bucket(
-    bucket: list[_CaseRow], filters: QueryFilters,
+    bucket: list[_CaseRow],
+    filters: QueryFilters,
 ) -> list[_CaseRow]:
     """Filter cases from a pre-grouped bucket (period+collegiate already matched)."""
     result: list[_CaseRow] = []
     minister_lower = filters.minister.lower() if filters.minister else None
     for c in bucket:
-        if minister_lower and minister_lower not in (c.current_rapporteur or "").lower():
+        if minister_lower and minister_lower not in c.current_rapporteur_lower:
             continue
         if filters.judging_body and c.judging_body != filters.judging_body:
             continue
@@ -197,34 +186,79 @@ def _filter_from_bucket(
     return result
 
 
+def _build_hist_cache(
+    case_index: CaseIndex,
+    tasks: list[tuple[str, QueryFilters]],
+) -> HistCache:
+    """Pre-filter historical cases per unique (minister, jb, class, collegiate).
+
+    Two-level strategy: filter by minister first (most selective), then refine
+    by jb/class.  Eliminates ~150K redundant full-bucket scans.
+    """
+    cache: HistCache = {}
+
+    # Collect unique cache keys needed.
+    needed: set[tuple[str | None, str | None, str | None, str]] = set()
+    for _key, filters in tasks:
+        if filters.period is None:
+            continue
+        minister_lower = filters.minister.lower() if filters.minister else None
+        needed.add((minister_lower, filters.judging_body, filters.process_class, filters.collegiate))
+
+    # Pre-filter the all-periods bucket by minister per collegiate — O(ministers × bucket).
+    # Then refine per (jb, class) from the smaller minister-filtered list.
+    minister_filtered: dict[tuple[str | None, str], list[_CaseRow]] = {}
+    for cache_key in needed:
+        minister_lower, jb, pc, collegiate = cache_key
+        mf_key = (minister_lower, collegiate)
+        if mf_key not in minister_filtered:
+            bucket = case_index.get((None, collegiate), [])
+            if minister_lower is None:
+                mf_list = [c for c in bucket if c.decision_date is not None]
+            else:
+                mf_list = [
+                    c for c in bucket if c.decision_date is not None and minister_lower in c.current_rapporteur_lower
+                ]
+            minister_filtered[mf_key] = mf_list
+
+        mf_list = minister_filtered[mf_key]
+        if jb is None and pc is None:
+            cache[cache_key] = mf_list
+        elif jb is not None and pc is None:
+            cache[cache_key] = [c for c in mf_list if c.judging_body == jb]
+        elif jb is None and pc is not None:
+            cache[cache_key] = [c for c in mf_list if c.process_class == pc]
+        else:
+            cache[cache_key] = [c for c in mf_list if c.judging_body == jb and c.process_class == pc]
+
+    return cache
+
+
 def _compute_flow(
     case_index: CaseIndex,
     alert_event_ids: frozenset[str],
     filters: QueryFilters,
+    hist_cache: HistCache,
 ) -> dict:
-    """Compute a minister flow using pre-indexed case buckets."""
+    """Compute a minister flow using pre-indexed buckets + historical cache."""
     bucket_key = (filters.period, filters.collegiate)
     bucket = case_index.get(bucket_key, [])
     monthly_cases = _filter_from_bucket(bucket, filters)
-    monthly_cases.sort(key=lambda c: (c.decision_date or date.min, c.decision_event_id))
+    # Bucket pre-sorted by (decision_date, decision_event_id) → already sorted.
 
     historical_cases: list[_CaseRow] = []
-    historical_start: date | None = None
     if filters.period:
         historical_start = date.fromisoformat(f"{filters.period}-01")
-        # Historical = same filters but ALL periods before this one
-        hist_bucket = case_index.get((None, filters.collegiate), [])
-        hist_filtered = _filter_from_bucket(hist_bucket, QueryFilters(
-            minister=filters.minister,
-            collegiate=filters.collegiate,
-            judging_body=filters.judging_body,
-            process_class=filters.process_class,
-        ))
-        historical_cases = [
-            c for c in hist_filtered
-            if c.decision_date is not None and c.decision_date < historical_start
-        ]
-        historical_cases.sort(key=lambda c: (c.decision_date or date.min,))
+        minister_lower = filters.minister.lower() if filters.minister else None
+        cache_key = (minister_lower, filters.judging_body, filters.process_class, filters.collegiate)
+        hist_all = hist_cache.get(cache_key, [])
+        # hist_cache excludes None-dated cases → decision_date always set.
+        idx = bisect.bisect_left(
+            hist_all,
+            historical_start,
+            key=lambda c: c.decision_date or date.min,
+        )
+        historical_cases = hist_all[:idx]
 
     monthly_days = {c.decision_date for c in monthly_cases if c.decision_date}
     historical_days = {c.decision_date for c in historical_cases if c.decision_date}
@@ -279,7 +313,7 @@ def _compute_flow(
 def _worker_compute_flow(item: tuple[str, QueryFilters]) -> tuple[str, QueryFilters, dict]:
     """Multiprocessing worker — uses module-level state inherited via fork."""
     key, filters = item
-    payload = _compute_flow(_worker_case_index, _worker_alert_ids, filters)
+    payload = _compute_flow(_worker_case_index, _worker_alert_ids, filters, _worker_hist_cache)
     return key, filters, payload
 
 
@@ -337,6 +371,7 @@ def _materialize_minister_flows(session: Session) -> list[ServingMinisterFlow]:
             decision_date=c.decision_date,
             period=c.period,
             current_rapporteur=c.current_rapporteur,
+            current_rapporteur_lower=(c.current_rapporteur or "").lower(),
             judging_body=c.judging_body,
             process_class=c.process_class,
             is_collegiate=c.is_collegiate,
@@ -402,11 +437,22 @@ def _materialize_minister_flows(session: Session) -> list[ServingMinisterFlow]:
 
     logger.info("Minister flows: %d unique filter combinations to compute", len(tasks))
 
+    # Phase 2b: Build historical cache — pre-filter the all-periods bucket once
+    # per unique (minister, jb, class, collegiate) instead of per-task.
+    t_hist = time.monotonic()
+    hist_cache = _build_hist_cache(case_index, tasks)
+    logger.info(
+        "Minister flows: %d historical cache entries built in %.1fs",
+        len(hist_cache),
+        time.monotonic() - t_hist,
+    )
+
     # Phase 3: Compute flows in parallel using fork-based multiprocessing.
-    # Workers inherit case_index + alert_event_ids via copy-on-write (no serialization).
-    global _worker_case_index, _worker_alert_ids  # noqa: PLW0603
+    # Workers inherit case_index + alert_event_ids + hist_cache via copy-on-write.
+    global _worker_case_index, _worker_alert_ids, _worker_hist_cache  # noqa: PLW0603
     _worker_case_index = case_index
     _worker_alert_ids = alert_event_ids
+    _worker_hist_cache = hist_cache
 
     max_workers = min(
         os.cpu_count() or 4,
@@ -447,6 +493,7 @@ def _materialize_minister_flows(session: Session) -> list[ServingMinisterFlow]:
     finally:
         _worker_case_index = {}
         _worker_alert_ids = frozenset()
+        _worker_hist_cache = {}
 
     logger.info("Minister flows: %d flows materialized", len(results))
     return list(results.values())

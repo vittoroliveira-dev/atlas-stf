@@ -340,6 +340,22 @@ def _build_ambiguous_record(
     *,
     entity_type: str,
 ) -> dict[str, Any]:
+    # Extract relevant fields from each tied candidate for auditability.
+    id_field = "party_id" if entity_type == "party" else "counsel_id"
+    name_field = "party_name_normalized" if entity_type == "party" else "counsel_name_normalized"
+    candidates_list: list[dict[str, Any]] = []
+    if match.candidates:
+        for rank, cand in enumerate(match.candidates):
+            candidates_list.append(
+                {
+                    "rank": rank,
+                    "entity_id": cand.get(id_field, ""),
+                    "entity_name_normalized": cand.get(name_field, ""),
+                    "canonical_name_normalized": cand.get("canonical_name_normalized", ""),
+                    "entity_tax_id": cand.get("entity_tax_id"),
+                    "identity_key": cand.get("identity_key", ""),
+                }
+            )
     return {
         "donor_identity_key": donor_key,
         "donor_name_normalized": donor_info["donor_name_normalized"],
@@ -352,6 +368,7 @@ def _build_ambiguous_record(
         "sample_candidate_name": (
             match.record.get("party_name_normalized") or match.record.get("counsel_name_normalized") or ""
         ),
+        "candidates": candidates_list,
         "total_donated_brl": donor_info["total_donated_brl"],
         "donation_count": donor_info["donation_count"],
         "election_years": sorted(donor_info["election_years"]),

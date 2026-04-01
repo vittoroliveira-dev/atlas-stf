@@ -310,16 +310,14 @@ class TestRunCalibration:
         tse_dir.mkdir()
         output_dir = tmp_path / "output"
         output_dir.mkdir()
-        result = run_match_calibration(
-            tse_dir=tse_dir,
-            party_path=tmp_path / "nonexistent.jsonl",
-            counsel_path=tmp_path / "nonexistent.jsonl",
-            output_dir=output_dir,
-            alias_path=Path("/dev/null"),
-        )
-        assert result == output_dir / "match_calibration_summary.json"
-        assert result.exists()
-        assert result.read_text() == "{}"
+        with pytest.raises(FileNotFoundError, match="donations_raw.jsonl"):
+            run_match_calibration(
+                tse_dir=tse_dir,
+                party_path=tmp_path / "nonexistent.jsonl",
+                counsel_path=tmp_path / "nonexistent.jsonl",
+                output_dir=output_dir,
+                alias_path=Path("/dev/null"),
+            )
 
     def test_counsel_entity_type_in_summary(self, calibration_setup: dict[str, Path]):
         result = run_match_calibration(

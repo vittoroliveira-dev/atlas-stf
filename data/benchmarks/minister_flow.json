@@ -1,0 +1,40 @@
+{
+  "benchmark": "minister_flow_phase2",
+  "commit": "934d2e9",
+  "timestamp": "2026-03-30T19:21:38.513070+00:00",
+  "machine": "vittoroliveira",
+  "python": "3.14.3",
+  "os": "Linux 6.17.0-19-generic",
+  "cpu_count": 24,
+  "workers": 1,
+  "db_path": "data/serving/atlas_stf.db",
+  "scenario": "full",
+  "total_tasks_available": 162382,
+  "tasks_computed": 162382,
+  "hist_cache_entries": 4232,
+  "durations_seconds": {
+    "load": 4.24,
+    "index": 0.46,
+    "enumerate": 6.06,
+    "hist_cache": 13.71,
+    "compute": 945.78,
+    "total": 970.25
+  },
+  "throughput": {
+    "flows_per_second": 171.7,
+    "ms_per_flow": 5.82
+  },
+  "memory_mb": {
+    "rss_start": 55.3,
+    "rss_end": 882.4
+  },
+  "output_equivalence": {
+    "fingerprint": "27e0ebe37082fa0a",
+    "total_events_sum": 12772340,
+    "method": "sha256(key:event_count:hist_count per flow)[:16]"
+  },
+  "notes": {
+    "baseline_comparison": "Baseline from data/serving_build.log: 13253.4s for 162262 flows (serial, includes ORM insert overhead). This benchmark measures compute only (no ORM insert). Direct comparison requires same scope.",
+    "cold_warm": "Cold start (fresh DB read). No prior cache."
+  }
+}

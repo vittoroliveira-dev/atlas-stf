@@ -1,8 +1,8 @@
 .PHONY: install help setup clean clean-all \
-       lint format format-check lint-fix typecheck deadcode check \
+       lint format format-check lint-fix typecheck deadcode check check-filesize \
        test ci web-ci reproduce \
        manifest-raw profile-staging validate-staging \
-       audit-stage audit-curated audit-analytics audit audit-builder-validation validate-pipeline \
+       audit-stage audit-curated audit-analytics audit audit-builder-validation validate-pipeline validate-xref calibrate-match gold-set \
        staging curate \
        curate-process curate-decision-event curate-subject curate-party \
        curate-counsel curate-representation curate-entity-identifier curate-entity-reconciliation curate-links \
@@ -79,7 +79,17 @@ typecheck: ## Verificacao de tipos (pyright strict)
 deadcode: ## Detecta codigo morto (vulture)
 	uv run vulture src/ --min-confidence 80
 
-check: lint typecheck deadcode ## Lint + typecheck + deadcode
+check-filesize: ## Detecta arquivos Python acima de 500 linhas em src/
+	@over=$$(find src/ -name '*.py' -exec wc -l {} + | awk '$$2 != "total" && $$1 > 500 {print}' | sort -rn); \
+	if [ -n "$$over" ]; then \
+		echo "ERRO: Arquivos acima de 500 linhas:"; \
+		echo "$$over"; \
+		exit 1; \
+	else \
+		echo "OK: Nenhum arquivo Python acima de 500 linhas em src/"; \
+	fi
+
+check: lint typecheck deadcode check-filesize ## Lint + typecheck + deadcode + filesize
 
 audit-integrity: ## Auditoria de integridade (fontes canônicas + propagação + fallback + frontend)
 	cd $(CURDIR) && uv run python scripts/audit_integrity.py
@@ -149,6 +159,18 @@ audit-builder-validation: ## Audita cobertura de schema validation nos builders 
 
 validate-pipeline: ## Valida integridade referencial e cobertura dos artefatos do pipeline
 	uv run python -m atlas_stf.validation.pipeline_integrity --scope all
+
+validate-xref: ## Auditoria de cruzamentos: inventário, qualidade por regra, sensibilidade e política
+	uv run python -m atlas_stf.validation.crossref_audit --output data/analytics/crossref_audit_report.json
+
+calibrate-match: ## Calibração de thresholds fuzzy (Jaccard/Levenshtein) com dados reais
+	$(CLI) analytics calibrate-match
+
+gold-set: ## Gera gold set de validação a partir de dados reais de produção
+	uv run python scripts/build_gold_set.py generate
+
+benchmark-flow: ## Benchmark da Phase 2 (minister flows) — reproduzível e auditável
+	uv run python scripts/benchmark_minister_flow.py --output data/benchmarks/minister_flow.json
 
 # ===========================
 # Staging e Curated
