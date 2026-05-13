@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from atlas_stf.validation.pipeline_integrity import (
     CheckResult,
     ValidationReport,
@@ -232,6 +234,32 @@ class TestAlertReferentialIntegrity:
         result = check_alert_referential_integrity(curated_dir, analytics_dir)
 
         assert isinstance(result, CheckResult)
+
+    def test_invalid_alert_jsonl_record_reports_path_and_line(self, tmp_path: Path) -> None:
+        curated_dir = tmp_path / "curated"
+        analytics_dir = tmp_path / "analytics"
+        curated_dir.mkdir(parents=True)
+        analytics_dir.mkdir(parents=True)
+        (analytics_dir / "outlier_alert.jsonl").write_text("{\n", encoding="utf-8")
+        _write_jsonl(curated_dir / "decision_event.jsonl", [{"decision_event_id": "de1"}])
+        _write_jsonl(curated_dir / "process.jsonl", [{"process_id": "p1"}])
+        _write_jsonl(analytics_dir / "comparison_group.jsonl", [{"comparison_group_id": "g1"}])
+
+        with pytest.raises(json.JSONDecodeError, match=r"outlier_alert\.jsonl:1"):
+            check_alert_referential_integrity(curated_dir, analytics_dir)
+
+    def test_non_object_alert_jsonl_record_reports_path_and_line(self, tmp_path: Path) -> None:
+        curated_dir = tmp_path / "curated"
+        analytics_dir = tmp_path / "analytics"
+        curated_dir.mkdir(parents=True)
+        analytics_dir.mkdir(parents=True)
+        (analytics_dir / "outlier_alert.jsonl").write_text("[]\n", encoding="utf-8")
+        _write_jsonl(curated_dir / "decision_event.jsonl", [{"decision_event_id": "de1"}])
+        _write_jsonl(curated_dir / "process.jsonl", [{"process_id": "p1"}])
+        _write_jsonl(analytics_dir / "comparison_group.jsonl", [{"comparison_group_id": "g1"}])
+
+        with pytest.raises(ValueError, match=r"outlier_alert\.jsonl:1"):
+            check_alert_referential_integrity(curated_dir, analytics_dir)
 
 
 # ---------------------------------------------------------------------------

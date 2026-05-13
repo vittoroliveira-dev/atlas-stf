@@ -109,8 +109,8 @@ export function CompoundRiskRanking({
 }) {
   if (items.length === 0) {
     return (
-      <section className="flex items-center gap-3 rounded-[28px] border border-amber-200 bg-amber-50 p-6">
-        <Flame className="h-5 w-5 text-amber-700" />
+      <section className="flex items-center gap-3 rounded-card border border-amber-200 bg-amber-50 p-6">
+        <Flame className="h-5 w-5 text-amber-700" aria-hidden="true" focusable="false" />
         <p className="text-sm text-amber-800">
           Nenhum par foi encontrado com os filtros atuais.
         </p>
@@ -129,22 +129,22 @@ export function CompoundRiskRanking({
         return (
           <article
             key={item.pair_id}
-            className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white/95 shadow-[0_20px_70px_rgba(15,23,42,0.08)]"
+            className="overflow-hidden rounded-card border border-slate-200 bg-white shadow-elevation-1"
           >
             <div className="grid gap-0 xl:grid-cols-[1.2fr_0.8fr]">
               <div className="p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
+                      <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold tracking-[0.02em] text-slate-700">
                         {item.minister_name}
                       </span>
-                      <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">
+                      <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold tracking-[0.02em] text-slate-700">
                         {entityTypeLabel(item.entity_type)}
                       </span>
                       {item.red_flag ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">
-                          <Flame className="h-3.5 w-3.5" />
+                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold tracking-[0.02em] text-rose-700">
+                          <Flame className="h-3.5 w-3.5" aria-hidden="true" focusable="false" />
                           Ponto crítico composto
                         </span>
                       ) : null}
@@ -170,7 +170,7 @@ export function CompoundRiskRanking({
                   {item.signals.map((signal) => (
                     <span
                       key={`${item.pair_id}:${signal}`}
-                      className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] ${signalTone(signal)}`}
+                      className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold tracking-[0.02em] ${signalTone(signal)}`}
                     >
                       {signalLabel(signal)}
                     </span>
@@ -205,21 +205,21 @@ export function CompoundRiskRanking({
                 </div>
               </div>
 
-              <div className="border-t border-slate-200/80 bg-slate-50/80 p-6 xl:border-l xl:border-t-0">
-                <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">
+              <div className="border-t border-slate-200 bg-slate-50/80 p-6 xl:border-l xl:border-t-0">
+                <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">
                   Contexto do par
                 </p>
                 <div className="mt-4 space-y-4">
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
                     <div className="flex items-start gap-3">
                       {item.corporate_conflict_count > 0 ? (
-                        <Building2 className="mt-0.5 h-4 w-4 text-marinho-700" />
+                        <Building2 className="mt-0.5 h-4 w-4 text-marinho-700" aria-hidden="true" focusable="false" />
                       ) : item.donation_match_count > 0 ? (
-                        <Banknote className="mt-0.5 h-4 w-4 text-ouro-700" />
+                        <Banknote className="mt-0.5 h-4 w-4 text-ouro-700" aria-hidden="true" focusable="false" />
                       ) : item.affinity_count > 0 ? (
-                        <Users className="mt-0.5 h-4 w-4 text-verde-700" />
+                        <Users className="mt-0.5 h-4 w-4 text-verde-700" aria-hidden="true" focusable="false" />
                       ) : (
-                        <Link2 className="mt-0.5 h-4 w-4 text-slate-500" />
+                        <Link2 className="mt-0.5 h-4 w-4 text-slate-500" aria-hidden="true" focusable="false" />
                       )}
                       <div>
                         <p className="text-sm font-semibold text-slate-950">

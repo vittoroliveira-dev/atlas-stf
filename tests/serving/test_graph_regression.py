@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from typing import cast
 
 import pytest
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import Table, create_engine, delete, func, select
 from sqlalchemy.orm import Session
 
 from atlas_stf.serving._builder_graph import materialize_graph
@@ -33,16 +34,17 @@ from atlas_stf.serving.models import (
 
 def _clear_graph_tables(session: Session) -> None:
     """Apaga todas as tabelas de grafo na ordem correta para rebuild limpo."""
-    for tbl in (
-        ServingGraphScore.__table__,
-        ServingReviewQueue.__table__,
-        ServingEvidenceBundle.__table__,
-        ServingGraphPathCandidate.__table__,
-        ServingGraphEdge.__table__,
-        ServingGraphNode.__table__,
-        ServingModuleAvailability.__table__,
-    ):
-        session.execute(tbl.delete())
+    graph_tables: tuple[Table, ...] = (
+        cast(Table, ServingGraphScore.__table__),
+        cast(Table, ServingReviewQueue.__table__),
+        cast(Table, ServingEvidenceBundle.__table__),
+        cast(Table, ServingGraphPathCandidate.__table__),
+        cast(Table, ServingGraphEdge.__table__),
+        cast(Table, ServingGraphNode.__table__),
+        cast(Table, ServingModuleAvailability.__table__),
+    )
+    for tbl in graph_tables:
+        session.execute(delete(tbl))
 
 
 @pytest.fixture

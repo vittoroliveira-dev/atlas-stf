@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import datetime, timezone
 
 import pytest
@@ -20,7 +21,7 @@ from tests.api.conftest import managed_engine
 
 
 @pytest.fixture()
-def client(tmp_path) -> TestClient:
+def client(tmp_path) -> Iterator[TestClient]:
     db_path = tmp_path / "test.db"
     db_url = f"sqlite:///{db_path}"
     with managed_engine(db_url) as engine:

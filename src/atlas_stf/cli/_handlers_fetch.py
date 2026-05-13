@@ -38,12 +38,16 @@ def _handle_plan(args: argparse.Namespace) -> int:
     if process_path:
         discovery_kwargs["datajud"] = {"process_path": process_path}
 
-    plan = generate_plan(
-        sources=args.sources,
-        base_dir=args.output_dir,
-        force_refresh=args.force_refresh,
-        discovery_kwargs=discovery_kwargs,
-    )
+    try:
+        plan = generate_plan(
+            sources=args.sources,
+            base_dir=args.output_dir,
+            force_refresh=args.force_refresh,
+            discovery_kwargs=discovery_kwargs,
+        )
+    except ValueError as exc:
+        logger.error("Failed to generate fetch plan: %s", exc)
+        return 1
 
     downloads = [i for i in plan.items if i.action != "skip"]
     skips = [i for i in plan.items if i.action == "skip"]
@@ -170,8 +174,12 @@ def _handle_run(args: argparse.Namespace) -> int:
         # Pre-generated plan: validate supports_deferred_run
         from ..fetch._manifest_model import FetchPlan
 
-        plan_data = json.loads(plan_path.read_text(encoding="utf-8"))
-        plan = FetchPlan.from_dict(plan_data)
+        try:
+            plan_data = json.loads(plan_path.read_text(encoding="utf-8"))
+            plan = FetchPlan.from_dict(plan_data)
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            logger.error("Failed to load fetch plan from %s: %s", plan_path, exc)
+            return 1
 
         # Fail-closed: reject deferred plan for non-deferred sources
         for item in plan.items:
@@ -195,12 +203,16 @@ def _handle_run(args: argparse.Namespace) -> int:
         if process_path:
             discovery_kwargs["datajud"] = {"process_path": process_path}
 
-        plan = generate_plan(
-            sources=args.sources,
-            base_dir=args.output_dir,
-            force_refresh=getattr(args, "force_refresh", False),
-            discovery_kwargs=discovery_kwargs,
-        )
+        try:
+            plan = generate_plan(
+                sources=args.sources,
+                base_dir=args.output_dir,
+                force_refresh=getattr(args, "force_refresh", False),
+                discovery_kwargs=discovery_kwargs,
+            )
+        except ValueError as exc:
+            logger.error("Failed to generate fetch plan: %s", exc)
+            return 1
 
     errors = validate_plan_for_execution(plan)
     if errors:

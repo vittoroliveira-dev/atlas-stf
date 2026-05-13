@@ -287,3 +287,24 @@ def test_json_serialization(analytics_dir: Path) -> None:
     assert parsed["generated_at"]
     assert len(parsed["modules"]) == 13
     assert len(parsed["rule_quality"]) > 0
+
+
+def test_run_crossref_audit_rejects_non_object_summary_json(analytics_dir: Path) -> None:
+    (analytics_dir / "donation_match_summary.json").write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"donation_match_summary\.json"):
+        run_crossref_audit(analytics_dir=analytics_dir)
+
+
+def test_run_crossref_audit_rejects_invalid_gold_set_jsonl_with_context(analytics_dir: Path) -> None:
+    (analytics_dir / "gold_set_matches.jsonl").write_text("{\n", encoding="utf-8")
+
+    with pytest.raises(json.JSONDecodeError, match=r"gold_set_matches\.jsonl:1"):
+        run_crossref_audit(analytics_dir=analytics_dir)
+
+
+def test_run_crossref_audit_rejects_non_object_gold_set_jsonl_with_context(analytics_dir: Path) -> None:
+    (analytics_dir / "gold_set_matches.jsonl").write_text("[]\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"gold_set_matches\.jsonl:1"):
+        run_crossref_audit(analytics_dir=analytics_dir)

@@ -216,6 +216,23 @@ def test_read_jsonl_map_raises_explicit_value_error_for_missing_key(tmp_path: Pa
         _read_jsonl_map(path, "alert_id")
 
 
+def test_read_jsonl_map_rejects_duplicate_key_with_file_and_line(tmp_path: Path):
+    path = tmp_path / "duplicate.jsonl"
+    _write_jsonl(
+        path,
+        [
+            {"alert_id": "alert_1", "value": 1},
+            {"alert_id": "alert_1", "value": 2},
+        ],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r".*duplicate\.jsonl:2 contains duplicate key 'alert_id': alert_1",
+    ):
+        _read_jsonl_map(path, "alert_id")
+
+
 def test_build_evidence_bundle_includes_advanced_analytics(tmp_path: Path):
     paths = _seed_inputs(tmp_path)
     evidence_dir = tmp_path / "evidence"
@@ -302,6 +319,75 @@ def test_build_evidence_bundle_includes_advanced_analytics(tmp_path: Path):
     markdown = md_path.read_text(encoding="utf-8")
     assert "Contexto analítico adicional" in markdown
     assert "perfil do relator" in markdown
+
+
+def test_build_evidence_bundle_rejects_duplicate_required_input_key(tmp_path: Path):
+    paths = _seed_inputs(tmp_path)
+    evidence_dir = tmp_path / "evidence"
+    report_dir = tmp_path / "reports"
+
+    _write_jsonl(
+        paths["events"],
+        [
+            {
+                "decision_event_id": "de_1",
+                "source_row_id": "1",
+                "process_id": "proc_1",
+                "decision_date": "2026-03-07",
+                "decision_year": 2026,
+                "current_rapporteur": "MIN Y",
+                "decision_origin": None,
+                "decision_type": "Decisão Final",
+                "decision_progress": "DEFERIU PEDIDO",
+                "decision_note": None,
+                "panel_indicator_raw": "COLEGIADA",
+                "is_collegiate": True,
+                "judging_body": "PLENARIO",
+                "time_bucket": "2026-03",
+                "raw_fields": {},
+                "normalization_version": "decision-event-v1",
+                "source_id": "STF-TRANSP-REGDIST",
+                "created_at": "2026-03-07T00:00:00+00:00",
+                "updated_at": "2026-03-07T00:00:00+00:00",
+            },
+            {
+                "decision_event_id": "de_1",
+                "source_row_id": "2",
+                "process_id": "proc_1",
+                "decision_date": "2026-03-08",
+                "decision_year": 2026,
+                "current_rapporteur": "MIN Z",
+                "decision_origin": None,
+                "decision_type": "Decisão Monocrática",
+                "decision_progress": "NEGOU PROVIMENTO",
+                "decision_note": None,
+                "panel_indicator_raw": "MONOCRATICA",
+                "is_collegiate": False,
+                "judging_body": "GABINETE",
+                "time_bucket": "2026-03",
+                "raw_fields": {},
+                "normalization_version": "decision-event-v1",
+                "source_id": "STF-TRANSP-REGDIST",
+                "created_at": "2026-03-08T00:00:00+00:00",
+                "updated_at": "2026-03-08T00:00:00+00:00",
+            },
+        ],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r".*decision_event\.jsonl:2 contains duplicate key 'decision_event_id': de_1",
+    ):
+        build_evidence_bundle(
+            "alert_1",
+            alert_path=paths["alerts"],
+            baseline_path=paths["baseline"],
+            comparison_group_path=paths["groups"],
+            decision_event_path=paths["events"],
+            process_path=paths["processes"],
+            evidence_dir=evidence_dir,
+            report_dir=report_dir,
+        )
 
 
 def test_build_evidence_bundle_works_without_analytics_files(tmp_path: Path):

@@ -7,10 +7,13 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import pytest
+
 from atlas_stf.stf_portal._checkpoint import load_checkpoint
 from atlas_stf.stf_portal._config import StfPortalConfig
 from atlas_stf.stf_portal._proxy import ProxyManager
 from atlas_stf.stf_portal._runner import (
+    _load_alert_process_ids,
     _load_process_list,
     _prioritize_processes,
     _sanitize_filename,
@@ -37,6 +40,22 @@ def test_load_process_list(tmp_path: Path):
 def test_load_process_list_missing(tmp_path: Path):
     result = _load_process_list(tmp_path / "nonexistent")
     assert result == []
+
+
+def test_load_process_list_invalid_jsonl_reports_path_and_line(tmp_path: Path):
+    path = tmp_path / "process.jsonl"
+    path.write_text('{"process_id": "proc_1"}\n{broken\n', encoding="utf-8")
+
+    with pytest.raises(json.JSONDecodeError, match=r"Invalid JSONL record at .*process\.jsonl:2"):
+        _load_process_list(tmp_path)
+
+
+def test_load_alert_process_ids_rejects_non_object_jsonl_with_context(tmp_path: Path):
+    path = tmp_path / "outlier_alert.jsonl"
+    path.write_text("[]\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"Expected JSON object at .*outlier_alert\.jsonl:1"):
+        _load_alert_process_ids(tmp_path)
 
 
 def test_prioritize_processes():
@@ -100,13 +119,13 @@ def test_proxy_manager_single_direct():
 
 
 def test_proxy_manager_len():
-    pm = ProxyManager(["socks5://a:1080", "socks5://b:1081"])
+    pm = ProxyManager(["http://a:8080", "https://b:8443"])
     assert len(pm) == 3  # None + 2 proxies
 
 
 def test_proxy_manager_round_robin_least_wait():
     """Two consecutive acquires should return different proxies (least-wait selection)."""
-    pm = ProxyManager(["socks5://a:1080"], per_proxy_rate=0.5, jitter_range=(1.0, 1.0))
+    pm = ProxyManager(["http://a:8080"], per_proxy_rate=0.5, jitter_range=(1.0, 1.0))
     proxy1, _ = pm.acquire()
     proxy2, _ = pm.acquire()
     # With 2 proxies (None + a), they should alternate
@@ -167,7 +186,7 @@ def test_proxy_manager_acquire_enforces_rate_limit():
 def test_proxy_manager_403_inflight_per_proxy():
     """403 on one proxy does not affect another proxy's circuit breaker."""
     pm = ProxyManager(
-        ["socks5://a:1080"],
+        ["http://a:8080"],
         per_proxy_rate=0.0,
         jitter_range=(1.0, 1.0),
         circuit_threshold=2,
@@ -176,7 +195,7 @@ def test_proxy_manager_403_inflight_per_proxy():
     pm.record_403(None)
     pm.record_403(None)
     assert pm.is_circuit_open(None) is True
-    assert pm.is_circuit_open("socks5://a:1080") is False
+    assert pm.is_circuit_open("http://a:8080") is False
 
 
 # --- Deferred client close tests ---
@@ -425,6 +444,27 @@ def test_run_extraction_dry_run(tmp_path: Path):
     result = run_extraction(config, dry_run=True)
     assert result == 0
     assert not (output_dir / ".checkpoint.json").exists()
+
+
+def test_run_extraction_surfaces_invalid_process_jsonl_context(tmp_path: Path):
+    curated_dir = tmp_path / "curated"
+    output_dir = tmp_path / "portal"
+    curated_dir.mkdir(parents=True, exist_ok=True)
+    (curated_dir / "process.jsonl").write_text(
+        '{"process_id": "proc_1", "process_number": "ADI 1"}\n[]\n',
+        encoding="utf-8",
+    )
+
+    config = StfPortalConfig(
+        output_dir=output_dir,
+        curated_dir=curated_dir,
+        checkpoint_file=output_dir / ".checkpoint.json",
+        max_concurrent=1,
+        rate_limit_seconds=0.0,
+    )
+
+    with pytest.raises(ValueError, match=r"Expected JSON object at .*process\.jsonl:2"):
+        run_extraction(config)
 
 
 # --- Partial data prevention tests ---

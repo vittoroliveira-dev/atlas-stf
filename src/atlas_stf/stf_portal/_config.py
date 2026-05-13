@@ -47,7 +47,7 @@ class StfPortalConfig:
     circuit_breaker_threshold: int = 5
     circuit_breaker_cooldown: float = 120.0
 
-    # Proxy rotation (SOCKS5 URLs for SSH tunnels)
+    # Proxy rotation (HTTP(S) URLs; SOCKS requires socksio, which is not a project dependency)
     proxies: list[str] = field(default_factory=list)
 
     # Partial cache directory (None = {output_dir}/.partial)
@@ -57,6 +57,12 @@ class StfPortalConfig:
     max_process_retries: int = 10
 
     def __post_init__(self) -> None:
+        unsupported_schemes = ("socks://", "socks4://", "socks4a://", "socks5://", "socks5h://")
+        unsupported_socks = [
+            proxy for proxy in self.proxies if proxy.lower().startswith(unsupported_schemes)
+        ]
+        if unsupported_socks:
+            raise ValueError("SOCKS proxies are not supported; use HTTP(S) proxy URLs.")
         self.output_dir.mkdir(parents=True, exist_ok=True)
         if self.checkpoint_file is None:
             self.checkpoint_file = self.output_dir / ".checkpoint.json"

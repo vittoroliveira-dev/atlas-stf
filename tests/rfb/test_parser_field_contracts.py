@@ -16,6 +16,10 @@ from atlas_stf.rfb._parser_estabelecimentos import (
 )
 
 
+def _text_wrapper(data: str) -> io.TextIOWrapper:
+    return io.TextIOWrapper(io.BytesIO(data.encode("utf-8")), encoding="utf-8", newline="")
+
+
 class TestSociosFieldContract:
     """RFB Socios: positional CSV (no header), semicolon-separated."""
 
@@ -283,7 +287,7 @@ class TestManifestCapturingStream:
         from atlas_stf.rfb._runner_http import _ManifestCapturingStream
 
         lines = [f"line{i}\n" for i in range(200)]
-        inner = io.StringIO("".join(lines))
+        inner = _text_wrapper("".join(lines))
         wrapper = _ManifestCapturingStream(inner, max_lines=5)
 
         consumed = list(wrapper)
@@ -296,7 +300,7 @@ class TestManifestCapturingStream:
         from atlas_stf.rfb._runner_http import _ManifestCapturingStream
 
         data = "a;b;c\n1;2;3\n4;5;6\n"
-        inner = io.StringIO(data)
+        inner = _text_wrapper(data)
         wrapper = _ManifestCapturingStream(inner, max_lines=1)
 
         import csv
@@ -309,7 +313,7 @@ class TestManifestCapturingStream:
     def test_readline_also_captures(self) -> None:
         from atlas_stf.rfb._runner_http import _ManifestCapturingStream
 
-        inner = io.StringIO("first\nsecond\nthird\n")
+        inner = _text_wrapper("first\nsecond\nthird\n")
         wrapper = _ManifestCapturingStream(inner, max_lines=2)
 
         assert wrapper.readline() == "first\n"

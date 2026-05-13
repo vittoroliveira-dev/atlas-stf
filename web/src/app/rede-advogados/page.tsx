@@ -48,7 +48,7 @@ export default async function RedeAdvogadosPage({
       }}
     >
       {/* KPI cards */}
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Clusters encontrados</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.total.toLocaleString("pt-BR")}</p>
@@ -105,7 +105,7 @@ export default async function RedeAdvogadosPage({
 
       {data.items.length === 0 ? (
         <section className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" focusable="false" />
           <p className="text-sm text-amber-800">{emptyStateMessage("counsel_network")}</p>
         </section>
       ) : (
@@ -134,7 +134,7 @@ export default async function RedeAdvogadosPage({
                 <div className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">
                         Advogados no cluster
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -157,7 +157,7 @@ export default async function RedeAdvogadosPage({
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">
                         Ministros envolvidos
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -177,7 +177,7 @@ export default async function RedeAdvogadosPage({
 
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Taxa favorável</p>
+                      <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Taxa favorável</p>
                       <p className="mt-1 text-sm text-slate-900">
                         {c.cluster_favorable_rate != null
                           ? `${(c.cluster_favorable_rate * 100).toFixed(1)}%`
@@ -190,13 +190,13 @@ export default async function RedeAdvogadosPage({
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">
                         Processos no cluster
                       </p>
                       <p className="mt-1 text-sm text-slate-900">{c.cluster_case_count}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">
                         Clientes compartilhados
                       </p>
                       <p className="mt-1 text-sm text-slate-900">{c.shared_client_count}</p>

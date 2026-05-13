@@ -258,6 +258,14 @@ def test_review_queue(graph_client: TestClient) -> None:
     assert isinstance(body["items"], list)
 
 
+def test_review_queue_calibration_filter_executes_py_lower_path(graph_client: TestClient) -> None:
+    resp = graph_client.get("/review/queue", params={"status": "pending", "queue_type": "calibration"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "items" in body
+    assert isinstance(body["items"], list)
+
+
 def test_review_decision(graph_client: TestClient) -> None:
     # Busca um item pendente existente antes de tentar registrar decisão
     queue_resp = graph_client.get("/review/queue", params={"status": "pending", "page_size": 1})

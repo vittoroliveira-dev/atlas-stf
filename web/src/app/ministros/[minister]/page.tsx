@@ -23,7 +23,7 @@ function safeDecodePathSegment(value: string): string {
 
 function BioSection({ bio }: { bio: MinisterBio }) {
   return (
-    <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
+    <section className="rounded-card border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold text-slate-950">Dados biográficos</h2>
       <div className="grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
         {bio.appointment_date ? <p><span className="font-medium text-slate-900">Nomeação:</span> {bio.appointment_date}</p> : null}
@@ -41,12 +41,12 @@ function ProfileTable({ profiles }: { profiles: RapporteurProfile[] }) {
     return <p className="text-sm text-slate-500">Nenhum perfil de desvio encontrado.</p>;
   }
   return (
-    <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
+    <section className="rounded-card border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold text-slate-950">Perfil estatístico de desvio</h2>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+            <tr className="border-b border-slate-200 text-xs font-semibold tracking-[0.02em] text-slate-500">
               <th className="px-3 py-2">Classe</th>
               <th className="px-3 py-2">Tema</th>
               <th className="px-3 py-2">Ano</th>
@@ -59,7 +59,7 @@ function ProfileTable({ profiles }: { profiles: RapporteurProfile[] }) {
           <tbody>
             {profiles.map((p, i) => (
               <tr key={i} className={`border-b border-slate-100 ${p.deviation_flag ? "bg-red-50" : ""}`}>
-                <td className="px-3 py-2 font-mono text-xs">{p.process_class}</td>
+                <td className="px-3 py-2 font-mono text-xs tabular-nums">{p.process_class}</td>
                 <td className="px-3 py-2">{p.thematic_key}</td>
                 <td className="px-3 py-2">{p.decision_year}</td>
                 <td className="px-3 py-2">{p.event_count}</td>
@@ -68,7 +68,7 @@ function ProfileTable({ profiles }: { profiles: RapporteurProfile[] }) {
                 <td className="px-3 py-2">
                   {p.deviation_flag ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
-                      <AlertTriangle className="h-3 w-3" />
+                      <AlertTriangle className="h-3 w-3" aria-hidden="true" focusable="false" />
                       {p.deviation_direction ?? "sim"}
                     </span>
                   ) : (
@@ -89,12 +89,12 @@ function SequentialTable({ rows }: { rows: SequentialAnalysis[] }) {
     return <p className="text-sm text-slate-500">Nenhuma análise sequencial encontrada.</p>;
   }
   return (
-    <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
+    <section className="rounded-card border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold text-slate-950">Análise sequencial</h2>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+            <tr className="border-b border-slate-200 text-xs font-semibold tracking-[0.02em] text-slate-500">
               <th className="px-3 py-2">Ano</th>
               <th className="px-3 py-2">Decisões</th>
               <th className="px-3 py-2">Autocorrelação</th>
@@ -116,7 +116,7 @@ function SequentialTable({ rows }: { rows: SequentialAnalysis[] }) {
                 <td className="px-3 py-2">
                   {s.sequential_bias_flag ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                      <AlertTriangle className="h-3 w-3" />
+                      <AlertTriangle className="h-3 w-3" aria-hidden="true" focusable="false" />
                       sim
                     </span>
                   ) : (
@@ -137,12 +137,12 @@ function CorporateConflictsSection({ conflicts }: { conflicts: CorporateConflict
     return <p className="text-sm text-slate-500">Nenhum vínculo societário encontrado.</p>;
   }
   return (
-    <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
+    <section className="rounded-card border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold text-slate-950">Vínculos societários</h2>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+            <tr className="border-b border-slate-200 text-xs font-semibold tracking-[0.02em] text-slate-500">
               <th className="px-3 py-2">Empresa</th>
               <th className="px-3 py-2">CNPJ</th>
               <th className="px-3 py-2">Vinculado(a)</th>
@@ -157,7 +157,7 @@ function CorporateConflictsSection({ conflicts }: { conflicts: CorporateConflict
             {conflicts.map((c) => (
               <tr key={c.conflict_id} className={`border-b border-slate-100 ${c.red_flag ? "bg-red-50" : ""}`}>
                 <td className="px-3 py-2">{c.company_name || "—"}</td>
-                <td className="px-3 py-2 font-mono text-xs">{c.company_cnpj_basico}</td>
+                <td className="px-3 py-2 font-mono text-xs tabular-nums">{c.company_cnpj_basico}</td>
                 <td className="px-3 py-2">
                   <Link
                     href={`/${c.linked_entity_type === "party" ? "partes" : "advogados"}/${encodeURIComponent(c.linked_entity_id)}`}
@@ -187,7 +187,7 @@ function CorporateConflictsSection({ conflicts }: { conflicts: CorporateConflict
                 <td className="px-3 py-2">
                   {c.red_flag ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
-                      <AlertTriangle className="h-3 w-3" />
+                      <AlertTriangle className="h-3 w-3" aria-hidden="true" focusable="false" />
                       Ponto crítico
                     </span>
                   ) : (
@@ -208,12 +208,12 @@ function CounselAffinitySection({ affinities }: { affinities: CounselAffinity[] 
     return <p className="text-sm text-slate-500">Nenhuma afinidade atípica encontrada.</p>;
   }
   return (
-    <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
+    <section className="rounded-card border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold text-slate-950">Afinidade com advogados</h2>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+            <tr className="border-b border-slate-200 text-xs font-semibold tracking-[0.02em] text-slate-500">
               <th className="px-3 py-2">Advogado</th>
               <th className="px-3 py-2">Casos</th>
               <th className="px-3 py-2">Taxa par</th>
@@ -252,7 +252,7 @@ function CounselAffinitySection({ affinities }: { affinities: CounselAffinity[] 
                 <td className="px-3 py-2">
                   {a.red_flag ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
-                      <AlertTriangle className="h-3 w-3" />
+                      <AlertTriangle className="h-3 w-3" aria-hidden="true" focusable="false" />
                       Ponto crítico
                     </span>
                   ) : (
@@ -295,7 +295,7 @@ export default async function MinisterProfilePage({
       title={decoded}
       description="Perfil estatístico completo do ministro, incluindo desvios chi-square, análise sequencial e dados biográficos."
     >
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={User} label="Perfis analisados" value={String(profiles.length)} help="Combinações de (classe, tema, ano) analisadas para este ministro." />
         <StatCard icon={BarChart3} label="Eventos totais" value={String(totalEvents)} help="Total de decisões consideradas nos perfis." />
         <StatCard icon={AlertTriangle} label="Desvios detectados" value={String(deviationCount)} help="Perfis com desvio estatístico significativo (p < 0.05)." />

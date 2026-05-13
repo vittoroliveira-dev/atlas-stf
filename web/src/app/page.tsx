@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Activity, AlertTriangle, ArrowRight, BookText, Scale, Sparkles, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, Users } from "lucide-react";
 import { AlertTable } from "@/components/dashboard/alert-table";
 import { AppShell } from "@/components/dashboard/app-shell";
+import { pickLatestUpdate } from "@/lib/data-freshness";
 import { CaseTable } from "@/components/dashboard/case-table";
-import { DailyAreaChart, DistributionBars, DistributionDonut, SegmentBarChart } from "@/components/dashboard/charts";
+import { DailyAreaChart, DistributionBars, DistributionDonut, SegmentBarChart } from "@/components/dashboard/charts-dynamic";
 import { EntityRanking } from "@/components/dashboard/entity-ranking";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { ProfileStrip } from "@/components/dashboard/profile-strip";
@@ -44,6 +45,7 @@ export default async function Home({
   return (
     <AppShell
       currentPath="/"
+      lastUpdate={pickLatestUpdate(data.sourceFiles)}
       filterContext={filterContext}
       heroState={
         flow.status === "empty"
@@ -90,22 +92,19 @@ export default async function Home({
           action="/"
         />
 
-        <div className="grid gap-4 rounded-[28px] border border-slate-200/80 bg-white/90 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Leitura do recorte</p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-                {interpretationTitle(flow.thematic_flow_interpretation_status)}
-              </h2>
-            </div>
-            <Sparkles className="h-6 w-6 text-orange-500" />
+        <div className="grid gap-4 rounded-card border border-slate-200 bg-white p-5 shadow-elevation-1">
+          <div>
+            <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Leitura do recorte</p>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+              {interpretationTitle(flow.thematic_flow_interpretation_status)}
+            </h2>
           </div>
           <p className="text-sm leading-6 text-slate-600">
             {interpretationSummary(flow.thematic_flow_interpretation_status)}
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500">O que sustenta esta leitura</p>
+              <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">O que sustenta esta leitura</p>
               <p className="mt-2 text-sm leading-6 text-slate-700">
                 {Object.entries(flow.thematic_source_distribution)
                   .map(([key, value]) => `${value} registros com ${key === "serving_process_thematic_key" ? "tema identificado" : "apoio complementar"}`)
@@ -113,7 +112,7 @@ export default async function Home({
               </p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500">Por que a leitura ainda pode estar limitada</p>
+              <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Por que a leitura ainda pode estar limitada</p>
               <p className="mt-2 text-sm leading-6 text-slate-700">
                 {flow.thematic_flow_interpretation_reasons
                   .map((reason) => interpretationReasonText(reason))
@@ -124,14 +123,64 @@ export default async function Home({
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-6">
-        <div className="xl:col-span-1"><StatCard icon={Users} label="Ocorrências no período" value={String(data.kpis.selectedEvents)} help="Quantidade de decisões encontradas dentro do filtro atual." /></div>
-        <div className="xl:col-span-1"><StatCard icon={BookText} label="Casos analisados" value={String(data.kpis.selectedProcesses)} help="Número de casos diferentes ligados a essas decisões." /></div>
-        <div className="xl:col-span-1"><StatCard icon={AlertTriangle} label="Pontos de atenção" value={String(data.kpis.alertCount)} help="Quantidade de sinais que merecem leitura mais cuidadosa." /></div>
-        <div className="xl:col-span-1"><StatCard icon={Scale} label="Grupos de comparação" value={String(data.kpis.validGroupCount)} help="Conjuntos usados como referência para comparar comportamentos parecidos." /></div>
-        <div className="xl:col-span-1"><StatCard icon={Activity} label="Referências usadas" value={String(data.kpis.baselineCount)} help="Quantidade de referências usadas para dar contexto aos resultados." /></div>
-        <div className="xl:col-span-1"><StatCard icon={Sparkles} label="Força média dos sinais" value={data.kpis.averageAlertScore.toFixed(3)} help="Intensidade média dos pontos de atenção mostrados no painel." /></div>
+      <section className="grid gap-4 lg:grid-cols-2">
+        <StatCard
+          icon={Users}
+          label="Ocorrências no período"
+          value={String(data.kpis.selectedEvents)}
+          help="Quantidade de decisões encontradas dentro do filtro atual."
+        />
+        <StatCard
+          icon={AlertTriangle}
+          label="Pontos de atenção"
+          value={String(data.kpis.alertCount)}
+          help="Quantidade de sinais que merecem leitura mais cuidadosa."
+        />
       </section>
+
+      <aside className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
+        <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">
+          Contexto metodológico do recorte
+        </p>
+        <dl className="mt-4 grid gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <dt className="text-xs text-slate-500">Casos analisados</dt>
+            <dd className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+              {String(data.kpis.selectedProcesses)}
+            </dd>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Casos diferentes ligados a essas decisões.
+            </p>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-500">Grupos de comparação</dt>
+            <dd className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+              {String(data.kpis.validGroupCount)}
+            </dd>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Conjuntos usados como referência para comportamentos parecidos.
+            </p>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-500">Referências usadas</dt>
+            <dd className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+              {String(data.kpis.baselineCount)}
+            </dd>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Referências que dão contexto aos resultados.
+            </p>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-500">Força média dos sinais</dt>
+            <dd className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+              {data.kpis.averageAlertScore.toFixed(3)}
+            </dd>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Intensidade média dos pontos de atenção no painel.
+            </p>
+          </div>
+        </dl>
+      </aside>
 
       <section className="grid gap-4 lg:grid-cols-3">
         {[
@@ -151,13 +200,13 @@ export default async function Home({
             text: 'Entre direto em um caso para entender a decisão, as pessoas ligadas a ele e a documentação disponível.',
           },
         ].map((item) => (
-          <Link key={item.href} href={item.href} className="group rounded-[28px] border border-slate-200/80 bg-white/90 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)] transition duration-200 hover:border-verde-300 hover:bg-white">
-            <p className="font-mono text-xs uppercase tracking-[0.22em] text-slate-500">Navegação</p>
+          <Link key={item.href} href={item.href} className="group rounded-card border border-slate-200 bg-white p-5 shadow-elevation-1 transition duration-200 hover:border-verde-300 hover:bg-white">
+            <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Navegação</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{item.title}</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">{item.text}</p>
             <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-verde-700">
               Ver agora
-              <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+              <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" aria-hidden="true" focusable="false" />
             </span>
           </Link>
         ))}
@@ -165,27 +214,27 @@ export default async function Home({
 
       <ProfileStrip profiles={data.ministerProfiles} />
 
-      <section className="grid gap-5 xl:grid-cols-2">
+      <section className="grid gap-5 md:grid-cols-2">
         <DailyAreaChart data={dailyRows(flow.daily_counts)} />
         <DistributionDonut title="Tipos de decisão" subtitle="Distribuição do recorte ativo por tipo de decisão." data={toChartRows(flow.decision_type_distribution)} />
         <DistributionBars title="Órgão julgador" subtitle="Volume por órgão julgador no recorte filtrado." data={toChartRows(flow.judging_body_distribution)} valueLabel="eventos" />
         <DistributionBars title="Resultado das decisões" subtitle="Situação final das decisões encontradas neste período." data={toChartRows(flow.decision_progress_distribution)} valueLabel="ocorrências" />
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-2">
+      <section className="grid gap-5 md:grid-cols-2">
         <SegmentBarChart title="Tipo de ação" subtitle="Mostra quais tipos de ação aparecem com mais frequência neste período." data={chartRows(flow.process_class_flow)} />
         <SegmentBarChart title="Temas mais presentes" subtitle="Mostra os temas que mais aparecem entre os casos deste período." data={chartRows(flow.thematic_flow)} />
       </section>
 
-      <div className="rounded-[30px] border border-amber-200/80 bg-amber-50/50 px-6 py-5">
-        <p className="font-mono text-xs uppercase tracking-[0.24em] text-amber-700">Frequência no recorte — não indica relação especial</p>
+      <div className="rounded-card border border-amber-200/80 bg-amber-50/50 px-6 py-5">
+        <p className="text-xs font-semibold tracking-[0.02em] text-amber-700">Frequência no recorte — não indica relação especial</p>
         <p className="mt-2 text-sm leading-6 text-amber-900/80">
           Os nomes abaixo são os que mais aparecem nos casos do filtro atual. Isso reflete volume processual, não vínculo com o ministro.
           Atores institucionais como o Procurador-Geral da República aparecem no topo por atuação obrigatória, não por ligação pessoal.
         </p>
       </div>
 
-      <section className="grid gap-5 xl:grid-cols-2">
+      <section className="grid gap-5 md:grid-cols-2">
         <EntityRanking
           title="Representantes mais frequentes"
           subtitle="Nomes que aparecem com mais frequência nos casos deste recorte. A presença aqui reflete volume, não anomalia."

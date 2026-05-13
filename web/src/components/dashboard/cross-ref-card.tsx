@@ -93,7 +93,7 @@ export function DeltaIndicator({
       aria-label={ariaLabel}
     >
       {label && (
-        <p className="text-[11px] font-mono uppercase tracking-[0.18em] opacity-70 mb-1">
+        <p className="text-xs font-semibold tracking-[0.02em] opacity-70 mb-1">
           {label}
         </p>
       )}
@@ -113,7 +113,7 @@ export function ExpandableCard({
 }) {
   return (
     <details
-      className="group rounded-[28px] border border-slate-200/80 bg-white/95 shadow-[0_20px_70px_rgba(15,23,42,0.08)] overflow-hidden"
+      className="group rounded-card border border-slate-200 bg-white shadow-elevation-1 overflow-hidden"
       open={defaultOpen || undefined}
     >
       <summary className="flex cursor-pointer list-none items-center gap-4 p-5 [&::-webkit-details-marker]:hidden">
@@ -146,7 +146,7 @@ export function CardGrid({
   return (
     <div
       className={`grid gap-4 ${
-        columns === 2 ? "xl:grid-cols-2" : ""
+        columns === 2 ? "md:grid-cols-2" : ""
       }`}
     >
       {children}

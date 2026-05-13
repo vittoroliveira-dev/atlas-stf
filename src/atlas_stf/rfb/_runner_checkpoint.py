@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import tempfile
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -23,29 +24,51 @@ def _build_target_names(config: Any) -> set[str]:
     names: set[str] = set()
 
     if config.minister_bio_path.exists():
-        data = json.loads(config.minister_bio_path.read_text(encoding="utf-8"))
-        for _key, entry in data.items():
-            name = entry.get("minister_name", "")
-            norm = normalize_entity_name(name)
-            if norm:
-                names.add(norm)
-            civil = entry.get("civil_name", "")
-            civil_norm = normalize_entity_name(civil)
-            if civil_norm:
-                names.add(civil_norm)
+        try:
+            data = json.loads(config.minister_bio_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "Skipping invalid minister_bio JSON in %s:%d:%d",
+                config.minister_bio_path,
+                exc.lineno,
+                exc.colno,
+            )
+        else:
+            if not isinstance(data, Mapping):
+                logger.warning("Skipping non-object minister_bio JSON in %s", config.minister_bio_path)
+            else:
+                for _key, entry in data.items():
+                    if not isinstance(entry, Mapping):
+                        logger.warning(
+                            "Skipping non-mapping minister_bio entry in %s for key %r",
+                            config.minister_bio_path,
+                            _key,
+                        )
+                        continue
+                    name = entry.get("minister_name", "")
+                    norm = normalize_entity_name(name)
+                    if norm:
+                        names.add(norm)
+                    civil = entry.get("civil_name", "")
+                    civil_norm = normalize_entity_name(civil)
+                    if civil_norm:
+                        names.add(civil_norm)
 
     for path in (config.party_path, config.counsel_path):
         if not path.exists():
             continue
         with path.open("r", encoding="utf-8") as fh:
-            for line in fh:
+            for line_number, line in enumerate(fh, start=1):
                 line = line.strip()
                 if not line:
                     continue
                 try:
                     record = json.loads(line)
                 except json.JSONDecodeError:
-                    logger.warning("Skipping malformed JSONL line in %s", path)
+                    logger.warning("Skipping malformed JSONL line in %s:%d", path, line_number)
+                    continue
+                if not isinstance(record, dict):
+                    logger.warning("Skipping non-object JSONL line in %s:%d", path, line_number)
                     continue
                 raw = (
                     record.get("party_name_normalized")
@@ -225,14 +248,17 @@ def _extract_tse_donor_targets(
         return pj_basico, pf_cpfs, pj_full
 
     with donations_path.open("r", encoding="utf-8") as fh:
-        for line in fh:
+        for line_number, line in enumerate(fh, start=1):
             line = line.strip()
             if not line:
                 continue
             try:
                 record = json.loads(line)
             except json.JSONDecodeError:
-                logger.warning("Skipping malformed JSONL line in %s", donations_path)
+                logger.warning("Skipping malformed JSONL line in %s:%d", donations_path, line_number)
+                continue
+            if not isinstance(record, dict):
+                logger.warning("Skipping non-object JSONL line in %s:%d", donations_path, line_number)
                 continue
             raw_doc = record.get("donor_cpf_cnpj", "")
             normalized = normalize_tax_id(raw_doc)

@@ -51,7 +51,13 @@ def read_json(path: Path) -> dict | None:
     if not path.exists() or path.stat().st_size == 0:
         return None
     with open(path, encoding="utf-8") as f:
-        return json.load(f)
+        try:
+            value = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise json.JSONDecodeError(f"Invalid JSON at {path}: {exc.msg}", exc.doc, exc.pos) from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected JSON object at {path}")
+    return value
 
 
 def safe_int(val: object) -> int:

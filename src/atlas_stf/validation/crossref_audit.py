@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -103,6 +104,25 @@ MINIMUM_GOLD_SET_SIZE = 100
 """Gold set must have at least this many records for a PASS policy check."""
 
 _REQUIRED_GOLD_STRATA = {"counsel_match", "levenshtein_dist1", "scl_degree2"}
+
+
+def _iter_jsonl_objects(path: Path) -> Iterator[dict[str, object]]:
+    with open(path, encoding="utf-8") as fh:
+        for line_number, line in enumerate(fh, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise json.JSONDecodeError(
+                    f"Invalid JSONL record at {path}:{line_number}: {exc.msg}",
+                    exc.doc,
+                    exc.pos,
+                ) from exc
+            if not isinstance(rec, dict):
+                raise ValueError(f"Expected JSON object at {path}:{line_number}")
+            yield {str(key): value for key, value in rec.items()}
 
 
 def _policy_checks(
@@ -214,16 +234,12 @@ def _check_gold_set(analytics_dir: Path, checks: list[PolicyCheck]) -> None:
 
     gs_total = 0
     gs_adjudicated = 0
-    with open(gold_path, encoding="utf-8") as fh:
-        for ln in fh:
-            if not ln.strip():
-                continue
-            gs_total += 1
-            rec = json.loads(ln)
-            if rec.get("final_label") is not None:
-                gs_adjudicated += 1
-            elif rec.get("label") is not None and "adjudication_type" not in rec:
-                gs_adjudicated += 1  # legacy single-layer schema
+    for rec in _iter_jsonl_objects(gold_path):
+        gs_total += 1
+        if rec.get("final_label") is not None:
+            gs_adjudicated += 1
+        elif rec.get("label") is not None and "adjudication_type" not in rec:
+            gs_adjudicated += 1  # legacy single-layer schema
 
     if gs_adjudicated >= MINIMUM_GOLD_SET_SIZE:
         checks.append(
@@ -263,29 +279,27 @@ def _gold_set_summary(analytics_dir: Path) -> GoldSetSummary:
     total = 0
     overrides = 0
 
-    with open(gold_path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rec = json.loads(line)
-            total += 1
-            stratum = rec.get("stratum", "unknown")
-            by_stratum[stratum] = by_stratum.get(stratum, 0) + 1
-            label = rec.get("final_label") or rec.get("heuristic_label") or rec.get("label", "unknown")
-            by_label[label] = by_label.get(label, 0) + 1
-            adj_type = rec.get("adjudication_type", "unknown")
-            by_adjudication[adj_type] = by_adjudication.get(adj_type, 0) + 1
-            # Track per-stratum final labels
-            if label:
-                if stratum not in stratum_labels:
-                    stratum_labels[stratum] = {}
-                stratum_labels[stratum][label] = stratum_labels[stratum].get(label, 0) + 1
-            # Count heuristic→final overrides
-            hl = rec.get("heuristic_label")
-            fl = rec.get("final_label")
-            if hl and fl and hl != fl:
-                overrides += 1
+    for rec in _iter_jsonl_objects(gold_path):
+        total += 1
+        stratum_value = rec.get("stratum", "unknown")
+        stratum = str(stratum_value)
+        by_stratum[stratum] = by_stratum.get(stratum, 0) + 1
+        label_value = rec.get("final_label") or rec.get("heuristic_label") or rec.get("label", "unknown")
+        label = str(label_value)
+        by_label[label] = by_label.get(label, 0) + 1
+        adj_type_value = rec.get("adjudication_type", "unknown")
+        adj_type = str(adj_type_value)
+        by_adjudication[adj_type] = by_adjudication.get(adj_type, 0) + 1
+        # Track per-stratum final labels
+        if label:
+            if stratum not in stratum_labels:
+                stratum_labels[stratum] = {}
+            stratum_labels[stratum][label] = stratum_labels[stratum].get(label, 0) + 1
+        # Count heuristic→final overrides
+        hl = rec.get("heuristic_label")
+        fl = rec.get("final_label")
+        if hl and fl and hl != fl:
+            overrides += 1
     limitations = []
     if total < MINIMUM_GOLD_SET_SIZE:
         limitations.append(

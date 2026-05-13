@@ -52,7 +52,7 @@ export default async function AfinidadePage({
       }}
     >
       {/* KPI cards */}
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Pares analisados</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.total}</p>
@@ -108,7 +108,7 @@ export default async function AfinidadePage({
       {/* Cards */}
       {data.affinities.length === 0 ? (
         <section className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" focusable="false" />
           <p className="text-sm text-amber-800">{emptyStateMessage("affinity")}</p>
         </section>
       ) : (
@@ -137,7 +137,7 @@ export default async function AfinidadePage({
                 <div className="space-y-4">
                   <div className="space-y-3">
                     <div>
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Par vs. baseline do ministro</p>
+                      <p className="mb-1 text-xs font-semibold tracking-[0.02em] text-slate-500">Par vs. baseline do ministro</p>
                       <RateComparisonBar
                         rate={a.pair_favorable_rate}
                         baseline={a.minister_baseline_favorable_rate}
@@ -146,7 +146,7 @@ export default async function AfinidadePage({
                       />
                     </div>
                     <div>
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Par vs. baseline do advogado</p>
+                      <p className="mb-1 text-xs font-semibold tracking-[0.02em] text-slate-500">Par vs. baseline do advogado</p>
                       <RateComparisonBar
                         rate={a.pair_favorable_rate}
                         baseline={a.counsel_baseline_favorable_rate}
@@ -155,7 +155,7 @@ export default async function AfinidadePage({
                       />
                     </div>
                     <div>
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Taxa absoluta do par</p>
+                      <p className="mb-1 text-xs font-semibold tracking-[0.02em] text-slate-500">Taxa absoluta do par</p>
                       <RateComparisonBar
                         rate={a.pair_favorable_rate}
                         baseline={null}

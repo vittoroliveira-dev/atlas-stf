@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -76,7 +77,7 @@ def _search_jsonl_contains(path: Path, key: str, substring: str, max_lines: int 
 
 
 @pytest.fixture(scope="module")
-def session() -> Session:
+def session() -> Iterator[Session]:
     if not _DB_PATH.exists():
         pytest.skip("Serving DB not present")
     engine = create_engine(_DB_URL)
@@ -168,6 +169,8 @@ class TestTseDonationE2E:
             text("SELECT count(*) FROM serving_donation_event WHERE match_id = :mid"),
             {"mid": match_id},
         ).scalar()
+        if event_count is None:
+            raise AssertionError(f"No donation_event count returned for match {match_id}")
         assert event_count >= 1, f"No donation_events for match {match_id}"
 
 

@@ -100,8 +100,15 @@ def _download_csv(page: Page, download_dir: Path, slug: str, timeout_ms: int) ->
         download = download_info.value
         ext = Path(download.suggested_filename or "export.csv").suffix or ".csv"
         dest = download_dir / f"{slug}{ext}"
-        download.save_as(str(dest))
-        size_kb = dest.stat().st_size / 1024
+        try:
+            download.save_as(str(dest))
+            size_kb = dest.stat().st_size / 1024
+        except PermissionError as exc:
+            raise PermissionError(exc.errno, exc.strerror, str(dest)) from exc
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(exc.errno, exc.strerror, str(dest)) from exc
+        except OSError as exc:
+            raise OSError(exc.errno, f"{exc.strerror}: {dest}", str(dest)) from exc
         logger.info("%s: downloaded (%.0f KB)", slug, size_kb)
         return dest
 

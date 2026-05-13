@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import cast
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import Table, create_engine, delete, select
 from sqlalchemy.orm import Session
 
 from atlas_stf.serving._builder_graph import _nid, materialize_graph
@@ -107,12 +108,16 @@ def test_graph_node_ids_deterministic(graph_db):
     # Limpa e roda novamente
     with Session(graph_db) as session:
         with session.begin():
-            session.execute(ServingGraphNode.__table__.delete())
-            session.execute(ServingGraphEdge.__table__.delete())
-            session.execute(ServingGraphPathCandidate.__table__.delete())
-            session.execute(ServingEvidenceBundle.__table__.delete())
-            session.execute(ServingReviewQueue.__table__.delete())
-            session.execute(ServingModuleAvailability.__table__.delete())
+            graph_tables: tuple[Table, ...] = (
+                cast(Table, ServingGraphNode.__table__),
+                cast(Table, ServingGraphEdge.__table__),
+                cast(Table, ServingGraphPathCandidate.__table__),
+                cast(Table, ServingEvidenceBundle.__table__),
+                cast(Table, ServingReviewQueue.__table__),
+                cast(Table, ServingModuleAvailability.__table__),
+            )
+            for table in graph_tables:
+                session.execute(delete(table))
 
     with Session(graph_db) as session:
         with session.begin():

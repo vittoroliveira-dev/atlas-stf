@@ -4,10 +4,10 @@ export function SanctionBadge({ source }: { source: string }) {
     source === "ceis"
       ? "bg-red-100 text-red-800 border-red-200"
       : source === "cnep"
-        ? "bg-orange-100 text-orange-800 border-orange-200"
+        ? "bg-rose-100 text-rose-800 border-rose-200"
         : source === "leniencia"
-          ? "bg-indigo-100 text-indigo-800 border-indigo-200"
-          : "bg-purple-100 text-purple-800 border-purple-200";
+          ? "bg-marinho-100 text-marinho-800 border-marinho-200"
+          : "bg-ouro-100 text-ouro-800 border-ouro-200";
 
   return (
     <span

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { ArrowRight, BookText, FileSearch, Scale, Sparkles } from "lucide-react";
+import { ArrowRight, Building2, BookText, FileSearch, Scale } from "lucide-react";
 import { AlertTable } from "@/components/dashboard/alert-table";
 import { AppShell } from "@/components/dashboard/app-shell";
+import { pickLatestUpdate } from "@/lib/data-freshness";
 import { CaseEntities } from "@/components/dashboard/entity-ranking";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { SourceAudit } from "@/components/dashboard/source-audit";
@@ -45,6 +46,7 @@ export default async function CaseDetailPage({
   return (
     <AppShell
       currentPath="/caso"
+      lastUpdate={pickLatestUpdate(data.sourceFiles)}
       filterContext={filterContext}
       heroState={
         selectedCase == null
@@ -96,16 +98,16 @@ export default async function CaseDetailPage({
 
       {selectedCase ? (
         <>
-          <section className="grid gap-4 md:grid-cols-4">
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard icon={FileSearch} label="Data da decisão" value={selectedCase.decisionDate} help="Dia em que a decisão mostrada nesta página foi registrada." />
             <StatCard icon={BookText} label="Documentos disponíveis" value={selectedCase.docCountLabel} help="Quantidade de documentos ligados a este caso nesta análise." />
             <StatCard icon={Scale} label="Tipo de ação" value={selectedCase.processClass} help="Categoria principal do caso." />
-            <StatCard icon={Sparkles} label="Onde foi decidido" value={selectedCase.judgingBody} help="Local de decisão informado para este caso." />
+            <StatCard icon={Building2} label="Onde foi decidido" value={selectedCase.judgingBody} help="Local de decisão informado para este caso." />
           </section>
 
           <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-            <article className="rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-              <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Resumo do caso</p>
+            <article className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
+              <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Resumo do caso</p>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{selectedCase.processNumber}</h2>
               <dl className="mt-5 grid gap-4 md:grid-cols-2">
                 <div><dt className="text-sm text-slate-500">Data da decisão</dt><dd className="mt-1 font-semibold text-slate-950">{selectedCase.decisionDate}</dd></div>
@@ -116,13 +118,13 @@ export default async function CaseDetailPage({
                 <div><dt className="text-sm text-slate-500">Tema principal</dt><dd className="mt-1 font-semibold text-slate-950">{selectedCase.firstSubject !== 'INCERTO' ? selectedCase.firstSubject : selectedCase.branchOfLaw}</dd></div>
               </dl>
               <div className="mt-6 rounded-2xl bg-slate-50 p-4">
-                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-slate-500">Resumo da decisão</p>
+                <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Resumo da decisão</p>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{selectedCase.decisionNoteSnippet}</p>
               </div>
             </article>
 
-            <article className="rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-              <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Documentação</p>
+            <article className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
+              <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Documentação</p>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">O que pode ser consultado</h2>
               <div className="mt-5 grid gap-4">
                 <div className="rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
@@ -132,7 +134,7 @@ export default async function CaseDetailPage({
                 {inteiroTeorHref ? (
                   <a href={inteiroTeorHref} target="_blank" rel="noreferrer" className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800">
                     Abrir documento completo
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
                   </a>
                 ) : (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -143,11 +145,11 @@ export default async function CaseDetailPage({
             </article>
           </section>
 
-          <section className="rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-            <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Leitura comparativa adicional</p>
+          <section className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
+            <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Leitura comparativa adicional</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">ML outlier por Isolation Forest</h2>
             {data.mlOutlierAnalysis ? (
-              <div className="mt-5 grid gap-4 md:grid-cols-4">
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-slate-200 p-4">
                   <p className="text-sm text-slate-500">ML anomaly</p>
                   <p className="mt-1 text-2xl font-semibold text-slate-950">{data.mlOutlierAnalysis.mlAnomalyScore.toFixed(3)}</p>
@@ -193,7 +195,7 @@ export default async function CaseDetailPage({
               className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-verde-600 hover:text-verde-700"
             >
               Voltar para a lista de casos
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
             </Link>
           </section>
 
@@ -206,7 +208,7 @@ export default async function CaseDetailPage({
           />
         </>
       ) : (
-        <section className="rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] text-slate-600">
+        <section className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1 text-slate-600">
           Não encontramos este caso com os filtros atuais. Tente voltar para a lista de casos ou abrir esta página a partir da área de pontos de atenção.
         </section>
       )}

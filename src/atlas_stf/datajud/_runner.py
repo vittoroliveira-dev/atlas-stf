@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -92,7 +94,20 @@ def fetch_single_index(client: DatajudClient, index: str, output_dir: Path) -> d
     }
 
     out_path = output_dir / f"{index}.json"
-    out_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(out_path.parent),
+        prefix=f"{out_path.name}.",
+        suffix=".tmp",
+        text=True,
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(result, ensure_ascii=False, indent=2))
+        tmp_path.replace(out_path)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
     logger.info("Completed index %s: %d processes", index, total)
     return result
 

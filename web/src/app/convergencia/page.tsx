@@ -104,23 +104,23 @@ export default async function ConvergenciaPage({
       }}
     >
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+        <div className="rounded-card border border-slate-200 bg-white p-5 shadow-elevation-1">
           <p className="text-sm text-slate-500">Pares materializados</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{data.total}</p>
         </div>
-        <div className="rounded-[28px] border border-rose-200/80 bg-rose-50/90 p-5 shadow-[0_20px_70px_rgba(225,29,72,0.10)]">
+        <div className="rounded-card border border-rose-200/80 bg-rose-50/90 p-5 shadow-[0_20px_70px_rgba(225,29,72,0.10)]">
           <p className="text-sm text-rose-700">Pontos críticos compostos</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-rose-800">{redFlags.total}</p>
         </div>
-        <div className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+        <div className="rounded-card border border-slate-200 bg-white p-5 shadow-elevation-1">
           <p className="text-sm text-slate-500">Partes nesta página</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{partyCount}</p>
         </div>
-        <div className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+        <div className="rounded-card border border-slate-200 bg-white p-5 shadow-elevation-1">
           <p className="text-sm text-slate-500">Advogados nesta página</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{counselCount}</p>
         </div>
-        <div className="rounded-[28px] border border-amber-200/80 bg-amber-50/90 p-5 shadow-[0_20px_70px_rgba(217,119,6,0.10)]">
+        <div className="rounded-card border border-amber-200/80 bg-amber-50/90 p-5 shadow-[0_20px_70px_rgba(217,119,6,0.10)]">
           <p className="text-sm text-amber-700">Pares com 3+ sinais</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-amber-800">{pairsWithThreeSignals}</p>
         </div>

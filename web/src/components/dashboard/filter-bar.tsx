@@ -1,4 +1,8 @@
-import { Search } from "lucide-react";
+"use client";
+
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, Search } from "lucide-react";
 
 export function FilterBar({
   ministers,
@@ -23,19 +27,39 @@ export function FilterBar({
   selectedProcessClass?: string;
   action?: string;
 }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
   const hasAdvancedFilters = judgingBodies.length > 0 || processClasses.length > 0;
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const params = new URLSearchParams();
+    for (const [key, value] of formData.entries()) {
+      const stringValue = typeof value === "string" ? value.trim() : "";
+      if (stringValue) {
+        params.set(key, stringValue);
+      }
+    }
+    const query = params.toString();
+    const target = query ? `${action}?${query}` : action;
+    startTransition(() => {
+      router.push(target);
+    });
+  }
 
   return (
     <form
-      action={action}
-      className={`grid gap-4 rounded-[30px] border border-slate-200/80 bg-white/90 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)] backdrop-blur md:items-end ${
+      onSubmit={handleSubmit}
+      aria-busy={pending}
+      className={`grid gap-4 rounded-card border border-slate-200 bg-white p-5 shadow-elevation-1 md:items-end ${
         hasAdvancedFilters
           ? "md:grid-cols-[1.1fr_0.8fr_0.8fr_0.9fr_0.9fr_auto]"
           : "md:grid-cols-[1.2fr_0.8fr_0.8fr_auto]"
       }`}
     >
-      <div className={`md:col-span-full ${hasAdvancedFilters ? "" : ""}`}>
-        <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Refine esta visão</p>
+      <div className="md:col-span-full">
+        <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Refine esta visão</p>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           Escolha quem, quando e em qual tipo de decisão você quer concentrar a leitura.
         </p>
@@ -45,7 +69,8 @@ export function FilterBar({
         <select
           name="minister"
           defaultValue={selectedMinister}
-          className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus:border-verde-600 focus:bg-white"
+          disabled={pending}
+          className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus-visible:border-verde-600 focus-visible:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {ministers.map((minister) => (
             <option key={minister} value={minister}>
@@ -60,7 +85,8 @@ export function FilterBar({
         <select
           name="period"
           defaultValue={selectedPeriod}
-          className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus:border-verde-600 focus:bg-white"
+          disabled={pending}
+          className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus-visible:border-verde-600 focus-visible:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           <option value="__all__">Todos os períodos</option>
           {periods.map((period) => (
@@ -76,7 +102,8 @@ export function FilterBar({
         <select
           name="collegiate"
           defaultValue={selectedCollegiate}
-          className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus:border-verde-600 focus:bg-white"
+          disabled={pending}
+          className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus-visible:border-verde-600 focus-visible:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           <option value="all">Todas as decisões</option>
           <option value="colegiado">Somente decisões colegiadas</option>
@@ -90,7 +117,8 @@ export function FilterBar({
           <select
             name="judging_body"
             defaultValue={selectedJudgingBody ?? ""}
-            className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus:border-verde-600 focus:bg-white"
+            disabled={pending}
+            className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus-visible:border-verde-600 focus-visible:bg-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             <option value="">Todos os contextos</option>
             {judgingBodies.map((judgingBody) => (
@@ -108,7 +136,8 @@ export function FilterBar({
           <select
             name="process_class"
             defaultValue={selectedProcessClass ?? ""}
-            className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus:border-verde-600 focus:bg-white"
+            disabled={pending}
+            className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus-visible:border-verde-600 focus-visible:bg-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             <option value="">Todos os tipos</option>
             {processClasses.map((processClass) => (
@@ -122,10 +151,21 @@ export function FilterBar({
 
       <button
         type="submit"
-        className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition duration-200 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-verde-600"
+        disabled={pending}
+        aria-live="polite"
+        className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition duration-200 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-verde-600 disabled:cursor-wait disabled:bg-slate-700"
       >
-        <Search className="h-4 w-4" aria-hidden="true" focusable="false" />
-        Atualizar resultados
+        {pending ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" focusable="false" />
+            Aplicando filtros…
+          </>
+        ) : (
+          <>
+            <Search className="h-4 w-4" aria-hidden="true" focusable="false" />
+            Aplicar filtros
+          </>
+        )}
       </button>
     </form>
   );

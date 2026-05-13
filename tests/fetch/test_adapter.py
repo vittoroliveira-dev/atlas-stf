@@ -127,6 +127,15 @@ class TestAdapterDiscovery:
         units = list(adapter.discover_units())
         assert units == []
 
+    def test_datajud_invalid_process_jsonl_propagates_contextual_error(self, tmp_path: Path) -> None:
+        process_path = tmp_path / "process.jsonl"
+        process_path.write_text('{"origin_court_or_body": "STJ"}\n{bad-json}\n', encoding="utf-8")
+
+        adapter = DatajudAdapter(tmp_path, process_path=process_path)
+
+        with pytest.raises(ValueError, match=r".*process\.jsonl:2 contains invalid JSON"):
+            list(adapter.discover_units())
+
 
 # ---------------------------------------------------------------------------
 # Probe via adapter

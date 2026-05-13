@@ -8,6 +8,7 @@ not present) and check minimum population thresholds.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -19,7 +20,7 @@ _DB_URL = os.getenv("ATLAS_STF_DATABASE_URL", f"sqlite:///{_DB_PATH}")
 
 
 @pytest.fixture(scope="module")
-def session() -> Session:
+def session() -> Iterator[Session]:
     if not _DB_PATH.exists() and "sqlite" in _DB_URL:
         pytest.skip("Serving DB not found — run 'make serving-build' first")
     engine = create_engine(_DB_URL)
@@ -28,7 +29,10 @@ def session() -> Session:
 
 
 def _has_table(session: Session, table_name: str) -> bool:
-    insp = inspect(session.bind)
+    bind = session.bind
+    if bind is None:
+        raise AssertionError("Expected session bind")
+    insp = inspect(bind)
     return table_name in insp.get_table_names()
 
 

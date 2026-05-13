@@ -19,10 +19,16 @@ def _read_jsonl(path: Path) -> list[dict[str, object]]:
         return []
     records: list[dict[str, object]] = []
     with path.open("r", encoding="utf-8") as fh:
-        for line in fh:
+        for line_number, line in enumerate(fh, start=1):
             line = line.strip()
             if line:
-                records.append(json.loads(line))
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(f"{path}:{line_number} contains invalid JSON") from exc
+                if not isinstance(record, dict):
+                    raise ValueError(f"{path}:{line_number} must contain a JSON object")
+                records.append(record)
     return records
 
 

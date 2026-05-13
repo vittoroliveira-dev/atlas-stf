@@ -56,17 +56,36 @@ function getTimeoutMs(): number {
   return DEFAULT_TIMEOUT_MS;
 }
 
+export interface FetchApiOptions {
+  /**
+   * If set, caches the response on the edge for this many seconds
+   * (ISR). Leave undefined to force no-store (current default, safe
+   * for endpoints that may change between serving-build runs).
+   */
+  revalidate?: number;
+}
+
+type NextFetchInit = RequestInit & { next?: { revalidate: number } };
+
 export async function fetchApiJson<T>(
   pathname: string,
   query?: Record<string, QueryValue>,
+  options?: FetchApiOptions,
 ): Promise<T> {
-  const response = await fetch(buildUrl(pathname, query), {
-    cache: "no-store",
+  const init: NextFetchInit = {
     headers: {
       Accept: "application/json",
     },
     signal: AbortSignal.timeout(getTimeoutMs()),
-  });
+  };
+
+  if (typeof options?.revalidate === "number" && options.revalidate > 0) {
+    init.next = { revalidate: options.revalidate };
+  } else {
+    init.cache = "no-store";
+  }
+
+  const response = await fetch(buildUrl(pathname, query), init);
 
   if (!response.ok) {
     throw new ApiClientError(`API request failed for ${pathname}`, response.status);

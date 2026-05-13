@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -48,3 +49,24 @@ class TestFetchLock:
         # Lock should be released — re-acquire must succeed
         with FetchLock(tmp_path, "test"):
             pass
+
+    def test_permission_error_does_not_reclaim_live_lock(self, tmp_path: Path) -> None:
+        with FetchLock(tmp_path, "cgu"):
+            with patch("atlas_stf.core.fetch_lock.os.kill", side_effect=PermissionError("denied")):
+                with pytest.raises(FetchLockError, match="already running"):
+                    with FetchLock(tmp_path, "cgu"):
+                        pass  # pragma: no cover
+
+    def test_is_holder_dead_returns_false_on_permission_error(self, tmp_path: Path) -> None:
+        lock = FetchLock(tmp_path, "cgu")
+        lock._lock_path.write_text('{"pid": 1234}', encoding="utf-8")
+
+        with patch("atlas_stf.core.fetch_lock.os.kill", side_effect=PermissionError("denied")):
+            assert lock._is_holder_dead() is False
+
+    def test_is_holder_dead_returns_true_on_process_lookup_error(self, tmp_path: Path) -> None:
+        lock = FetchLock(tmp_path, "cgu")
+        lock._lock_path.write_text('{"pid": 1234}', encoding="utf-8")
+
+        with patch("atlas_stf.core.fetch_lock.os.kill", side_effect=ProcessLookupError()):
+            assert lock._is_holder_dead() is True

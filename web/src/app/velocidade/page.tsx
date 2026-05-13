@@ -60,7 +60,7 @@ export default async function VelocidadePage({
       }}
     >
       {/* KPI cards */}
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Decisões analisadas</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.total.toLocaleString("pt-BR")}</p>
@@ -135,7 +135,7 @@ export default async function VelocidadePage({
 
       {data.items.length === 0 ? (
         <section className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" focusable="false" />
           <p className="text-sm text-amber-800">{emptyStateMessage("velocity")}</p>
         </section>
       ) : (
@@ -169,43 +169,43 @@ export default async function VelocidadePage({
               >
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Autuação</p>
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Autuação</p>
                     <p className="mt-1 text-sm text-slate-900">{v.filing_date ?? "---"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Decisão</p>
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Decisão</p>
                     <p className="mt-1 text-sm text-slate-900">{v.decision_date ?? "---"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Classe / Tema</p>
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Classe / Tema</p>
                     <p className="mt-1 text-sm text-slate-900">{v.process_class ?? "---"} / {v.thematic_key ?? "---"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Z-score</p>
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Z-score</p>
                     <p className="mt-1 text-sm text-slate-900">{v.velocity_z_score != null ? v.velocity_z_score.toFixed(2) : "---"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">P5 do grupo</p>
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">P5 do grupo</p>
                     <p className="mt-1 text-sm text-slate-900">{v.p5_days != null ? `${Math.round(v.p5_days)}d` : "---"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">P10 do grupo</p>
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">P10 do grupo</p>
                     <p className="mt-1 text-sm text-slate-900">{v.p10_days != null ? `${Math.round(v.p10_days)}d` : "---"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Mediana do grupo</p>
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Mediana do grupo</p>
                     <p className="mt-1 text-sm text-slate-900">{v.median_days != null ? `${Math.round(v.median_days)}d` : "---"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">P90 do grupo</p>
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">P90 do grupo</p>
                     <p className="mt-1 text-sm text-slate-900">{v.p90_days != null ? `${Math.round(v.p90_days)}d` : "---"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">P95 do grupo</p>
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">P95 do grupo</p>
                     <p className="mt-1 text-sm text-slate-900">{v.p95_days != null ? `${Math.round(v.p95_days)}d` : "---"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Tamanho do grupo</p>
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Tamanho do grupo</p>
                     <p className="mt-1 text-sm text-slate-900">{v.group_size ?? "---"}</p>
                   </div>
                 </div>

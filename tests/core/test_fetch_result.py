@@ -97,10 +97,14 @@ class TestFetchTimer:
 
     def test_context_manager_auto_logs_failure(self, caplog) -> None:
         """__exit__ should auto-log failure when exception is raised and no log_success called."""
+        timer: FetchTimer | None = None
         with caplog.at_level(logging.INFO):
             with pytest.raises(ValueError, match="kaboom"):
-                with FetchTimer("auto") as timer:
+                with FetchTimer("auto") as active_timer:
+                    timer = active_timer
                     raise ValueError("kaboom")
+        if timer is None:
+            raise AssertionError("FetchTimer context did not bind timer")
         assert timer._result_logged is True
         assert "FETCH_RESULT" in caplog.text
         assert '"status": "failed"' in caplog.text
@@ -129,18 +133,26 @@ class TestFetchTimer:
 
     def test_context_manager_keyboard_interrupt_not_logged_as_failure(self, caplog) -> None:
         """KeyboardInterrupt is a cancellation, not a fetch failure — __exit__ must not log it."""
+        timer: FetchTimer | None = None
         with caplog.at_level(logging.INFO):
             with pytest.raises(KeyboardInterrupt):
-                with FetchTimer("cancel") as timer:
+                with FetchTimer("cancel") as active_timer:
+                    timer = active_timer
                     raise KeyboardInterrupt
+        if timer is None:
+            raise AssertionError("FetchTimer context did not bind timer")
         assert timer._result_logged is False
         assert "FETCH_RESULT" not in caplog.text
 
     def test_context_manager_system_exit_not_logged_as_failure(self, caplog) -> None:
         """SystemExit is a cancellation, not a fetch failure — __exit__ must not log it."""
+        timer: FetchTimer | None = None
         with caplog.at_level(logging.INFO):
             with pytest.raises(SystemExit):
-                with FetchTimer("exit") as timer:
+                with FetchTimer("exit") as active_timer:
+                    timer = active_timer
                     raise SystemExit(1)
+        if timer is None:
+            raise AssertionError("FetchTimer context did not bind timer")
         assert timer._result_logged is False
         assert "FETCH_RESULT" not in caplog.text

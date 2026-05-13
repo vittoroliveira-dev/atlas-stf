@@ -54,7 +54,10 @@ def _read_jsonl_map(path: Path, key: str) -> dict[str, dict[str, Any]]:
                 raise ValueError(f"{path}:{line_number} contains invalid JSON") from exc
             if key not in row:
                 raise ValueError(f"{path}:{line_number} missing required key '{key}'")
-            result[str(row[key])] = row
+            normalized_key = str(row[key])
+            if normalized_key in result:
+                raise ValueError(f"{path}:{line_number} contains duplicate key '{key}': {normalized_key}")
+            result[normalized_key] = row
     return result
 
 

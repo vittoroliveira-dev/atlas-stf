@@ -38,17 +38,27 @@
   --color-marinho-950: #001340;
 }
 
-:root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --surface: rgba(255, 255, 255, 0.82);
-  --surface-strong: rgba(255, 255, 255, 0.94);
-  --line: rgba(148, 163, 184, 0.28);
-  --accent: #007D30;
-  --accent-warm: #946300;
-  --muted: #475569;
-  --font-body: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "IBM Plex Mono", "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", monospace;
+@theme inline {
+  --font-sans: var(--font-plex-sans), "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-plex-mono), "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", monospace;
+}
+
+@theme {
+  --radius-inset: 1.25rem;
+  --radius-card: 1.75rem;
+  --radius-hero: 2.25rem;
+}
+
+@utility shadow-elevation-1 {
+  box-shadow: 0 20px 60px -30px rgba(15, 23, 42, 0.10);
+}
+
+@utility shadow-elevation-2 {
+  box-shadow: 0 28px 80px -32px rgba(15, 23, 42, 0.16);
+}
+
+@utility shadow-elevation-hero {
+  box-shadow: 0 18px 60px -32px rgba(0, 31, 94, 0.22);
 }
 
 * {
@@ -57,17 +67,29 @@
 
 html {
   scroll-behavior: smooth;
+  font-feature-settings: "kern", "liga", "calt";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: var(--font-body);
+  font-family: var(--font-sans);
   background:
-    radial-gradient(circle at top left, rgba(0, 125, 48, 0.12), transparent 28%),
-    radial-gradient(circle at top right, rgba(148, 99, 0, 0.10), transparent 26%),
-    linear-gradient(180deg, #f8fafc 0%, #EDFDF4 100%);
-  color: var(--foreground);
+    radial-gradient(circle at top right, rgba(0, 125, 48, 0.07), transparent 45%),
+    #f8fafc;
+  color: #0f172a;
+  line-height: 1.55;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum", "zero", "ss01";
 }
 
 ::selection {
@@ -82,5 +104,86 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+    color: #000000;
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+    gap: 1rem !important;
+  }
+
+  /* Abre todos os <details> para impressão */
+  details {
+    page-break-inside: avoid;
+  }
+  details > summary {
+    list-style: none;
+  }
+  details[open] > summary,
+  details > summary {
+    cursor: default;
+  }
+  details:not([open]) > *:not(summary) {
+    display: block !important;
+  }
+
+  /* Esconde navegação e elementos puramente interativos */
+  nav[aria-label="Áreas do painel"],
+  form[action],
+  button {
+    display: none !important;
+  }
+
+  /* Hero vira cabeçalho de documento institucional */
+  section:first-of-type {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #cccccc !important;
+    box-shadow: none !important;
+    page-break-after: avoid;
+  }
+  section:first-of-type h1 {
+    color: #000000 !important;
+    font-size: 22pt !important;
+  }
+  section:first-of-type p {
+    color: #333333 !important;
+  }
+
+  /* Remove sombras e transparências em toda a página */
+  * {
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Links: mostra URL após o texto para leitura impressa */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 9pt;
+    color: #555555;
+  }
+
+  /* Tabelas usam mais espaço sem scroll */
+  .overflow-x-auto {
+    overflow: visible !important;
+  }
+  table {
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+  }
+  thead {
+    display: table-header-group;
   }
 }

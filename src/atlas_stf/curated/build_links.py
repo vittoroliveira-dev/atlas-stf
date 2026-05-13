@@ -38,7 +38,7 @@ def build_process_party_link_records(process_path: Path = DEFAULT_PROCESS_PATH) 
 
     for process in processes:
         process_id = process["process_id"]
-        records_by_link_id: dict[str, dict[str, Any]] = {}
+        candidates: dict[tuple[str, str | None], dict[str, Any]] = {}
         for role, party_name in party_entries_from_juris_partes(process.get("juris_partes")):
             normalized = normalize_entity_name(party_name)
             if normalized is None:
@@ -48,11 +48,10 @@ def build_process_party_link_records(process_path: Path = DEFAULT_PROCESS_PATH) 
             if identity_key is None:
                 continue
             party_id = stable_id("party_", normalized)
-            link_id = stable_id("ppl_", f"{process_id}:{party_id}")
-            records_by_link_id.setdefault(
-                link_id,
+            dedupe_key = (party_id, role)
+            candidates.setdefault(
+                dedupe_key,
                 {
-                    "link_id": link_id,
                     "process_id": process_id,
                     "party_id": party_id,
                     "role_in_case": role,
@@ -61,7 +60,22 @@ def build_process_party_link_records(process_path: Path = DEFAULT_PROCESS_PATH) 
                     "updated_at": timestamp,
                 },
             )
-        records.extend(records_by_link_id.values())
+
+        groups: dict[str, list[dict[str, Any]]] = {}
+        for record in candidates.values():
+            groups.setdefault(record["party_id"], []).append(record)
+
+        for group_records in groups.values():
+            if len(group_records) == 1:
+                record = group_records[0]
+                record["link_id"] = stable_id("ppl_", f"{process_id}:{record['party_id']}")
+                records.append(record)
+                continue
+
+            for record in group_records:
+                role_token = record["role_in_case"] or "<none>"
+                record["link_id"] = stable_id("ppl_", f"{process_id}:{record['party_id']}:{role_token}")
+                records.append(record)
 
     validate_records(records, PARTY_SCHEMA_PATH)
     return records
@@ -74,24 +88,20 @@ def build_process_counsel_link_records(process_path: Path = DEFAULT_PROCESS_PATH
 
     for process in processes:
         process_id = process["process_id"]
-        records_by_link_id: dict[str, dict[str, Any]] = {}
+        candidates: dict[tuple[str, str | None], dict[str, Any]] = {}
 
         def register_record(*, counsel_id: str, side_in_case: str | None) -> None:
-            link_id = stable_id("pcl_", f"{process_id}:{counsel_id}")
-            existing = records_by_link_id.get(link_id)
-            if existing is None:
-                records_by_link_id[link_id] = {
-                    "link_id": link_id,
+            candidates.setdefault(
+                (counsel_id, side_in_case),
+                {
                     "process_id": process_id,
                     "counsel_id": counsel_id,
                     "side_in_case": side_in_case,
                     "source_id": SOURCE_ID,
                     "created_at": timestamp,
                     "updated_at": timestamp,
-                }
-                return
-            if existing["side_in_case"] is None and side_in_case is not None:
-                existing["side_in_case"] = side_in_case
+                },
+            )
 
         for _, counsel_name, party_role in counsel_entries_from_juris_partes(process.get("juris_partes")):
             normalized = normalize_entity_name(counsel_name)
@@ -114,7 +124,24 @@ def build_process_counsel_link_records(process_path: Path = DEFAULT_PROCESS_PATH
                     continue
                 counsel_id = stable_id("csl_", normalized)
                 register_record(counsel_id=counsel_id, side_in_case=None)
-        records.extend(records_by_link_id.values())
+
+        groups: dict[str, list[dict[str, Any]]] = {}
+        for record in candidates.values():
+            groups.setdefault(record["counsel_id"], []).append(record)
+
+        for group_records in groups.values():
+            if any(record["side_in_case"] is not None for record in group_records):
+                group_records = [record for record in group_records if record["side_in_case"] is not None]
+            if len(group_records) == 1:
+                record = group_records[0]
+                record["link_id"] = stable_id("pcl_", f"{process_id}:{record['counsel_id']}")
+                records.append(record)
+                continue
+
+            for record in group_records:
+                side_token = record["side_in_case"] or "<none>"
+                record["link_id"] = stable_id("pcl_", f"{process_id}:{record['counsel_id']}:{side_token}")
+                records.append(record)
 
     validate_records(records, COUNSEL_SCHEMA_PATH)
     return records

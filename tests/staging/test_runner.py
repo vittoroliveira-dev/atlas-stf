@@ -130,6 +130,57 @@ def test_process_file_fails_on_row_count_mismatch(small_raw_csv: tuple[Path, Pat
     assert not (staging_dir / "distribuidos.csv").exists()
 
 
+def test_process_file_surfaces_empty_csv_with_context(tmp_path: Path):
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    staging_dir = tmp_path / "staging"
+    staging_dir.mkdir()
+    (raw_dir / "distribuidos.csv").write_text("", encoding="utf-8")
+
+    with pytest.raises(pd.errors.EmptyDataError, match=r"No columns to parse from file: .*distribuidos\.csv"):
+        process_file(CONFIGS["distribuidos.csv"], raw_dir, staging_dir)
+
+    assert not (staging_dir / "distribuidos.csv").exists()
+
+
+def test_process_file_surfaces_parser_error_with_context(tmp_path: Path):
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    staging_dir = tmp_path / "staging"
+    staging_dir.mkdir()
+    (raw_dir / "distribuidos.csv").write_text('a,b\n"1,2\n', encoding="utf-8")
+
+    with pytest.raises(pd.errors.ParserError, match=r".*distribuidos\.csv"):
+        process_file(CONFIGS["distribuidos.csv"], raw_dir, staging_dir)
+
+    assert not (staging_dir / "distribuidos.csv").exists()
+
+
+def test_process_file_surfaces_invalid_encoding_with_context(tmp_path: Path):
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    staging_dir = tmp_path / "staging"
+    staging_dir.mkdir()
+    (raw_dir / "distribuidos.csv").write_bytes(b"\xff\xfe\x00\x00")
+
+    with pytest.raises(UnicodeDecodeError, match=r".*distribuidos\.csv"):
+        process_file(CONFIGS["distribuidos.csv"], raw_dir, staging_dir)
+
+    assert not (staging_dir / "distribuidos.csv").exists()
+
+
+def test_process_file_surfaces_missing_csv_with_context(tmp_path: Path):
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    staging_dir = tmp_path / "staging"
+    staging_dir.mkdir()
+
+    with pytest.raises(FileNotFoundError, match=r".*distribuidos\.csv"):
+        process_file(CONFIGS["distribuidos.csv"], raw_dir, staging_dir)
+
+    assert not (staging_dir / "distribuidos.csv").exists()
+
+
 @pytest.mark.skipif(not (RAW_DIR / "reclamacoes.csv").exists(), reason="Raw data not available")
 def test_real_reclamacoes_row_count():
     """Smoke test: process reclamacoes (smallest simple CSV) and check row count."""

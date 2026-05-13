@@ -225,14 +225,14 @@ def _read_datajud_indices(process_path: Path) -> set[str]:
 
     indices: set[str] = set()
     with open(process_path, encoding="utf-8") as fh:
-        for line in fh:
+        for line_number, line in enumerate(fh, start=1):
             line = line.strip()
             if not line:
                 continue
             try:
                 rec = json.loads(line)
-            except json.JSONDecodeError:
-                continue
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"{process_path}:{line_number} contains invalid JSON") from exc
             court = rec.get("origin_court_or_body", "")
             state = rec.get("origin_description", "")
             if court:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from hashlib import sha256
@@ -34,16 +35,32 @@ class SourceFile:
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise json.JSONDecodeError(f"Invalid JSON at {path}: {exc.msg}", exc.doc, exc.pos) from exc
+    if not isinstance(value, Mapping):
+        raise ValueError(f"Expected JSON object at {path}")
+    return dict(value)
 
 
 def _read_jsonl(path: Path) -> Iterable[dict[str, Any]]:
     with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
+        for line_number, line in enumerate(handle, start=1):
             line = line.strip()
             if not line:
                 continue
-            yield json.loads(line)
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise json.JSONDecodeError(
+                    f"Invalid JSONL record at {path}:{line_number}: {exc.msg}",
+                    exc.doc,
+                    exc.pos,
+                ) from exc
+            if not isinstance(value, Mapping):
+                raise ValueError(f"Expected JSON object at {path}:{line_number}")
+            yield dict(value)
 
 
 def _dedupe_records_by_key(records: Iterable[dict[str, Any]], key: str) -> list[dict[str, Any]]:

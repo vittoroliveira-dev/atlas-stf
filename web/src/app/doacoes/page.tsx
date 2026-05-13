@@ -28,7 +28,7 @@ function matchConfidenceLabel(confidence: string | null, score: number | null): 
 function matchConfidenceColor(confidence: string | null): string {
   switch (confidence) {
     case "deterministic": return "border-verde-200 bg-verde-50 text-verde-700";
-    case "exact_name": return "border-blue-200 bg-blue-50 text-blue-700";
+    case "exact_name": return "border-marinho-200 bg-marinho-50 text-marinho-700";
     case "fuzzy": return "border-ouro-200 bg-ouro-50 text-ouro-700";
     case "nominal_review_needed": return "border-red-200 bg-red-50 text-red-700";
     default: return "border-slate-200 bg-slate-50 text-slate-600";
@@ -79,7 +79,7 @@ export default async function DoacoesPage({
       }}
     >
       {/* KPI cards */}
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Partes doadoras</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{partyData.total}</p>
@@ -141,7 +141,7 @@ export default async function DoacoesPage({
 
         {partyData.donations.length === 0 ? (
           <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" focusable="false" />
             <p className="text-sm text-amber-800">{emptyStateMessage("donations")}</p>
           </div>
         ) : (
@@ -181,7 +181,7 @@ export default async function DoacoesPage({
                     <dl className="grid gap-2 text-sm sm:grid-cols-2">
                       <div>
                         <dt className="text-slate-500">CPF/CNPJ</dt>
-                        <dd className="font-mono text-xs font-medium text-slate-900">{d.donor_cpf_cnpj || "---"}</dd>
+                        <dd className="font-mono text-xs tabular-nums font-medium text-slate-900">{d.donor_cpf_cnpj || "---"}</dd>
                       </div>
                       <div>
                         <dt className="text-slate-500">Casos STF</dt>
@@ -236,7 +236,7 @@ export default async function DoacoesPage({
 
         {counselData.donations.length === 0 ? (
           <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" focusable="false" />
             <p className="text-sm text-amber-800">{emptyStateMessage("donations")}</p>
           </div>
         ) : (
@@ -276,7 +276,7 @@ export default async function DoacoesPage({
                     <dl className="grid gap-2 text-sm sm:grid-cols-2">
                       <div>
                         <dt className="text-slate-500">CPF/CNPJ</dt>
-                        <dd className="font-mono text-xs font-medium text-slate-900">{d.donor_cpf_cnpj || "---"}</dd>
+                        <dd className="font-mono text-xs tabular-nums font-medium text-slate-900">{d.donor_cpf_cnpj || "---"}</dd>
                       </div>
                       <div>
                         <dt className="text-slate-500">Casos STF</dt>

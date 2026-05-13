@@ -29,21 +29,21 @@ export function EntityIndexGrid({
   emptyMessage: string;
 }) {
   return (
-    <section className="rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+    <section className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
       <div className="max-w-3xl">
-        <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Lista de nomes relacionados</p>
+        <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Lista de nomes relacionados</p>
         <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">{subtitle}</p>
       </div>
 
       {items.length === 0 ? (
-        <div className="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
+        <div className="mt-6 rounded-inset border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
           {emptyMessage}
         </div>
       ) : (
-        <div className="mt-6 grid gap-4 xl:grid-cols-2">
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
           {items.map((item) => (
-            <article key={item.id} className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-5">
+            <article key={item.id} className="rounded-inset border border-slate-200 bg-slate-50/70 p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -57,12 +57,12 @@ export function EntityIndexGrid({
                   </p>
                 </div>
                 <div className="grid min-w-[220px] gap-3 sm:grid-cols-2">
-                  <div className="rounded-[20px] bg-white px-4 py-3 text-right shadow-sm">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500">Ocorrências</p>
+                  <div className="rounded-inset bg-white px-4 py-3 text-right shadow-sm">
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Ocorrências</p>
                     <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{item.associated_event_count}</p>
                   </div>
-                  <div className="rounded-[20px] bg-white px-4 py-3 text-right shadow-sm">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500">Casos</p>
+                  <div className="rounded-inset bg-white px-4 py-3 text-right shadow-sm">
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Casos</p>
                     <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{item.distinct_process_count}</p>
                   </div>
                 </div>
@@ -84,7 +84,7 @@ export function EntityIndexGrid({
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
                 >
                   Ver detalhes
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
                 </Link>
               </div>
             </article>
@@ -110,29 +110,29 @@ export function EntityDetailPanels({
 }) {
   return (
     <>
-      <section className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500">Ocorrências</p>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-card border border-slate-200 bg-white p-5 shadow-elevation-1">
+          <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Ocorrências</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{entity.associated_event_count}</p>
         </div>
-        <div className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500">Casos</p>
+        <div className="rounded-card border border-slate-200 bg-white p-5 shadow-elevation-1">
+          <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Casos</p>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{entity.distinct_process_count}</p>
         </div>
-        <div className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500">Tipo de ligação</p>
+        <div className="rounded-card border border-slate-200 bg-white p-5 shadow-elevation-1">
+          <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Tipo de ligação</p>
           <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">{relationLabel(entity.relation_level)}</p>
         </div>
-        <div className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500">Papéis</p>
+        <div className="rounded-card border border-slate-200 bg-white p-5 shadow-elevation-1">
+          <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Papéis</p>
           <p className="mt-2 text-sm font-semibold text-slate-950">{entity.role_labels.join(" · ") || "Sem papel identificado neste período."}</p>
         </div>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-        <article className="rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+        <article className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
           <div className="max-w-3xl">
-            <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Quem aparece junto</p>
+            <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Quem aparece junto</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
               Ministros mais ligados a est{entityLabel === "parte" ? "a" : "e"} {entityLabel}
             </h2>
@@ -142,13 +142,13 @@ export function EntityDetailPanels({
           </div>
 
           {ministers.length === 0 ? (
-            <div className="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
+            <div className="mt-6 rounded-inset border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
               Não encontramos ministros ligados a este nome dentro do período selecionado.
             </div>
           ) : (
             <div className="mt-6 grid gap-4">
               {ministers.map((item) => (
-                <article key={item.minister} className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+                <article key={item.minister} className="rounded-inset border border-slate-200 bg-slate-50/70 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-base font-semibold text-slate-950">{item.minister}</p>
@@ -176,9 +176,9 @@ export function EntityDetailPanels({
           )}
         </article>
 
-        <article className="rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+        <article className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
           <div className="max-w-3xl">
-            <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Casos relacionados</p>
+            <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Casos relacionados</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
               Casos em que est{entityLabel === "parte" ? "a" : "e"} {entityLabel} aparece
             </h2>
@@ -188,13 +188,13 @@ export function EntityDetailPanels({
           </div>
 
           {cases.length === 0 ? (
-            <div className="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
+            <div className="mt-6 rounded-inset border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
               Não há casos ligados a est{entityLabel === "parte" ? "a" : "e"} {entityLabel} dentro do filtro atual.
             </div>
           ) : (
             <div className="mt-6 grid gap-4">
               {cases.map((item) => (
-                <article key={item.decisionEventId} className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+                <article key={item.decisionEventId} className="rounded-inset border border-slate-200 bg-slate-50/70 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-base font-semibold text-slate-950">{item.processNumber}</p>
@@ -205,7 +205,7 @@ export function EntityDetailPanels({
                       className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-verde-700 px-4 text-sm font-semibold text-white transition hover:bg-verde-800"
                     >
                       Ver caso
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
                     </Link>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-700">

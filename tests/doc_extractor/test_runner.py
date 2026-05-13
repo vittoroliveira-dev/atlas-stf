@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from atlas_stf.doc_extractor._config import DocExtractorConfig
-from atlas_stf.doc_extractor._runner import _filter_low_confidence_edges, run_doc_extraction
+from atlas_stf.doc_extractor._runner import _filter_low_confidence_edges, _read_jsonl_records, run_doc_extraction
 
 
 def _write_jsonl(path: Path, records: list[dict]) -> None:
@@ -125,3 +127,29 @@ class TestRunDocExtraction:
         # Edge without confidence is treated as 0 (below threshold)
         result = run_doc_extraction(config)
         assert result == 0
+
+
+class TestReadJsonlRecords:
+    def test_invalid_jsonl_in_middle_preserves_jsondecodeerror_with_context(self, tmp_path: Path) -> None:
+        path = tmp_path / "representation_edge.jsonl"
+        path.write_text('{"edge_id": "e1"}\n{"edge_id": \n', encoding="utf-8")
+
+        with pytest.raises(
+            json.JSONDecodeError,
+            match=r"Invalid JSONL record at .*representation_edge\.jsonl:2: .*",
+        ) as exc_info:
+            _read_jsonl_records(path)
+
+        assert exc_info.value.lineno == 1
+        assert exc_info.value.colno == 12
+        assert isinstance(exc_info.value.__cause__, json.JSONDecodeError)
+
+    def test_nominal_flow_returns_all_records_unchanged(self, tmp_path: Path) -> None:
+        path = tmp_path / "representation_edge.jsonl"
+        records = [
+            {"edge_id": "e1", "confidence": 0.2},
+            {"edge_id": "e2", "confidence": 0.9},
+        ]
+        _write_jsonl(path, records)
+
+        assert _read_jsonl_records(path) == records

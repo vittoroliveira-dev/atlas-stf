@@ -61,7 +61,11 @@ def _probe_pdf(client: httpx.Client, url: str) -> int:
     try:
         resp = client.head(url)
         if resp.status_code == 200:
-            length = int(resp.headers.get("content-length", "0"))
+            try:
+                length = int(resp.headers.get("content-length", "0"))
+            except ValueError:
+                logger.warning("Invalid content-length for %s: %r", url, resp.headers.get("content-length"))
+                return 0
             # Real PDFs are >10KB; the SPA HTML fallback is ~1.4KB
             if length > 5000:
                 return length

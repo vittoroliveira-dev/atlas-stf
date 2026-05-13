@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,17 +46,32 @@ class ValidationReport:
 # -- streaming helpers -------------------------------------------------------
 
 
+def _iter_jsonl_objects(path: Path) -> Iterator[dict[str, object]]:
+    with open(path, encoding="utf-8") as fh:
+        for line_number, raw in enumerate(fh, start=1):
+            if not (ln := raw.strip()):
+                continue
+            try:
+                rec = json.loads(ln)
+            except json.JSONDecodeError as exc:
+                raise json.JSONDecodeError(
+                    f"Invalid JSONL record at {path}:{line_number}: {exc.msg}",
+                    exc.doc,
+                    exc.pos,
+                ) from exc
+            if not isinstance(rec, dict):
+                raise ValueError(f"Expected JSON object at {path}:{line_number}")
+            yield {str(key): value for key, value in rec.items()}
+
+
 def _ids(path: Path, fld: str) -> set[str]:
     out: set[str] = set()
     if not path.exists():
         return out
-    with open(path, encoding="utf-8") as fh:
-        for raw in fh:
-            if not (ln := raw.strip()):
-                continue
-            v = json.loads(ln).get(fld)
-            if v is not None:
-                out.add(str(v))
+    for rec in _iter_jsonl_objects(path):
+        v = rec.get(fld)
+        if v is not None:
+            out.add(str(v))
     return out
 
 
@@ -63,15 +79,11 @@ def _multi_ids(path: Path, fields: list[str]) -> dict[str, set[str]]:
     s: dict[str, set[str]] = {f: set() for f in fields}
     if not path.exists():
         return s
-    with open(path, encoding="utf-8") as fh:
-        for raw in fh:
-            if not (ln := raw.strip()):
-                continue
-            rec = json.loads(ln)
-            for f in fields:
-                v = rec.get(f)
-                if v is not None:
-                    s[f].add(str(v))
+    for rec in _iter_jsonl_objects(path):
+        for f in fields:
+            v = rec.get(f)
+            if v is not None:
+                s[f].add(str(v))
     return s
 
 
@@ -79,14 +91,11 @@ def _coverage(path: Path, fld: str) -> tuple[int, int]:
     total = nn = 0
     if not path.exists():
         return total, nn
-    with open(path, encoding="utf-8") as fh:
-        for raw in fh:
-            if not (ln := raw.strip()):
-                continue
-            total += 1
-            v = json.loads(ln).get(fld)
-            if v is not None and v != "":
-                nn += 1
+    for rec in _iter_jsonl_objects(path):
+        total += 1
+        v = rec.get(fld)
+        if v is not None and v != "":
+            nn += 1
     return total, nn
 
 
@@ -141,16 +150,14 @@ def check_alert_referential_integrity(cd: Path, ad: Path) -> CheckResult:
     }
     orph: dict[str, list[str]] = {k: [] for k in refs}
     total = 0
-    with open(ap, encoding="utf-8") as fh:
-        for raw in fh:
-            if not (ln := raw.strip()):
-                continue
-            rec = json.loads(ln)
-            total += 1
-            for fk, ref in refs.items():
-                v = rec.get(fk)
-                if v and v not in ref and len(orph[fk]) < 5:
-                    orph[fk].append(v)
+    for rec in _iter_jsonl_objects(ap):
+        total += 1
+        for fk, ref in refs.items():
+            v = rec.get(fk)
+            if v is not None:
+                value = str(v)
+                if value not in ref and len(orph[fk]) < 5:
+                    orph[fk].append(value)
     oc = sum(len(v) for v in orph.values())
     sa = [f"{k}={v}" for k, vs in orph.items() for v in vs][:5]
     st = "PASS" if oc == 0 else "FAIL"

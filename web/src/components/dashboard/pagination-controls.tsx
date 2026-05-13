@@ -43,10 +43,10 @@ export function PaginationControls({
   const endItem = Math.min(safePage * pageSize, total);
 
   return (
-    <section className="rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+    <section className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-3xl">
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Paginação e ordenação</p>
+          <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Paginação e ordenação</p>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">Janela atual da listagem</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             Exibindo {startItem} a {endItem} de {total} registros no recorte atual.
@@ -60,7 +60,7 @@ export function PaginationControls({
             <span>{orderingLabel}</span>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-            <span className="font-mono uppercase tracking-[0.18em] text-slate-500">Itens por página</span>
+            <span className="tracking-[0.02em] text-slate-500">Itens por página</span>
             {pageSizeOptions.map((option) => {
               const active = option === pageSize;
               return (
@@ -111,7 +111,7 @@ export function PaginationControls({
             }`}
           >
             Próxima
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
           </Link>
         </div>
       </div>

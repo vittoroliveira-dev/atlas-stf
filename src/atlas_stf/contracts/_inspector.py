@@ -70,13 +70,20 @@ def _normalize_col(name: str) -> str:
 
 
 def _count_lines_fast(path: Path) -> int:
-    result = subprocess.run(
-        ["wc", "-l", str(path)],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return int(result.stdout.strip().split()[0])
+    try:
+        result = subprocess.run(
+            ["wc", "-l", str(path)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return int(result.stdout.strip().split()[0])
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError):
+        count = 0
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(_HASH_CHUNK), b""):
+                count += chunk.count(b"\n")
+        return count
 
 
 def _infer_type(values: list[str]) -> str:

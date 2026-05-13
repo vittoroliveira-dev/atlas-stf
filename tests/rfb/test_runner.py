@@ -117,6 +117,97 @@ class TestBuildTargetNames:
         assert "DIAS TOFFOLI" in names
         assert "JOSE ANTONIO DIAS TOFFOLI" in names
 
+    def test_build_target_names_skips_invalid_minister_bio_and_keeps_jsonl_targets(
+        self, tmp_path: Path, caplog
+    ) -> None:
+        import logging
+
+        bio_path = tmp_path / "minister_bio.json"
+        bio_path.write_text('{"m1": ', encoding="utf-8")
+        party_path = tmp_path / "party.jsonl"
+        party_path.write_text('{"party_name_normalized": "JOSE DA SILVA"}\n', encoding="utf-8")
+        config = RfbFetchConfig(
+            output_dir=tmp_path / "rfb",
+            minister_bio_path=bio_path,
+            party_path=party_path,
+            counsel_path=tmp_path / "counsel.jsonl",
+        )
+
+        with caplog.at_level(logging.WARNING):
+            names = _build_target_names(config)
+
+        assert "JOSE DA SILVA" in names
+        assert f"{bio_path}:1:" in caplog.text
+        assert "invalid minister_bio json" in caplog.text.lower()
+
+    def test_build_target_names_skips_non_object_minister_bio_and_keeps_jsonl_targets(
+        self, tmp_path: Path, caplog
+    ) -> None:
+        import logging
+
+        bio_path = tmp_path / "minister_bio.json"
+        bio_path.write_text("[]", encoding="utf-8")
+        party_path = tmp_path / "party.jsonl"
+        party_path.write_text('{"party_name_normalized": "JOSE DA SILVA"}\n', encoding="utf-8")
+        config = RfbFetchConfig(
+            output_dir=tmp_path / "rfb",
+            minister_bio_path=bio_path,
+            party_path=party_path,
+            counsel_path=tmp_path / "counsel.jsonl",
+        )
+
+        with caplog.at_level(logging.WARNING):
+            names = _build_target_names(config)
+
+        assert "JOSE DA SILVA" in names
+        assert str(bio_path) in caplog.text
+        assert "non-object minister_bio json" in caplog.text.lower()
+
+    def test_build_target_names_skips_non_mapping_minister_bio_entry_and_keeps_jsonl_targets(
+        self, tmp_path: Path, caplog
+    ) -> None:
+        import logging
+
+        bio_path = tmp_path / "minister_bio.json"
+        bio_path.write_text('{"m1": []}', encoding="utf-8")
+        party_path = tmp_path / "party.jsonl"
+        party_path.write_text('{"party_name_normalized": "JOSE DA SILVA"}\n', encoding="utf-8")
+        config = RfbFetchConfig(
+            output_dir=tmp_path / "rfb",
+            minister_bio_path=bio_path,
+            party_path=party_path,
+            counsel_path=tmp_path / "counsel.jsonl",
+        )
+
+        with caplog.at_level(logging.WARNING):
+            names = _build_target_names(config)
+
+        assert "JOSE DA SILVA" in names
+        assert str(bio_path) in caplog.text
+        assert "key 'm1'" in caplog.text.lower()
+        assert "non-mapping minister_bio entry" in caplog.text.lower()
+
+    def test_build_target_names_skips_non_object_jsonl_with_context(
+        self, tmp_path: Path, caplog
+    ) -> None:
+        import logging
+
+        party_path = tmp_path / "party.jsonl"
+        party_path.write_text('{"party_name_normalized": "JOSE DA SILVA"}\n[]\n', encoding="utf-8")
+        config = RfbFetchConfig(
+            output_dir=tmp_path / "rfb",
+            minister_bio_path=tmp_path / "bio.json",
+            party_path=party_path,
+            counsel_path=tmp_path / "counsel.jsonl",
+        )
+
+        with caplog.at_level(logging.WARNING):
+            names = _build_target_names(config)
+
+        assert "JOSE DA SILVA" in names
+        assert f"{party_path}:2" in caplog.text
+        assert "non-object" in caplog.text.lower()
+
 
 class TestExtractTseDonorTargets:
     def test_pj(self, tmp_path: Path) -> None:
@@ -180,10 +271,32 @@ class TestExtractTseDonorTargets:
             '{"donor_cpf_cnpj": "11222333000181", "donor_name_normalized": "OK"}\nNOT VALID JSON\n',
             encoding="utf-8",
         )
-        with caplog.at_level(logging.WARNING, logger="atlas_stf.rfb._runner"):
+        with caplog.at_level(logging.WARNING):
             pj_basico, pf_cpfs, pj_full = _extract_tse_donor_targets(donations)
         assert "malformed" in caplog.text.lower()
+        assert f"{donations}:2" in caplog.text
         assert "11222333" in pj_basico
+
+    def test_load_tse_targets_skips_non_object_jsonl_with_context(
+        self, tmp_path: Path, caplog
+    ) -> None:
+        """Non-object JSONL line -> logged warning, valid lines still processed."""
+        import logging
+
+        donations = tmp_path / "donations_raw.jsonl"
+        donations.write_text(
+            '{"donor_cpf_cnpj": "11222333000181", "donor_name_normalized": "OK"}\n[]\n',
+            encoding="utf-8",
+        )
+
+        with caplog.at_level(logging.WARNING):
+            pj_basico, pf_cpfs, pj_full = _extract_tse_donor_targets(donations)
+
+        assert "non-object" in caplog.text.lower()
+        assert f"{donations}:2" in caplog.text
+        assert "11222333" in pj_basico
+        assert pf_cpfs == set()
+        assert "11222333000181" in pj_full
 
 
 class TestTseTargetsHash:

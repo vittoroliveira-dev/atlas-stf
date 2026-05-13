@@ -158,7 +158,10 @@ class TestServiceQueriesExtended:
         result = get_temporal_analysis_minister(session, "TESTE")
         assert result.minister == "TESTE"
         assert result.monthly[0].breakpoint_flag is True
-        assert result.corporate_links[0].link_start_date.isoformat() == "2025-03-01"
+        link_start_date = result.corporate_links[0].link_start_date
+        if link_start_date is None:
+            raise AssertionError("Expected corporate link start date")
+        assert link_start_date.isoformat() == "2025-03-01"
 
     def test_get_temporal_analysis_minister_treats_percent_as_literal(self, session: Session):
         result = get_temporal_analysis_minister(session, "%")

@@ -97,7 +97,13 @@ def run_golden_runtime() -> tuple[list[dict], bool]:
             if not ok:
                 has_critical = True
         except Exception as exc:
-            steps.append({"step": "build_groups", "status": "FAIL", "detail": str(exc)[:150], "proof": "fresh_runtime", "elapsed": round(time.monotonic() - t0, 2)})
+            steps.append({
+                "step": "build_groups",
+                "status": "FAIL",
+                "detail": str(exc)[:150],
+                "proof": "fresh_runtime",
+                "elapsed": round(time.monotonic() - t0, 2),
+            })
             has_critical = True
 
         # Step 2: build_baseline
@@ -125,7 +131,13 @@ def run_golden_runtime() -> tuple[list[dict], bool]:
             if not ok:
                 has_critical = True
         except Exception as exc:
-            steps.append({"step": "build_baseline", "status": "FAIL", "detail": str(exc)[:150], "proof": "fresh_runtime", "elapsed": round(time.monotonic() - t0, 2)})
+            steps.append({
+                "step": "build_baseline",
+                "status": "FAIL",
+                "detail": str(exc)[:150],
+                "proof": "fresh_runtime",
+                "elapsed": round(time.monotonic() - t0, 2),
+            })
             has_critical = True
 
         # Create stub for compound_risk before alerts
@@ -158,7 +170,13 @@ def run_golden_runtime() -> tuple[list[dict], bool]:
             if not ok:
                 has_critical = True
         except Exception as exc:
-            steps.append({"step": "build_alerts", "status": "FAIL", "detail": str(exc)[:150], "proof": "fresh_runtime", "elapsed": round(time.monotonic() - t0, 2)})
+            steps.append({
+                "step": "build_alerts",
+                "status": "FAIL",
+                "detail": str(exc)[:150],
+                "proof": "fresh_runtime",
+                "elapsed": round(time.monotonic() - t0, 2),
+            })
 
         # Step 4: counsel_network
         t0 = time.monotonic()
@@ -186,7 +204,13 @@ def run_golden_runtime() -> tuple[list[dict], bool]:
                 "elapsed": round(time.monotonic() - t0, 2),
             })
         except Exception as exc:
-            steps.append({"step": "counsel_network", "status": "FAIL", "detail": str(exc)[:150], "proof": "fresh_runtime", "elapsed": round(time.monotonic() - t0, 2)})
+            steps.append({
+                "step": "counsel_network",
+                "status": "FAIL",
+                "detail": str(exc)[:150],
+                "proof": "fresh_runtime",
+                "elapsed": round(time.monotonic() - t0, 2),
+            })
 
         # Step 5: serving_build
         # Create stubs for non-exercised analytics
@@ -244,7 +268,13 @@ def run_golden_runtime() -> tuple[list[dict], bool]:
             if not ok:
                 has_critical = True
         except Exception as exc:
-            steps.append({"step": "serving_build", "status": "FAIL", "detail": str(exc)[:150], "proof": "fresh_runtime", "elapsed": round(time.monotonic() - t0, 2)})
+            steps.append({
+                "step": "serving_build",
+                "status": "FAIL",
+                "detail": str(exc)[:150],
+                "proof": "fresh_runtime",
+                "elapsed": round(time.monotonic() - t0, 2),
+            })
             has_critical = True
             return steps, has_critical
 
@@ -262,7 +292,11 @@ def run_golden_runtime() -> tuple[list[dict], bool]:
             ok_count = 0
             sub_results: list[str] = []
             for ep in endpoints:
-                path = ep if "?" in ep else (ep + "?page=1&page_size=3" if ep not in ("/health", "/dashboard", "/graph/metrics") else ep)
+                path = (
+                    ep
+                    if "?" in ep or ep in ("/health", "/dashboard", "/graph/metrics")
+                    else ep + "?page=1&page_size=3"
+                )
                 resp = client.get(path)
                 if resp.status_code == 200:
                     ok_count += 1
@@ -283,7 +317,13 @@ def run_golden_runtime() -> tuple[list[dict], bool]:
             if not ok:
                 has_critical = True
         except Exception as exc:
-            steps.append({"step": "api_smoke_fresh", "status": "FAIL", "detail": str(exc)[:150], "proof": "fresh_runtime", "elapsed": round(time.monotonic() - t0, 2)})
+            steps.append({
+                "step": "api_smoke_fresh",
+                "status": "FAIL",
+                "detail": str(exc)[:150],
+                "proof": "fresh_runtime",
+                "elapsed": round(time.monotonic() - t0, 2),
+            })
             has_critical = True
 
     return steps, has_critical

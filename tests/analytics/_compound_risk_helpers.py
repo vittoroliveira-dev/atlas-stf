@@ -4,6 +4,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TypedDict
+
+
+class CompoundRiskPaths(TypedDict):
+    curated_dir: Path
+    analytics_dir: Path
+    output_dir: Path
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -16,7 +23,7 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def _build_setup(tmp_path: Path) -> dict[str, Path]:
+def _build_setup(tmp_path: Path) -> CompoundRiskPaths:
     """Build standard compound risk test fixtures in tmp_path."""
     curated_dir = tmp_path / "curated"
     analytics_dir = tmp_path / "analytics"

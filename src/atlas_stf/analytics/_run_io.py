@@ -40,19 +40,16 @@ def _read_mem_available_mb() -> float | None:
 
 
 def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    tmp_path = Path(tmp_name)
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
-        try:
-            os.write(fd, json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"))
-            os.close(fd)
-            os.replace(tmp_name, path)
-        except BaseException:
-            os.close(fd)
-            os.unlink(tmp_name)
-            raise
-    except OSError:
-        pass
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def _now_iso() -> str:

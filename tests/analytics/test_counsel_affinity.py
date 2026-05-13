@@ -4,8 +4,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TypedDict
 
 from atlas_stf.analytics.counsel_affinity import _build_rapporteur_map, build_counsel_affinity
+
+
+class CounselAffinityPaths(TypedDict):
+    decision_event_path: Path
+    process_path: Path
+    counsel_path: Path
+    process_counsel_link_path: Path
+    output_dir: Path
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -14,7 +23,7 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
 
 
 class TestBuildCounselAffinity:
-    def _setup(self, tmp_path: Path) -> dict[str, Path]:
+    def _setup(self, tmp_path: Path) -> CounselAffinityPaths:
         curated = tmp_path / "curated"
         analytics = tmp_path / "analytics"
 

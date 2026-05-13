@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import tempfile
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -72,39 +73,41 @@ def _process_zip(zip_path: Path, output_dir: Path) -> list[dict[str, Any]]:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        with zipfile.ZipFile(zip_path) as zf:
-            safe_members: list[zipfile.ZipInfo] = []
-            for info in zf.infolist():
-                if not is_safe_zip_member(info.filename, output_dir, external_attr=info.external_attr):
-                    logger.warning("Skipping unsafe ZIP member: %s", info.filename)
-                    continue
-                safe_members.append(info)
-            enforce_max_uncompressed_size(
-                safe_members,
-                max_total_uncompressed_bytes=_CVM_MAX_ZIP_UNCOMPRESSED_BYTES,
-            )
-            for member in safe_members:
-                zf.extract(member, output_dir)
+        with tempfile.TemporaryDirectory(dir=output_dir, prefix="_cvm_extract_") as extract_dir_name:
+            extract_dir = Path(extract_dir_name)
+            with zipfile.ZipFile(zip_path) as zf:
+                safe_members: list[zipfile.ZipInfo] = []
+                for info in zf.infolist():
+                    if not is_safe_zip_member(info.filename, extract_dir, external_attr=info.external_attr):
+                        logger.warning("Skipping unsafe ZIP member: %s", info.filename)
+                        continue
+                    safe_members.append(info)
+                enforce_max_uncompressed_size(
+                    safe_members,
+                    max_total_uncompressed_bytes=_CVM_MAX_ZIP_UNCOMPRESSED_BYTES,
+                )
+                for member in safe_members:
+                    zf.extract(member, extract_dir)
+
+            process_path, accused_path = _locate_csvs(extract_dir)
+
+            if process_path is None:
+                logger.warning("No process CSV found in ZIP")
+                return []
+
+            if accused_path is None:
+                logger.warning("No accused CSV found in ZIP")
+                return []
+
+            processes = parse_process_csv(process_path)
+            accused = parse_accused_csv(accused_path)
+            return join_and_normalize(processes, accused)
     except zipfile.BadZipFile:
         logger.warning("Invalid ZIP content")
         return []
     except ValueError as exc:
         logger.warning("Refusing CVM ZIP: %s", exc)
         return []
-
-    process_path, accused_path = _locate_csvs(output_dir)
-
-    if process_path is None:
-        logger.warning("No process CSV found in ZIP")
-        return []
-
-    if accused_path is None:
-        logger.warning("No accused CSV found in ZIP")
-        return []
-
-    processes = parse_process_csv(process_path)
-    accused = parse_accused_csv(accused_path)
-    return join_and_normalize(processes, accused)
 
 
 def fetch_cvm_data(

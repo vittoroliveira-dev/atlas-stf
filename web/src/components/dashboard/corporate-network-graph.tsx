@@ -163,7 +163,7 @@ export function CorporateNetworkGraph({ conflicts }: { conflicts: Conflict[] }) 
   }, [conflicts, size.height, size.width]);
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-slate-900">Grafo dos vinculos da pagina</h3>

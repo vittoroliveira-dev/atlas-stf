@@ -88,7 +88,10 @@ def build_sample() -> dict:
     stats["decision_event.jsonl"] = _write_jsonl(curated_out / "decision_event.jsonl", events)
 
     # Party links → party_ids
-    party_links = [r for r in _read_jsonl(CURATED_DIR / "process_party_link.jsonl") if r.get("process_id") in selected_pids]
+    party_links = [
+        r for r in _read_jsonl(CURATED_DIR / "process_party_link.jsonl")
+        if r.get("process_id") in selected_pids
+    ]
     party_ids = {r.get("party_id") for r in party_links if r.get("party_id")}
     stats["process_party_link.jsonl"] = _write_jsonl(curated_out / "process_party_link.jsonl", party_links)
 
@@ -97,7 +100,10 @@ def build_sample() -> dict:
     stats["party.jsonl"] = _write_jsonl(curated_out / "party.jsonl", parties)
 
     # Counsel links → counsel_ids
-    counsel_links = [r for r in _read_jsonl(CURATED_DIR / "process_counsel_link.jsonl") if r.get("process_id") in selected_pids]
+    counsel_links = [
+        r for r in _read_jsonl(CURATED_DIR / "process_counsel_link.jsonl")
+        if r.get("process_id") in selected_pids
+    ]
     counsel_ids = {r.get("counsel_id") for r in counsel_links if r.get("counsel_id")}
     stats["process_counsel_link.jsonl"] = _write_jsonl(curated_out / "process_counsel_link.jsonl", counsel_links)
 
@@ -139,7 +145,13 @@ def build_sample() -> dict:
             seen_ids: set[str] = set()
             for r in _read_jsonl(src):
                 # Use first available ID field for dedup
-                rid = r.get("entity_id") or r.get("subject_id") or r.get("event_id") or r.get("representation_id") or str(len(records))
+                rid = (
+                    r.get("entity_id")
+                    or r.get("subject_id")
+                    or r.get("event_id")
+                    or r.get("representation_id")
+                    or str(len(records))
+                )
                 if rid not in seen_ids and len(records) < 100:
                     seen_ids.add(rid)
                     records.append(r)

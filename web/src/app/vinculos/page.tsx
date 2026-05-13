@@ -23,7 +23,7 @@ function degreeBadge(degree: number) {
         : "bg-slate-100 text-slate-600";
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${tone}`}>
-      <Link2 className="h-3 w-3" />
+      <Link2 className="h-3 w-3" aria-hidden="true" focusable="false" />
       Grau {degree}
     </span>
   );
@@ -83,7 +83,7 @@ export default async function VinculosPage({
       }}
     >
       {/* KPI cards */}
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Total de vínculos</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.total}</p>
@@ -164,7 +164,7 @@ export default async function VinculosPage({
       {/* Cards */}
       {data.conflicts.length === 0 ? (
         <section className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" focusable="false" />
           <p className="text-sm text-amber-800">{emptyStateMessage("corporate")}</p>
         </section>
       ) : (
@@ -219,7 +219,7 @@ export default async function VinculosPage({
                       </span>
                     )}
                     {c.economic_group_id && (
-                      <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                      <span className="rounded-full bg-marinho-50 px-2.5 py-0.5 text-xs font-medium text-marinho-700">
                         Grupo econômico ({c.economic_group_member_count ?? 0} membros)
                       </span>
                     )}
@@ -228,7 +228,7 @@ export default async function VinculosPage({
                   <dl className="grid gap-2 text-sm sm:grid-cols-2">
                     <div>
                       <dt className="text-slate-500">CNPJ</dt>
-                      <dd className="font-mono text-xs font-medium text-slate-900">{c.company_cnpj_basico}</dd>
+                      <dd className="font-mono text-xs tabular-nums font-medium text-slate-900">{c.company_cnpj_basico}</dd>
                     </div>
                     <div>
                       <dt className="text-slate-500">Tipo</dt>
@@ -314,12 +314,12 @@ export default async function VinculosPage({
                       <p className="mb-1.5 text-sm text-slate-500">Grupo econômico</p>
                       <div className="flex flex-wrap gap-1.5">
                         {c.economic_group_razoes_sociais.slice(0, 5).map((name, i) => (
-                          <span key={i} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                          <span key={i} className="rounded-full border border-marinho-200 bg-marinho-50 px-2.5 py-0.5 text-xs font-medium text-marinho-700">
                             {name}
                           </span>
                         ))}
                         {c.economic_group_razoes_sociais.length > 5 && (
-                          <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-500">
+                          <span className="rounded-full border border-marinho-200 bg-marinho-50 px-2.5 py-0.5 text-xs font-medium text-marinho-500">
                             +{c.economic_group_razoes_sociais.length - 5}
                           </span>
                         )}

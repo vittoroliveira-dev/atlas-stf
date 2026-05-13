@@ -42,7 +42,7 @@ export default async function LawyerDetailPage({
         description="O identificador informado nao corresponde a nenhum advogado registrado."
       >
         <Link href="/representacao" className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-verde-600">
-          Voltar para representacao <ArrowRight className="h-4 w-4" />
+          Voltar para representacao <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
         </Link>
       </AppShell>
     );
@@ -58,7 +58,7 @@ export default async function LawyerDetailPage({
       title={lawyer.lawyer_name_normalized ?? lawyer.lawyer_name_raw}
       description="Vinculos de representacao e eventos deste advogado."
     >
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Users} label="Processos" value={String(uniqueProcessIds.size)} help="Processos em que este advogado aparece." />
         <StatCard icon={Network} label="Vinculos" value={String(data.edges.length)} help="Arestas de representacao." />
         <StatCard icon={Gavel} label="Eventos" value={String(data.events.length)} help="Eventos processuais vinculados." />
@@ -72,7 +72,7 @@ export default async function LawyerDetailPage({
 
       <div className="flex gap-2">
         <Link href="/representacao" className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-verde-600">
-          Voltar para representacao <ArrowRight className="h-4 w-4" />
+          Voltar para representacao <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
         </Link>
         {lawyer.firm_id ? (
           <Link href={`/representacao/escritorios/${lawyer.firm_id}`} className="inline-flex items-center gap-2 rounded-2xl border border-verde-300 bg-verde-50 px-4 py-2 text-sm font-semibold text-verde-700 hover:bg-verde-100">
@@ -86,7 +86,7 @@ export default async function LawyerDetailPage({
           <h2 className="mb-3 text-lg font-semibold text-slate-900">Vinculos de representacao</h2>
           <div className="overflow-x-auto rounded-2xl border border-slate-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+              <thead className="bg-slate-50 text-left text-xs font-semibold tracking-[0.02em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Processo</th>
                   <th className="px-4 py-3">Tipo</th>
@@ -98,7 +98,7 @@ export default async function LawyerDetailPage({
               <tbody className="divide-y divide-slate-100">
                 {data.edges.map((edge) => (
                   <tr key={edge.edge_id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2.5 font-mono text-xs">{edge.process_id.slice(0, 12)}...</td>
+                    <td className="px-4 py-2.5 font-mono text-xs tabular-nums">{edge.process_id.slice(0, 12)}...</td>
                     <td className="px-4 py-2.5">{edge.representative_kind ?? "—"}</td>
                     <td className="px-4 py-2.5">{edge.role_type ? (ROLE_LABELS[edge.role_type] ?? edge.role_type) : "—"}</td>
                     <td className="px-4 py-2.5">{edge.event_count}</td>
@@ -118,7 +118,7 @@ export default async function LawyerDetailPage({
           <h2 className="mb-3 text-lg font-semibold text-slate-900">Eventos processuais</h2>
           <div className="overflow-x-auto rounded-2xl border border-slate-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+              <thead className="bg-slate-50 text-left text-xs font-semibold tracking-[0.02em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Data</th>
                   <th className="px-4 py-3">Tipo</th>
@@ -132,7 +132,7 @@ export default async function LawyerDetailPage({
                     <td className="px-4 py-2.5 whitespace-nowrap">{evt.event_date ?? "—"}</td>
                     <td className="px-4 py-2.5">{evt.event_type ? (EVENT_LABELS[evt.event_type] ?? evt.event_type) : "—"}</td>
                     <td className="px-4 py-2.5 max-w-xs truncate">{evt.event_description ?? "—"}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs">{evt.process_id.slice(0, 12)}...</td>
+                    <td className="px-4 py-2.5 font-mono text-xs tabular-nums">{evt.process_id.slice(0, 12)}...</td>
                   </tr>
                 ))}
               </tbody>

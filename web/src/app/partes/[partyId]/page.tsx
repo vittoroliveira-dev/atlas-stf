@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowRight, Gavel, Network, Users } from "lucide-react";
 import { AppShell } from "@/components/dashboard/app-shell";
+import { pickLatestUpdate } from "@/lib/data-freshness";
 import { EntityDetailPanels } from "@/components/dashboard/entity-pages";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { RedFlagBadge, SanctionBadge } from "@/components/dashboard/sanction-badge";
@@ -46,6 +47,7 @@ export default async function PartyDetailPage({
   return (
     <AppShell
       currentPath="/partes"
+      lastUpdate={pickLatestUpdate(data.sourceFiles)}
       filterContext={filterContext}
       heroState={
         data.loadError
@@ -116,14 +118,14 @@ export default async function PartyDetailPage({
               className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-verde-600 hover:text-verde-700"
             >
               Voltar para a lista de partes
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
             </Link>
           </section>
 
           {partySanctions.length > 0 ? (
             <section className="rounded-2xl border border-red-200 bg-red-50/50 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <AlertTriangle className="h-5 w-5 text-red-600" aria-hidden="true" focusable="false" />
                 <h2 className="text-lg font-semibold text-red-800">Registros em bases publicas de sancoes</h2>
               </div>
               <div className="overflow-x-auto">
@@ -160,7 +162,7 @@ export default async function PartyDetailPage({
           {partyDonations.length > 0 ? (
             <section className="rounded-2xl border border-ouro-200 bg-ouro-50/50 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="h-5 w-5 text-ouro-600" />
+                <AlertTriangle className="h-5 w-5 text-ouro-600" aria-hidden="true" focusable="false" />
                 <h2 className="text-lg font-semibold text-ouro-800">Doacoes eleitorais</h2>
               </div>
               <div className="overflow-x-auto">
@@ -177,7 +179,7 @@ export default async function PartyDetailPage({
                   <tbody className="divide-y divide-ouro-100">
                     {partyDonations.map((d) => (
                       <tr key={d.match_id}>
-                        <td className="px-3 py-2 font-mono text-xs text-slate-700">{d.donor_cpf_cnpj || "—"}</td>
+                        <td className="px-3 py-2 font-mono text-xs tabular-nums text-slate-700">{d.donor_cpf_cnpj || "—"}</td>
                         <td className="px-3 py-2 text-slate-700">
                           {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(d.matched_events_total_brl ?? d.total_donated_brl)}
                         </td>

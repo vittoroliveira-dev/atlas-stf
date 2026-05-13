@@ -60,7 +60,7 @@ export default async function InvestigacaoDetalhe({
           <dt className="text-slate-500">Tipo</dt>
           <dd>{nodeTypeLabel(node.node_type)}</dd>
           <dt className="text-slate-500">Identificador</dt>
-          <dd className="font-mono">{node.entity_identifier ?? "---"}</dd>
+          <dd className="font-mono tabular-nums">{node.entity_identifier ?? "---"}</dd>
           <dt className="text-slate-500">Tipo do identificador</dt>
           <dd>{node.entity_identifier_type ?? "---"}</dd>
           <dt className="text-slate-500">Qualidade</dt>
@@ -114,7 +114,7 @@ export default async function InvestigacaoDetalhe({
                   return (
                     <tr key={e.edge_id} className="hover:bg-slate-50">
                       <td className="px-4 py-2">{e.edge_type.replace(/_/g, " ")}</td>
-                      <td className="px-4 py-2 font-mono text-xs">
+                      <td className="px-4 py-2 font-mono text-xs tabular-nums">
                         {e.dst_node_id === node.node_id ? e.src_node_id : e.dst_node_id}
                       </td>
                       <td className="px-4 py-2">

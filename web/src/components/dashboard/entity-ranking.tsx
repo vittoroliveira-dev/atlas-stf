@@ -36,15 +36,15 @@ export function EntityRanking({
   emptyMessage: string;
 }) {
   return (
-    <section className="rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+    <section className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
       <div className="max-w-3xl">
-        <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Relações observadas</p>
+        <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Relações observadas</p>
         <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">{subtitle}</p>
       </div>
 
       {items.length === 0 ? (
-        <div className="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
+        <div className="mt-6 rounded-inset border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
           {emptyMessage}
         </div>
       ) : (
@@ -52,12 +52,12 @@ export function EntityRanking({
           {items.map((item, index) => (
             <article
               key={`${item.id}:${index}`}
-              className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4"
+              className="rounded-inset border border-slate-200 bg-slate-50/70 p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-slate-950 px-3 py-1 font-mono text-xs text-white">
+                    <span className="rounded-full bg-slate-950 px-3 py-1 font-mono text-xs tabular-nums text-white">
                       #{index + 1}
                     </span>
                     <span
@@ -70,14 +70,14 @@ export function EntityRanking({
                   <p className="mt-2 text-sm text-slate-600">{relationHelperText(item.relation_level)}</p>
                 </div>
                 <div className="grid min-w-[220px] gap-3 sm:grid-cols-2">
-                  <div className="rounded-[20px] bg-white px-4 py-3 text-right shadow-sm">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500">Ocorrências</p>
+                  <div className="rounded-inset bg-white px-4 py-3 text-right shadow-sm">
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Ocorrências</p>
                     <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
                       {item.associated_event_count}
                     </p>
                   </div>
-                  <div className="rounded-[20px] bg-white px-4 py-3 text-right shadow-sm">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500">Casos</p>
+                  <div className="rounded-inset bg-white px-4 py-3 text-right shadow-sm">
+                    <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Casos</p>
                     <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
                       {item.distinct_process_count}
                     </p>
@@ -117,25 +117,25 @@ export function CaseEntities({
   parties: EntitySummary[];
 }) {
   return (
-    <section className="rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+    <section className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
       <div className="max-w-3xl">
-        <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Pessoas ligadas ao caso</p>
+        <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Pessoas ligadas ao caso</p>
         <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">{subtitle}</p>
       </div>
 
-      <div className="mt-6 grid gap-5 xl:grid-cols-2">
+      <div className="mt-6 grid gap-5 md:grid-cols-2">
         <div className="grid gap-4">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-slate-500">Advogados</p>
+            <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Advogados</p>
           </div>
           {counsels.length === 0 ? (
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
+            <div className="rounded-inset border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
               Nenhum representante apareceu neste caso dentro do período selecionado.
             </div>
           ) : (
             counsels.map((item) => (
-              <article key={item.id} className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+              <article key={item.id} className="rounded-inset border border-slate-200 bg-slate-50/70 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-base font-semibold text-slate-950">{item.name_raw}</p>
@@ -158,15 +158,15 @@ export function CaseEntities({
 
         <div className="grid gap-4">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-slate-500">Partes</p>
+            <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Partes</p>
           </div>
           {parties.length === 0 ? (
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
+            <div className="rounded-inset border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-6 text-slate-600">
               Nenhuma parte apareceu neste caso dentro do período selecionado.
             </div>
           ) : (
             parties.map((item) => (
-              <article key={item.id} className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+              <article key={item.id} className="rounded-inset border border-slate-200 bg-slate-50/70 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-base font-semibold text-slate-950">{item.name_raw}</p>

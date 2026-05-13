@@ -6,6 +6,36 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-05-13
+
+### Added
+
+- **Frontend institucional**: `TopBar`, navegação geral agrupada, skip link, skeletons globais e carregamento dinâmico dos charts para reduzir JavaScript inicial e melhorar a navegação por áreas do painel.
+- **Freshness de dados no dashboard**: helper `data-freshness.ts` para derivar e formatar a última atualização dos arquivos-fonte no hero das páginas.
+- **Cobertura de regressão ampliada**: novos testes para agenda, analytics I/O, scraper, DEOAB e validação de utilitários do serving builder.
+- **Agent workflow docs**: documentos locais de issue tracker, triage labels e layout multi-contexto em `docs/agents/`.
+
+### Changed
+
+- **Runtime Python**: baseline elevado para Python 3.14.5 em `.python-version`, `pyproject.toml`, README e docs locais.
+- **Dependências**: versões mínimas atualizadas para FastAPI, pandas, Playwright, psycopg, Pydantic, SQLAlchemy, Rich, Uvicorn, Pytest, Pyright, Ruff, Vulture e pytest-cov.
+- **Pyright**: ambientes de execução explícitos adicionados para scripts e testes de automação, preservando imports locais sem alterar o source layout.
+- **Pipeline e fontes externas**: runners de agenda, portal STF, TSE, RFB, CVM, DataJud, OAB/OAB-SP, DEOAB, scraper e transparência receberam ajustes de validação, cache, retry ou normalização cobertos por testes.
+- **Serving/API/validation**: leitura de JSON/JSONL passou a falhar no limite de arquivo/linha com mensagens explícitas; filtros e endpoint de review do grafo foram alinhados às políticas atuais de normalização.
+- **Documentação operacional**: README e arquitetura atualizados para contagens, stack, SQLite como backend operacional suportado, manifesto de fetch com migração e semântica das fontes externas.
+- **Release tooling**: `scripts/release.sh` agora lista itens pendentes quando a working tree está suja, facilitando corrigir escopo antes da publicação.
+
+### Fixed
+
+- **Agenda STF**: cache JSONL inválido ou com versão de normalização antiga agora é rejeitado e limpo antes de reprocessar o mês.
+- **Escrita de agenda**: gravações de raw JSON e JSONL normalizado passam por helper atômico testado.
+- **Serving builder**: JSON inválido, JSON não-objeto e registros JSONL não-objeto agora reportam arquivo e linha em vez de falharem depois como erro genérico.
+- **Frontend**: charts Recharts foram isolados em boundary dinâmica com skeleton, reduzindo risco de hidratação indevida em páginas SSR.
+
+### Removed
+
+- **Extras opcionais antigos**: grupos `ml` e `proxy` foram removidos do `pyproject.toml`; as dependências usadas pelo projeto permanecem declaradas no conjunto principal.
+
 ## [1.1.5] - 2026-04-01
 
 ### Added

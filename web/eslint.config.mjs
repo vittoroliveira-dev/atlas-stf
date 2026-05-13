@@ -8,7 +8,7 @@ const eslintConfig = [
     rules: { ...nextPlugin.configs.recommended.rules, ...nextPlugin.configs['core-web-vitals'].rules },
   },
   {
-    ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts'],
+    ignores: ['.next/**', 'node_modules/**', '.venv/**', 'next-env.d.ts'],
   },
 ];
 

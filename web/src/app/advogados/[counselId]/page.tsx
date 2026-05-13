@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowRight, Gavel, Network, Users } from "lucide-react";
 import { AppShell } from "@/components/dashboard/app-shell";
+import { pickLatestUpdate } from "@/lib/data-freshness";
 import { EntityDetailPanels } from "@/components/dashboard/entity-pages";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { RedFlagBadge } from "@/components/dashboard/sanction-badge";
@@ -45,6 +46,7 @@ export default async function CounselDetailPage({
   return (
     <AppShell
       currentPath="/advogados"
+      lastUpdate={pickLatestUpdate(data.sourceFiles)}
       filterContext={filterContext}
       heroState={
         data.loadError
@@ -115,18 +117,18 @@ export default async function CounselDetailPage({
               className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-verde-600 hover:text-verde-700"
             >
               Voltar para a lista de representantes
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
             </Link>
           </section>
 
           {sanctionProfile ? (
             <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" focusable="false" />
                 <h2 className="text-lg font-semibold text-amber-800">Perfil de clientes sancionados</h2>
                 {sanctionProfile.red_flag ? <RedFlagBadge /> : null}
               </div>
-              <div className="grid gap-3 md:grid-cols-4 text-sm">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
                 <div className="rounded-xl bg-white p-3 border border-amber-100">
                   <p className="text-slate-500">Clientes sancionados</p>
                   <p className="text-2xl font-semibold text-slate-900">{sanctionProfile.sanctioned_client_count}</p>
@@ -158,13 +160,13 @@ export default async function CounselDetailPage({
           {donationProfile ? (
             <section className="rounded-2xl border border-ouro-200 bg-ouro-50/50 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="h-5 w-5 text-ouro-600" />
+                <AlertTriangle className="h-5 w-5 text-ouro-600" aria-hidden="true" focusable="false" />
                 <h2 className="text-lg font-semibold text-ouro-800">Perfil de clientes doadores</h2>
                 {donationProfile.red_flag ? (
                   <span className="inline-flex rounded-full border border-red-300 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">Ponto critico</span>
                 ) : null}
               </div>
-              <div className="grid gap-3 md:grid-cols-4 text-sm">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
                 <div className="rounded-xl bg-white p-3 border border-ouro-100">
                   <p className="text-slate-500">Clientes doadores</p>
                   <p className="text-2xl font-semibold text-slate-900">{donationProfile.donor_client_count}</p>

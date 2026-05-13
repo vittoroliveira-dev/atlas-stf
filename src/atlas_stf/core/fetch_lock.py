@@ -116,5 +116,7 @@ class FetchLock:
             return False  # Process exists
         except ProcessLookupError:
             return True  # PID doesn't exist
-        except json.JSONDecodeError, OSError, KeyError, ValueError:
+        except PermissionError:
+            return False  # PID exists but cannot be signaled by this process
+        except (json.JSONDecodeError, OSError, KeyError, ValueError):
             return True  # Unreadable = assume stale

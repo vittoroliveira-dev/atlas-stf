@@ -15,10 +15,17 @@ def _read_jsonl_records(path: Path) -> list[dict[str, Any]]:
 
     records: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as fh:
-        for line in fh:
+        for line_number, line in enumerate(fh, start=1):
             stripped = line.strip()
             if stripped:
-                records.append(json.loads(stripped))
+                try:
+                    records.append(json.loads(stripped))
+                except json.JSONDecodeError as exc:
+                    raise json.JSONDecodeError(
+                        f"Invalid JSONL record at {path}:{line_number}: {exc.msg}",
+                        exc.doc,
+                        exc.pos,
+                    ) from exc
     return records
 
 logger = logging.getLogger(__name__)

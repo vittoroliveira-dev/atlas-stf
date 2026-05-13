@@ -32,6 +32,19 @@ DEFAULT_REVIEW_API_KEY_ENV = "ATLAS_STF_REVIEW_API_KEY"
 _RATE_LIMITER_MAX_KEYS = 100_000
 
 
+def _register_py_lower_function(dbapi_conn) -> None:
+    """Register the py_lower UDF when the DBAPI connection supports it.
+
+    The project serves data from SQLite by explicit architectural decision
+    (ADR-001, README). This guard is defensive: it prevents accidental crashes
+    in tooling/tests that instantiate the app with a different DBAPI connection,
+    but it does not widen the supported backend matrix.
+    """
+    create_function = getattr(dbapi_conn, "create_function", None)
+    if callable(create_function):
+        create_function("py_lower", 1, lambda v: v.lower() if isinstance(v, str) else v)
+
+
 class _InMemoryRateLimiter:
     def __init__(self, *, max_requests: int, window_seconds: int) -> None:
         self._max_requests = max_requests
@@ -140,7 +153,7 @@ def create_app(*, database_url: str | None = None) -> FastAPI:
 
     @event.listens_for(engine, "connect")
     def _register_py_lower(dbapi_conn, _connection_record):
-        dbapi_conn.create_function("py_lower", 1, lambda v: v.lower() if isinstance(v, str) else v)
+        _register_py_lower_function(dbapi_conn)
 
     factory = sessionmaker(engine)
 

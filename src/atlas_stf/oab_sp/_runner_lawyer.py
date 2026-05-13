@@ -29,11 +29,16 @@ def _load_sp_lawyers_by_oab(curated_dir: Path) -> list[dict[str, Any]]:
         return []
     results: list[dict[str, Any]] = []
     with path.open(encoding="utf-8") as fh:
-        for line in fh:
+        for line_number, line in enumerate(fh, start=1):
             line = line.strip()
             if not line:
                 continue
-            record = json.loads(line)
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"{path}:{line_number} contains invalid JSON") from exc
+            if not isinstance(record, dict):
+                raise ValueError(f"{path}:{line_number} must contain a JSON object")
             if record.get("oab_state") == "SP" and record.get("oab_number"):
                 results.append(record)
     logger.info("Found %d lawyers with oab_state=SP", len(results))

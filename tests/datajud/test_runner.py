@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from atlas_stf.datajud._config import DatajudFetchConfig
 from atlas_stf.datajud._runner import discover_indices, fetch_origin_data, fetch_single_index
@@ -87,6 +90,41 @@ class TestFetchSingleIndex:
         assert out_file.exists()
         data = json.loads(out_file.read_text("utf-8"))
         assert data["total_processes"] == 500
+        assert list(tmp_path.glob("api_publica_stj.json.*.tmp")) == []
+
+    def test_preserves_existing_file_when_atomic_write_fails(self, tmp_path: Path) -> None:
+        mock_client = MagicMock()
+        mock_client.search.return_value = {
+            "hits": {"total": {"value": 500}},
+            "aggregations": {
+                "top_assuntos": {"buckets": [{"key": "Civil", "doc_count": 200}]},
+                "top_orgaos": {"buckets": []},
+                "classes": {"buckets": []},
+            },
+        }
+
+        out_file = tmp_path / "api_publica_stj.json"
+        out_file.write_text('{"old": true}', encoding="utf-8")
+
+        real_fdopen = os.fdopen
+
+        def failing_fdopen(fd: int, *args, **kwargs):
+            handle = real_fdopen(fd, *args, **kwargs)
+            real_write = handle.write
+
+            def flaky_write(data: str) -> int:
+                real_write(data[:10])
+                raise OSError("disk full")
+
+            handle.write = flaky_write  # type: ignore[method-assign]
+            return handle
+
+        with patch("atlas_stf.datajud._runner.os.fdopen", side_effect=failing_fdopen):
+            with pytest.raises(OSError, match="disk full"):
+                fetch_single_index(mock_client, "api_publica_stj", tmp_path)
+
+        assert out_file.read_text("utf-8") == '{"old": true}'
+        assert list(tmp_path.glob("api_publica_stj.json.*.tmp")) == []
 
 
 class TestFetchOriginData:

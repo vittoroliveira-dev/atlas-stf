@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
 from ._client import AgendaClient, AgendaWafChallengeError
 from ._config import STF_PRESIDENTS, AgendaFetchConfig
-from ._parser import normalize_raw_day
+from ._parser import RAW_EVENT_SCHEMA_VERSION, normalize_raw_day
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,33 @@ def _is_valid_cache(output_path: Path, raw_path: Path) -> bool:
             raw_path.unlink()
         return False
 
+    try:
+        has_records = False
+        with output_path.open(encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                record = json.loads(line)
+                if record.get("normalization_version") != RAW_EVENT_SCHEMA_VERSION:
+                    logger.info(
+                        "Stale cache (normalization version mismatch): %s — will refetch",
+                        output_path.name,
+                    )
+                    output_path.unlink(missing_ok=True)
+                    raw_path.unlink(missing_ok=True)
+                    return False
+                has_records = True
+        if not has_records:
+            logger.info("Stale cache (no JSONL records): %s — will refetch", output_path.name)
+            output_path.unlink()
+            raw_path.unlink(missing_ok=True)
+            return False
+    except (OSError, json.JSONDecodeError):
+        logger.info("Stale cache (invalid JSONL): %s — will refetch", output_path.name)
+        output_path.unlink(missing_ok=True)
+        raw_path.unlink(missing_ok=True)
+        return False
+
     # Raw file with GraphQL errors but no data = bad fetch
     if raw_path.exists():
         try:
@@ -57,10 +86,34 @@ def _is_valid_cache(output_path: Path, raw_path: Path) -> bool:
                 output_path.unlink()
                 raw_path.unlink()
                 return False
-        except json.JSONDecodeError, OSError:
+        except (json.JSONDecodeError, OSError):
             pass
 
     return True
+
+
+def _write_text_atomic(path: Path, content: str) -> None:
+    """Write via temp file + replace in the same directory.
+
+    This prevents readers from observing partially written files. It does not
+    claim directory-level durability guarantees beyond the local file fsync.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path.parent),
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        text=True,
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 def run_agenda_fetch(
@@ -121,9 +174,8 @@ def run_agenda_fetch(
                 logger.exception("Failed to fetch %04d-%02d", year, month)
                 continue
 
-            with raw_path.open("w", encoding="utf-8") as f:
-                json.dump({"response": raw_data, "metadata": meta}, f, ensure_ascii=False, indent=2)
-                f.write("\n")
+            raw_content = json.dumps({"response": raw_data, "metadata": meta}, ensure_ascii=False, indent=2) + "\n"
+            _write_text_atomic(raw_path, raw_content)
 
             days = (raw_data.get("data") or {}).get("agendaMinistrosPorDiaCategoria") or []
             normalized: list[dict[str, object]] = []
@@ -131,9 +183,8 @@ def run_agenda_fetch(
                 day["fetched_at"] = meta.get("fetched_at", "")
                 normalized.extend(normalize_raw_day(day, STF_PRESIDENTS))
 
-            with output_path.open("w", encoding="utf-8") as f:
-                for event in normalized:
-                    f.write(json.dumps(event, ensure_ascii=False) + "\n")
+            output_content = "".join(json.dumps(event, ensure_ascii=False) + "\n" for event in normalized)
+            _write_text_atomic(output_path, output_content)
 
             fetched += 1
             logger.info("Fetched %04d-%02d: %d events", year, month, len(normalized))

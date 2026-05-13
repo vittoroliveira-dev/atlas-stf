@@ -9,6 +9,8 @@ from typing import Any
 
 from ..core.identity import stable_id
 
+RAW_EVENT_SCHEMA_VERSION = "agenda-raw-v2"
+
 PROCESS_REF_RE = re.compile(
     r"\b(ADI|ADPF|ADC|ADO|RE|ARE|HC|RHC|MS|RMS|MI|AP|Inq|Rcl|AC|AO|Pet|PPE|Ext|SE|"
     r"SIRDR|CC|AI|AImp|AOE|AR|AS|Cm|EI|EL|PSV|RC|RHD|RMI|RvC|SL|SS|STA|STP|TPA|EP|IF|HD)"
@@ -215,6 +217,18 @@ def _slugify(name: str) -> str:
     return parts[-1].lower() if parts else clean.lower()
 
 
+def _event_identity_base(
+    minister_slug: str,
+    date_str: str,
+    hora_raw: str,
+    titulo: str,
+    descricao: str,
+) -> str:
+    title_norm = titulo[:80].lower().strip()
+    desc_short = descricao[:40].lower().strip()
+    return f"{minister_slug}:{date_str}:{hora_raw}:{title_norm}:{desc_short}"
+
+
 def normalize_raw_day(
     day_data: dict[str, Any],
     president_mapping: list[dict[str, str]],
@@ -235,6 +249,27 @@ def normalize_raw_day(
 
     date_str = str(event_date) if event_date else ""
     fetched_at = day_data.get("fetched_at", "")
+    prepared_events: list[
+        tuple[
+            str,
+            str,
+            str,
+            str,
+            str,
+            str,
+            list[dict[str, str]],
+            str,
+            time_type | None,
+            list[str],
+            list[str],
+            str,
+            str,
+            float,
+            bool,
+            bool,
+        ]
+    ] = []
+    signature_counts: dict[str, int] = {}
 
     for ministro in day_data.get("ministro") or []:
         minister_name_raw = ministro.get("nomeMinistro", "")
@@ -243,6 +278,8 @@ def normalize_raw_day(
         )
         for evento in ministro.get("eventos") or []:
             titulo = _clean_html(evento.get("titulo", ""))
+            # The stored GraphQL payload and current query expose only `titulo` and `hora`
+            # per event. There is no confirmed per-event description field to normalize here.
             descricao = ""
             hora_raw = evento.get("hora", "")
             time_obj = _parse_time(hora_raw)
@@ -252,41 +289,87 @@ def normalize_raw_day(
             has_process_ref = len(process_refs) > 0
             participants_raw, organizations_raw = extract_participants(descricao)
             relevance_track = "A" if has_process_ref else ("B" if participants_raw else "none")
+            identity_base = _event_identity_base(minister_slug, date_str, hora_raw, titulo, descricao)
+            signature_counts[identity_base] = signature_counts.get(identity_base, 0) + 1
+            prepared_events.append(
+                (
+                    minister_slug,
+                    owner_scope,
+                    owner_role,
+                    resolved_name,
+                    titulo,
+                    descricao,
+                    process_refs,
+                    hora_raw,
+                    time_obj,
+                    participants_raw,
+                    organizations_raw,
+                    cat,
+                    nature,
+                    conf,
+                    pub,
+                    priv,
+                )
+            )
 
-            title_norm = titulo[:80].lower().strip()
-            desc_short = descricao[:40].lower().strip()
-            event_id = stable_id(
-                "agd_",
-                f"{minister_slug}:{date_str}:{hora_raw}:{title_norm}:{desc_short}",
-            )
-            events.append(
-                {
-                    "event_id": event_id,
-                    "minister_name": resolved_name,
-                    "minister_slug": minister_slug,
-                    "owner_scope": owner_scope,
-                    "owner_role": owner_role,
-                    "event_date": date_str,
-                    "event_time_local": str(time_obj) if time_obj else None,
-                    "source_time_raw": hora_raw or None,
-                    "event_title": titulo,
-                    "event_description": descricao or None,
-                    "event_category": cat,
-                    "meeting_nature": nature,
-                    "process_refs": process_refs,
-                    "has_process_ref": has_process_ref,
-                    "contains_public_actor": pub,
-                    "contains_private_actor": priv,
-                    "actor_count": len(participants_raw) + len(organizations_raw),
-                    "classification_confidence": conf,
-                    "participants_raw": participants_raw,
-                    "participant_entities": [],
-                    "participant_resolution_confidence": 0.0,
-                    "organizations_raw": organizations_raw,
-                    "relevance_track": relevance_track,
-                    "source_date_raw": date_raw,
-                    "fetched_at": fetched_at,
-                    "coverage_scope": "public_agenda_partial",
-                }
-            )
+    occurrence_index: dict[str, int] = {}
+    for (
+        minister_slug,
+        owner_scope,
+        owner_role,
+        resolved_name,
+        titulo,
+        descricao,
+        process_refs,
+        hora_raw,
+        time_obj,
+        participants_raw,
+        organizations_raw,
+        cat,
+        nature,
+        conf,
+        pub,
+        priv,
+    ) in prepared_events:
+        identity_base = _event_identity_base(minister_slug, date_str, hora_raw, titulo, descricao)
+        occurrence = occurrence_index.get(identity_base, 0) + 1
+        occurrence_index[identity_base] = occurrence
+        event_identity = identity_base
+        if signature_counts[identity_base] > 1:
+            event_identity = f"{identity_base}:occurrence:{occurrence}"
+        event_id = stable_id("agd_", event_identity)
+        has_process_ref = len(process_refs) > 0
+        relevance_track = "A" if has_process_ref else ("B" if participants_raw else "none")
+
+        events.append(
+            {
+                "event_id": event_id,
+                "minister_name": resolved_name,
+                "minister_slug": minister_slug,
+                "owner_scope": owner_scope,
+                "owner_role": owner_role,
+                "event_date": date_str,
+                "event_time_local": str(time_obj) if time_obj else None,
+                "source_time_raw": hora_raw or None,
+                "event_title": titulo,
+                "event_description": descricao or None,
+                "event_category": cat,
+                "meeting_nature": nature,
+                "process_refs": process_refs,
+                "has_process_ref": has_process_ref,
+                "contains_public_actor": pub,
+                "contains_private_actor": priv,
+                "actor_count": len(participants_raw) + len(organizations_raw),
+                "classification_confidence": conf,
+                "participants_raw": participants_raw,
+                "participant_entities": [],
+                "participant_resolution_confidence": 0.0,
+                "organizations_raw": organizations_raw,
+                "relevance_track": relevance_track,
+                "normalization_version": RAW_EVENT_SCHEMA_VERSION,
+                "source_date_raw": date_raw,
+                "fetched_at": fetched_at,
+                "coverage_scope": "public_agenda_partial",
+            }
+        )
     return events

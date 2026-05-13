@@ -45,6 +45,16 @@ def _make_cvm_zip() -> bytes:
     return buf.getvalue()
 
 
+def _make_process_only_zip() -> bytes:
+    process_csv = "NUMERO_PROCESSO;ASSUNTO;DATA_ABERTURA;FASE_ATUAL;OBJETO;EMENTA\n"
+    process_csv += "PAS-001;Fraude;2023-05-15;Citacao;Mercado;Ementa test\n"
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("processo_sancionador.csv", process_csv)
+    return buf.getvalue()
+
+
 class TestFetchDryRun:
     def test_dry_run_no_download(self, tmp_path: Path) -> None:
         config = CvmFetchConfig(output_dir=tmp_path / "cvm", dry_run=True)
@@ -67,6 +77,17 @@ class TestFetchDryRun:
 
         assert _download_zip("https://example.test/cvm.zip", destination, timeout=5) is None
         assert not destination.exists()
+
+    def test_process_zip_does_not_reuse_stale_csv_from_output_dir(self, tmp_path: Path) -> None:
+        zip_path = tmp_path / "cvm_source.zip"
+        zip_path.write_bytes(_make_process_only_zip())
+        stale_accused = tmp_path / "processo_sancionador_acusado.csv"
+        stale_accused.write_text(
+            "NUMERO_PROCESSO;NOME_ACUSADO;CPF_CNPJ\nPAS-001;STALE NAME;123\n",
+            encoding="utf-8",
+        )
+
+        assert _process_zip(zip_path, tmp_path) == []
 
 
 class TestFetchDownload:

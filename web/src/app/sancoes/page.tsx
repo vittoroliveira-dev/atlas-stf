@@ -32,7 +32,7 @@ function matchConfidenceLabel(confidence: string | null, score: number | null): 
 function matchConfidenceColor(confidence: string | null): string {
   switch (confidence) {
     case "deterministic": return "border-verde-200 bg-verde-50 text-verde-700";
-    case "exact_name": return "border-blue-200 bg-blue-50 text-blue-700";
+    case "exact_name": return "border-marinho-200 bg-marinho-50 text-marinho-700";
     case "fuzzy": return "border-ouro-200 bg-ouro-50 text-ouro-700";
     case "nominal_review_needed": return "border-red-200 bg-red-50 text-red-700";
     default: return "border-slate-200 bg-slate-50 text-slate-600";
@@ -144,7 +144,7 @@ export default async function SancoesPage({
           href={buildFilterHref({ source: "cnep", red_flag_only: redFlagOnly ? "true" : undefined })}
           className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
             source === "cnep"
-              ? "border-orange-500 bg-orange-50 text-orange-700"
+              ? "border-rose-500 bg-rose-50 text-rose-700"
               : "border-slate-200 text-slate-600 hover:border-slate-400"
           }`}
         >
@@ -154,7 +154,7 @@ export default async function SancoesPage({
           href={buildFilterHref({ source: "cvm", red_flag_only: redFlagOnly ? "true" : undefined })}
           className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
             source === "cvm"
-              ? "border-purple-500 bg-purple-50 text-purple-700"
+              ? "border-ouro-500 bg-ouro-50 text-ouro-700"
               : "border-slate-200 text-slate-600 hover:border-slate-400"
           }`}
         >
@@ -164,7 +164,7 @@ export default async function SancoesPage({
           href={buildFilterHref({ source: "leniencia", red_flag_only: redFlagOnly ? "true" : undefined })}
           className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
             source === "leniencia"
-              ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+              ? "border-marinho-500 bg-marinho-50 text-marinho-700"
               : "border-slate-200 text-slate-600 hover:border-slate-400"
           }`}
         >
@@ -198,7 +198,7 @@ export default async function SancoesPage({
 
         {partyData.sanctions.length === 0 ? (
           <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" focusable="false" />
             <p className="text-sm text-amber-800">{emptyStateMessage("sanctions")}</p>
           </div>
         ) : (
@@ -278,7 +278,7 @@ export default async function SancoesPage({
 
         {counselData.sanctions.length === 0 ? (
           <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" focusable="false" />
             <p className="text-sm text-amber-800">{emptyStateMessage("sanctions")}</p>
           </div>
         ) : (
@@ -365,13 +365,13 @@ export default async function SancoesPage({
 
         {sclData.links.length === 0 ? (
           <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" focusable="false" />
             <p className="text-sm text-amber-800">{emptyStateMessage("sanctions")}</p>
           </div>
         ) : (
           <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
             <table className="min-w-full divide-y divide-slate-100">
-              <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wider text-slate-500">
+              <thead className="bg-slate-50 text-xs font-medium tracking-[0.02em] text-slate-500">
                 <tr>
                   <th className="px-4 py-3 text-left">Entidade sancionada</th>
                   <th className="px-4 py-3 text-left">Empresa-ponte</th>
@@ -408,7 +408,7 @@ export default async function SancoesPage({
                         {l.link_degree}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-sm">
+                    <td className="px-4 py-3 text-right font-mono text-sm tabular-nums">
                       {l.risk_score != null ? l.risk_score.toFixed(3) : "---"}
                     </td>
                     <td className="px-4 py-3 text-center">

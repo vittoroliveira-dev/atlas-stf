@@ -1,7 +1,8 @@
-import { Activity, BookText, Sparkles, Users } from "lucide-react";
+import { Activity, BookText, TrendingUp, Users } from "lucide-react";
 import { AppShell } from "@/components/dashboard/app-shell";
+import { pickLatestUpdate } from "@/lib/data-freshness";
 import { CaseTable } from "@/components/dashboard/case-table";
-import { DailyAreaChart, DistributionBars, DistributionDonut, SegmentBarChart } from "@/components/dashboard/charts";
+import { DailyAreaChart, DistributionBars, DistributionDonut, SegmentBarChart } from "@/components/dashboard/charts-dynamic";
 import { EntityRanking } from "@/components/dashboard/entity-ranking";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -37,6 +38,7 @@ export default async function MinisterPage({
   return (
     <AppShell
       currentPath="/ministros"
+      lastUpdate={pickLatestUpdate(data.sourceFiles)}
       filterContext={filterContext}
       heroState={
         flow.status === "empty"
@@ -86,26 +88,26 @@ export default async function MinisterPage({
         action="/ministros"
       />
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Users} label="Ocorrências no período" value={String(flow.event_count)} help="Quantidade de decisões encontradas neste filtro." />
         <StatCard icon={BookText} label="Casos diferentes" value={String(flow.process_count)} help="Número de casos distintos ligados ao período selecionado." />
         <StatCard icon={Activity} label="Dias com atividade" value={String(flow.active_day_count)} help="Dias em que houve pelo menos uma decisão dentro deste filtro." />
-        <StatCard icon={Sparkles} label="Média histórica por dia" value={flow.historical_average_events_per_active_day.toFixed(3)} help="Referência histórica usada para comparar este período com o que já vinha acontecendo." />
+        <StatCard icon={TrendingUp} label="Média histórica por dia" value={flow.historical_average_events_per_active_day.toFixed(3)} help="Referência histórica usada para comparar este período com o que já vinha acontecendo." />
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-2">
+      <section className="grid gap-5 md:grid-cols-2">
         <DailyAreaChart data={dailyRows(flow.daily_counts)} />
         <DistributionDonut title="Tipo de decisão" subtitle="Mostra a diferença entre decisões individuais e decisões colegiadas." data={toChartRows(flow.collegiate_distribution)} />
         <DistributionBars title="Formato da decisão" subtitle="Tipos de decisão encontrados neste período." data={toChartRows(flow.decision_type_distribution)} valueLabel="ocorrências" />
         <DistributionBars title="Resultado da decisão" subtitle="Situação final das decisões encontradas neste período." data={toChartRows(flow.decision_progress_distribution)} valueLabel="ocorrências" />
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-2">
+      <section className="grid gap-5 md:grid-cols-2">
         <SegmentBarChart title="Tipos de ação" subtitle="Mostra quais tipos de ação aparecem com mais frequência neste período." data={chartRows(flow.process_class_flow)} />
         <SegmentBarChart title="Temas mais presentes" subtitle="Mostra os temas que mais aparecem entre os casos deste período." data={chartRows(flow.thematic_flow)} />
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-2">
+      <section className="grid gap-5 md:grid-cols-2">
         <EntityRanking
           title="Representantes que mais aparecem neste período"
           subtitle="A lista ajuda a ver quais representantes aparecem com mais frequência e qual é o tipo de ligação observada."

@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from atlas_stf.oab_sp._checkpoint import OabSpCheckpoint, load_checkpoint, save_checkpoint
 from atlas_stf.oab_sp._config import OabSpFetchConfig
 from atlas_stf.oab_sp._runner import _load_pending_registrations, run_society_fetch
@@ -136,6 +138,26 @@ def test_load_pending_missing_file(tmp_path: Path):
     deoab_dir.mkdir()
     result = _load_pending_registrations(deoab_dir)
     assert result == []
+
+
+def test_load_pending_invalid_json_reports_file_and_line(tmp_path: Path):
+    deoab_dir = tmp_path / "deoab"
+    deoab_dir.mkdir()
+    path = deoab_dir / "oab_sociedade_vinculo.jsonl"
+    path.write_text('{"seccional": "SP", "sociedade_registro": "10001"}\n{bad-json}\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r".*oab_sociedade_vinculo\.jsonl:2 contains invalid JSON"):
+        _load_pending_registrations(deoab_dir)
+
+
+def test_load_pending_non_object_json_reports_file_and_line(tmp_path: Path):
+    deoab_dir = tmp_path / "deoab"
+    deoab_dir.mkdir()
+    path = deoab_dir / "oab_sociedade_vinculo.jsonl"
+    path.write_text('{"seccional": "SP", "sociedade_registro": "10001"}\n[]\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r".*oab_sociedade_vinculo\.jsonl:2 must contain a JSON object"):
+        _load_pending_registrations(deoab_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -278,3 +300,12 @@ def test_dry_run(tmp_path: Path):
     assert count == 0
     # The client context manager must not have been entered
     mock_cls.return_value.__enter__.assert_not_called()
+
+
+def test_society_fetch_invalid_deoab_jsonl_fails_with_context(tmp_path: Path):
+    config = _make_config(tmp_path)
+    path = config.deoab_dir / "oab_sociedade_vinculo.jsonl"
+    path.write_text('{"seccional": "SP", "sociedade_registro": "10001"}\n{bad-json}\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r".*oab_sociedade_vinculo\.jsonl:2 contains invalid JSON"):
+        run_society_fetch(config)

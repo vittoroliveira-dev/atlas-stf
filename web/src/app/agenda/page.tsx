@@ -15,14 +15,14 @@ export default async function AgendaPage() {
           "Dados servem para priorizacao investigativa, nao para inferencia causal."] }}>
       <div className="rounded-xl border border-ouro-200 bg-ouro-50 p-4">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 shrink-0 text-ouro-600 mt-0.5" />
+          <AlertTriangle className="h-5 w-5 shrink-0 text-ouro-600 mt-0.5" aria-hidden="true" focusable="false" />
           <div className="text-sm text-ouro-800">
             <p className="font-semibold">Cobertura parcial</p>
             <p className="mt-1">Dados publicos de agenda disponiveis para {data.summary.ministers_covered} ministros desde jan/2024. Ausencia de registro nao significa ausencia de contato.</p>
           </div>
         </div>
       </div>
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Calendar} label="Total eventos" value={String(data.summary.total_events)} help="Total de eventos registrados." />
         <StatCard icon={Shield} label="Advocacy privada" value={String(data.summary.total_private_advocacy)} help="Eventos private_advocacy." />
         <StatCard icon={FileText} label="Com ref. processual" value={String(data.summary.total_with_process_ref)} help="Eventos Track A." />
@@ -32,7 +32,7 @@ export default async function AgendaPage() {
         <h2 className="mb-3 text-lg font-semibold text-slate-900">Ministros com cobertura</h2>
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wider text-slate-500">
+            <thead><tr className="border-b border-slate-100 text-left text-xs font-medium tracking-[0.02em] text-slate-500">
               <th className="px-4 py-3">Ministro</th><th className="px-4 py-3 text-right">Eventos</th>
               <th className="px-4 py-3 text-right">Advocacy</th><th className="px-4 py-3 text-right">Track A</th>
               <th className="px-4 py-3 text-right">Meses</th><th className="px-4 py-3 text-right">Cobertura</th>

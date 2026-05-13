@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from atlas_stf.stf_portal._checkpoint import PortalCheckpoint, load_checkpoint, save_checkpoint
 from atlas_stf.stf_portal._config import StfPortalConfig
+from atlas_stf.stf_portal._extractor import PortalExtractor
 from atlas_stf.stf_portal._http import TABS, TabsBatchResult
 from atlas_stf.stf_portal._metrics import ExtractionMetrics
 from atlas_stf.stf_portal._partial_cache import PartialCache
@@ -57,7 +58,7 @@ def _write_process_jsonl(curated_dir: Path, processes: list[dict[str, Any]]) -> 
     )
 
 
-class _GoodExtractor:
+class _GoodExtractor(PortalExtractor):
     """Full-success extractor implementing the incremental interface."""
 
     def __init__(self, **_kw: Any) -> None:
@@ -77,11 +78,13 @@ class _GoodExtractor:
                 on_tab_success(tab, html)
         return TabsBatchResult(tabs=tabs, blocked=False, retryable=False, tabs_failed=set())
 
-    def assemble_document(self, pn: str, incidente: str, tab_htmls: dict[str, str]) -> dict[str, Any] | None:
-        return _fake_doc(pn)
+    def assemble_document(
+        self, process_number: str, incidente: str, tab_htmls: dict[str, str]
+    ) -> dict[str, Any] | None:
+        return _fake_doc(process_number)
 
-    def extract_process(self, pn: str, incidente: str | None = None) -> dict[str, Any] | None:
-        return _fake_doc(pn)
+    def extract_process(self, process_number: str, incidente: str | None = None) -> dict[str, Any] | None:
+        return _fake_doc(process_number)
 
     def close(self) -> None:
         pass
@@ -104,6 +107,18 @@ def _make_config(tmp_path: Path, **overrides: Any) -> StfPortalConfig:
     }
     defaults.update(overrides)
     return StfPortalConfig(**defaults)
+
+
+def _partial_dir(config: StfPortalConfig) -> Path:
+    if config.partial_dir is None:
+        raise AssertionError("StfPortalConfig did not resolve partial_dir")
+    return config.partial_dir
+
+
+def _checkpoint_file(config: StfPortalConfig) -> Path:
+    if config.checkpoint_file is None:
+        raise AssertionError("StfPortalConfig did not resolve checkpoint_file")
+    return config.checkpoint_file
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +174,7 @@ def test_incidente_persisted_before_tab_success(tmp_path: Path):
         run_extraction(config)
 
     # Incidente should be in partial cache
-    partial = PartialCache(config.partial_dir)
+    partial = PartialCache(_partial_dir(config))
     assert partial.get_incidente("ADI 100") == "12345"
 
     # 2 tabs should be cached
@@ -179,7 +194,7 @@ def test_retry_fetches_only_missing_tabs(tmp_path: Path):
     _write_process_jsonl(config.curated_dir, processes)
 
     # Pre-populate partial with 4 of 5 tabs
-    partial = PartialCache(config.partial_dir)
+    partial = PartialCache(_partial_dir(config))
     partial.save_incidente("ADI 100", "999")
     for tab in ("abaAndamentos", "abaPartes", "abaPeticoes", "abaDeslocamentos"):
         partial.save_tab("ADI 100", tab, f"<div>{tab}</div>")
@@ -283,7 +298,7 @@ def test_403_preserves_downloaded_tabs(tmp_path: Path):
     assert fetched == 0  # not completed
 
     # 2 tabs should be preserved in partial
-    partial = PartialCache(config.partial_dir)
+    partial = PartialCache(_partial_dir(config))
     cached = partial.get_cached_tabs("ADI 100")
     assert len(cached) == 2
 
@@ -295,7 +310,7 @@ def test_403_preserves_downloaded_tabs(tmp_path: Path):
 
 def test_process_not_completed_with_partial_tabs(tmp_path: Path):
     config = _make_config(tmp_path)
-    partial = PartialCache(config.partial_dir)
+    partial = PartialCache(_partial_dir(config))
     partial.save_incidente("ADI 100", "999")
     for tab in ("abaAndamentos", "abaPartes", "abaPeticoes"):
         partial.save_tab("ADI 100", tab, f"<div>{tab}</div>")
@@ -353,7 +368,7 @@ def test_permanent_failure_not_retried(tmp_path: Path):
         fetched = run_extraction(config)
     assert fetched == 0
 
-    cp = load_checkpoint(config.checkpoint_file)
+    cp = load_checkpoint(_checkpoint_file(config))
     assert cp.is_failed("ADI 100")
 
     # Run 2: should skip (no partial dir exists for permanent failures)
@@ -374,13 +389,13 @@ def test_retry_later_is_retried(tmp_path: Path):
     _write_process_jsonl(config.curated_dir, processes)
 
     # Simulate partial state from a previous retry_later
-    partial = PartialCache(config.partial_dir)
+    partial = PartialCache(_partial_dir(config))
     partial.save_incidente("ADI 100", "999")
     partial.save_tab("ADI 100", "abaAndamentos", "<div>A</div>")
     # Also mark as failed in checkpoint (legacy state)
     cp = PortalCheckpoint()
     cp.mark_failed("ADI 100")
-    save_checkpoint(cp, config.checkpoint_file)
+    save_checkpoint(cp, _checkpoint_file(config))
 
     # Run: should pick up partial and complete
     with patch("atlas_stf.stf_portal._runner.PortalExtractor", _GoodExtractor):
@@ -395,7 +410,7 @@ def test_retry_later_is_retried(tmp_path: Path):
 
 def test_max_process_retries_exceeded(tmp_path: Path):
     config = _make_config(tmp_path, max_process_retries=3)
-    partial = PartialCache(config.partial_dir)
+    partial = PartialCache(_partial_dir(config))
     checkpoint = PortalCheckpoint()
     extractor = _GoodExtractor()
     metrics = ExtractionMetrics()
@@ -513,7 +528,7 @@ def test_resume_reuses_partial_metrics(tmp_path: Path):
     _write_process_jsonl(config.curated_dir, processes)
 
     # Pre-populate 3/5 tabs
-    partial = PartialCache(config.partial_dir)
+    partial = PartialCache(_partial_dir(config))
     partial.save_incidente("ADI 100", "999")
     for tab in ("abaAndamentos", "abaPartes", "abaPeticoes"):
         partial.save_tab("ADI 100", tab, f"<div>{tab}</div>")
@@ -544,7 +559,7 @@ def test_cleanup_after_assembly(tmp_path: Path):
         run_extraction(config)
 
     # Partial dir should be cleaned up after successful completion
-    partial = PartialCache(config.partial_dir)
+    partial = PartialCache(_partial_dir(config))
     assert not partial.has_partial("ADI 100")
 
 
@@ -659,7 +674,7 @@ def test_checkpoint_does_not_pollute_default_path(tmp_path: Path):
 
     # Checkpoint should be inside output_dir, not in data/raw/stf_portal/
     assert config.checkpoint_file == config.output_dir / ".checkpoint.json"
-    assert config.checkpoint_file.exists()
+    assert _checkpoint_file(config).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -794,7 +809,7 @@ def test_empty_html_tab_completes_process(tmp_path: Path):
 
     assert fetched == 1
     # No partial should remain
-    partial = PartialCache(config.partial_dir)
+    partial = PartialCache(_partial_dir(config))
     assert not partial.has_partial("ADI 100")
 
 
@@ -866,7 +881,7 @@ def test_partial_tab_reuse_end_to_end(tmp_path: Path):
 
     assert fetched1 == 0  # not completed
 
-    partial = PartialCache(config.partial_dir)
+    partial = PartialCache(_partial_dir(config))
     assert partial.has_partial("ADI 100")
     assert partial.get_incidente("ADI 100") == "999"
     cached = partial.get_cached_tabs("ADI 100")

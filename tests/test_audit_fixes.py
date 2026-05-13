@@ -76,16 +76,22 @@ class TestWriteLimitedStreamPartCleanup:
 
 class TestSubjectsNormalized:
     def test_no_aliasing(self) -> None:
-        record: dict = {"subjects_raw": None, "subjects_normalized": None}
+        record: dict[str, list[str] | None] = {"subjects_raw": None, "subjects_normalized": None}
 
         from atlas_stf.curated.common import split_subjects
 
         subjects = split_subjects("Direito Constitucional;Direito Penal")
+        if subjects is None:
+            raise AssertionError("Expected split_subjects to return subjects")
         record["subjects_raw"] = subjects
         record["subjects_normalized"] = list(subjects)
 
-        record["subjects_raw"].append("INJECTED")
-        assert "INJECTED" not in record["subjects_normalized"]
+        subjects_raw = record["subjects_raw"]
+        subjects_normalized = record["subjects_normalized"]
+        if subjects_raw is None or subjects_normalized is None:
+            raise AssertionError("Expected normalized subjects to be populated")
+        subjects_raw.append("INJECTED")
+        assert "INJECTED" not in subjects_normalized
 
 
 # ---------------------------------------------------------------------------

@@ -91,8 +91,23 @@ def _now_iso() -> str:
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as fh:
-        return [json.loads(line) for line in fh if line.strip()]
+        for line_number, line in enumerate(fh, start=1):
+            if not (line := line.strip()):
+                continue
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise json.JSONDecodeError(
+                    f"Invalid JSONL record at {path}:{line_number}: {exc.msg}",
+                    exc.doc,
+                    exc.pos,
+                ) from exc
+            if not isinstance(value, dict):
+                raise ValueError(f"Expected JSON object at {path}:{line_number}")
+            rows.append(value)
+    return rows
 
 
 def _read_jsonl_map(path: Path, key: str) -> dict[str, dict[str, Any]]:

@@ -50,19 +50,24 @@ class AgendaClient:
         self._pw: Playwright | None = None
         self._last_request_time: float = 0
 
+    def _timeout_ms(self) -> int:
+        return max(1, int(self._config.timeout_seconds * 1000))
+
     def __enter__(self) -> AgendaClient:
         self._pw = sync_playwright().start()
         browser = self._pw.chromium.launch(headless=True)
         self._browser = browser
         self._context = browser.new_context(
             user_agent=USER_AGENT,
-            ignore_https_errors=True,
         )
+        timeout_ms = self._timeout_ms()
+        self._context.set_default_timeout(timeout_ms)
+        self._context.set_default_navigation_timeout(timeout_ms)
         self._page = self._context.new_page()
         self._page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
         logger.info("Navigating to %s to solve WAF challenge ...", GRAPHQL_BASE_URL)
-        self._page.goto(GRAPHQL_BASE_URL, wait_until="networkidle", timeout=30_000)
+        self._page.goto(GRAPHQL_BASE_URL, wait_until="networkidle", timeout=timeout_ms)
         logger.info("WAF challenge resolved, browser session ready")
         return self
 
@@ -156,16 +161,30 @@ class AgendaClient:
         # the WAF challenge token cookies.  page.request.get() does raw HTTP
         # and does NOT carry the solved challenge — that's why it still gets 202.
         result: dict[str, Any] = self._page.evaluate(
-            """async (url) => {
-                const r = await fetch(url, {credentials: 'include'});
-                const text = await r.text();
-                return {
-                    status: r.status,
-                    headers: Object.fromEntries(r.headers.entries()),
-                    body: text,
-                };
+            """async ({url, timeoutMs}) => {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeoutMs);
+                try {
+                    const r = await fetch(url, {
+                        credentials: 'include',
+                        signal: controller.signal,
+                    });
+                    const text = await r.text();
+                    return {
+                        status: r.status,
+                        headers: Object.fromEntries(r.headers.entries()),
+                        body: text,
+                    };
+                } catch (error) {
+                    if (error instanceof DOMException && error.name === 'AbortError') {
+                        throw new Error(`fetch timeout after ${timeoutMs}ms`);
+                    }
+                    throw error;
+                } finally {
+                    clearTimeout(timer);
+                }
             }""",
-            url,
+            {"url": url, "timeoutMs": self._timeout_ms()},
         )
 
         status: int = result["status"]

@@ -6,9 +6,9 @@ export function SourceAudit({
   sourceFiles: Array<{ label: string; path: string; checksum: string; updatedAt: string }>;
 }) {
   return (
-    <section className="rounded-[30px] border border-slate-200/80 bg-white/90 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+    <section className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
       <div className="max-w-3xl">
-        <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">
+        <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">
           Como este resultado foi montado
         </p>
         <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
@@ -24,7 +24,7 @@ export function SourceAudit({
         {sourceFiles.map((file) => (
           <article
             key={`${file.label}:${file.updatedAt}`}
-            className="rounded-[24px] border border-slate-200 bg-white p-5"
+            className="rounded-inset border border-slate-200 bg-white p-5"
           >
             <p className="text-base font-semibold text-slate-950">
               {sourceLabelHuman(file.label)}

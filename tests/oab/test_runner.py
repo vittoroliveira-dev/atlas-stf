@@ -36,6 +36,24 @@ class TestReadJsonl:
         records = _read_jsonl(path)
         assert len(records) == 2
 
+    def test_reports_file_and_line_for_invalid_json(self, tmp_path: Path) -> None:
+        path = tmp_path / "test.jsonl"
+        path.write_text('{"a": 1}\n{bad-json}\n', encoding="utf-8")
+
+        import pytest
+
+        with pytest.raises(ValueError, match=r".*test\.jsonl:2 contains invalid JSON"):
+            _read_jsonl(path)
+
+    def test_rejects_non_object_json_records(self, tmp_path: Path) -> None:
+        path = tmp_path / "test.jsonl"
+        path.write_text('{"a": 1}\n["not", "an", "object"]\n', encoding="utf-8")
+
+        import pytest
+
+        with pytest.raises(ValueError, match=r".*test\.jsonl:2 must contain a JSON object"):
+            _read_jsonl(path)
+
 
 class TestWriteJsonl:
     def test_writes_records(self, tmp_path: Path) -> None:
@@ -206,3 +224,27 @@ class TestRunOabValidation:
         config = OabValidationConfig(curated_dir=curated, output_dir=output, provider="null")
         count = run_oab_validation(config)
         assert count == 0
+
+    def test_invalid_jsonl_record_fails_with_context(self, tmp_path: Path) -> None:
+        curated = tmp_path / "curated"
+        output = tmp_path / "output"
+        curated.mkdir()
+        (curated / "lawyer_entity.jsonl").write_text('{"name": "OK"}\n{bad-json}\n', encoding="utf-8")
+
+        import pytest
+
+        config = OabValidationConfig(curated_dir=curated, output_dir=output, provider="null")
+        with pytest.raises(ValueError, match=r".*lawyer_entity\.jsonl:2 contains invalid JSON"):
+            run_oab_validation(config)
+
+    def test_non_object_jsonl_record_fails_with_context(self, tmp_path: Path) -> None:
+        curated = tmp_path / "curated"
+        output = tmp_path / "output"
+        curated.mkdir()
+        (curated / "lawyer_entity.jsonl").write_text('{"name": "OK"}\n[]\n', encoding="utf-8")
+
+        import pytest
+
+        config = OabValidationConfig(curated_dir=curated, output_dir=output, provider="null")
+        with pytest.raises(ValueError, match=r".*lawyer_entity\.jsonl:2 must contain a JSON object"):
+            run_oab_validation(config)

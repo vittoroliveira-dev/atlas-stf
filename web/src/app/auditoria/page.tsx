@@ -8,12 +8,12 @@ function AuditTable({ rows }: { rows: AssignmentAudit[] }) {
     return <p className="text-sm text-slate-500">Nenhum registro de auditoria encontrado.</p>;
   }
   return (
-    <section className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
+    <section className="rounded-card border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold text-slate-950">Distribuição por classe e ano</h2>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
+            <tr className="border-b border-slate-200 text-xs font-semibold tracking-[0.02em] text-slate-500">
               <th className="px-3 py-2">Classe</th>
               <th className="px-3 py-2">Ano</th>
               <th className="px-3 py-2">Relatores</th>
@@ -31,7 +31,7 @@ function AuditTable({ rows }: { rows: AssignmentAudit[] }) {
                 key={i}
                 className={`border-b border-slate-100 ${row.uniformity_flag ? "" : "bg-red-50"}`}
               >
-                <td className="px-3 py-2 font-mono text-xs">{row.process_class}</td>
+                <td className="px-3 py-2 font-mono text-xs tabular-nums">{row.process_class}</td>
                 <td className="px-3 py-2">{row.decision_year}</td>
                 <td className="px-3 py-2">{row.rapporteur_count}</td>
                 <td className="px-3 py-2">{row.event_count}</td>
@@ -45,7 +45,7 @@ function AuditTable({ rows }: { rows: AssignmentAudit[] }) {
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-red-700">
-                      <AlertTriangle className="h-3.5 w-3.5" />
+                      <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" focusable="false" />
                       não
                     </span>
                   )}
@@ -98,7 +98,7 @@ export default async function AuditoriaPage() {
         ],
       }}
     >
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Layers} label="Pares analisados" value={String(totalPairs)} help="Total de combinações (classe, ano) avaliadas." />
         <StatCard icon={ShieldCheck} label="Uniformes" value={String(uniformCount)} help="Pares com distribuição uniforme de relatores." />
         <StatCard icon={AlertTriangle} label="Não-uniformes" value={String(nonUniformCount)} help="Pares com desvio estatístico na distribuição." />

@@ -477,3 +477,19 @@ def test_audit_analytics_passes_with_consistent_inputs(tmp_path: Path):
     assert payload["overall_status"] == "ok"
     assert payload["summary"]["failing_alert_count"] == 0
     assert payload["alerts"][0]["gate_status"]["passes_for_analysis"] is True
+
+
+def test_audit_analytics_rejects_non_object_alert_jsonl_with_context(tmp_path: Path):
+    paths = _seed_analytics_inputs(tmp_path)
+    paths["alerts"].write_text("[]\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"outlier_alert\.jsonl:1"):
+        audit_analytics(
+            comparison_group_path=paths["groups"],
+            link_path=paths["links"],
+            baseline_path=paths["baseline"],
+            alert_path=paths["alerts"],
+            decision_event_path=paths["events"],
+            process_path=paths["processes"],
+            evidence_dir=paths["evidence_dir"],
+        )

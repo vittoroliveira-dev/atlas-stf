@@ -6,19 +6,19 @@ Pipeline batch: raw → staging → curated → analytics → evidence → servi
 ## Fluxo de dados
 
 ```
-data/raw/transparencia/       10 CSVs brutos (~580MB)
+data/raw/transparencia/       10 CSVs brutos (~580 MB)
 data/raw/{cgu,tse,cvm,rfb}/   fontes externas (opcionais)
 data/raw/{stf_portal,agenda,deoab,oab_sp,datajud}/  fontes complementares (opcionais)
         ↓  staging
 data/staging/transparencia/    CSVs limpos + _audit.jsonl
         ↓  curated builders
-data/curated/                  18 entidades: process, decision_event, subject, party,
+data/curated/                  artefatos/entidades citados: process, decision_event, subject, party,
                                counsel, links, minister_bio, movement, session_event,
                                lawyer_entity, law_firm_entity, representation_edge,
                                representation_event, source_evidence, entity_identifier,
                                entity_identifier_reconciliation, agenda_event, agenda_coverage
-        ↓  analytics builders (32, independentes, paralelizáveis -j6)
-data/analytics/                32 artefatos JSONL + summaries JSON
+        ↓  analytics builders (34, independentes, paralelizáveis -j6)
+data/analytics/                artefatos JSONL + summaries JSON
         ↓  evidence builder
 data/evidence/                 JSON bundles por alerta
         ↓  serving builder
@@ -26,7 +26,7 @@ data/serving/atlas_stf.db      SQLite (48 tabelas, schema v21)
         ↓  FastAPI (uvicorn)
 API                            84 GET + 1 POST endpoints
         ↓  Next.js SSR
-web/                           Dashboard (26 Server Components)
+web/                           Dashboard (30 Server Components)
 ```
 
 <!-- BEGIN:auto:arch-counts -->
@@ -69,14 +69,14 @@ Dependências permitidas: `core`, `fetch`, `httpx`, `ingest_manifest`.
 | `agenda/` | Agenda ministerial (GraphQL) | config + client + runner |
 | `oab/` | Validação CNA/CNSA | config + providers + runner |
 | `oab_sp/` | Sociedades OAB/SP (httpx) | config + parser + runner |
-| `deoab/` | Gazette DEOAB (pdftotext) | config + parser + runner |
+| `deoab/` | Diário Eletrônico da OAB (DEOAB, pdftotext) | config + parser + runner |
 | `doc_extractor/` | PDFs de representação | config + extractor + runner |
 
 ### Processamento
 
 | Módulo | Responsabilidade | Depende de |
 |--------|-----------------|------------|
-| `curated/` | Entity builders (18 entidades) | core (via common.py) |
+| `curated/` | Entity builders canônicos | core (via common.py) |
 | `analytics/` | 34 builders estatísticos independentes | core, curated (identity + I/O helpers) |
 | `evidence/` | Bundles de evidência por alerta | curated, analytics |
 
@@ -135,17 +135,17 @@ app/representacao/page.tsx
 
 | Fonte | Tipo | Obrigatória |
 |-------|------|-------------|
-| STF Transparência | 10 CSVs (~580MB) | Sim |
+| STF Transparência | 10 CSVs (~580 MB) | Sim |
 | STF Jurisprudência | Scraper Playwright | Sim |
 | STF Portal | Timeline httpx | Não |
 | STF Agenda | GraphQL API | Não |
-| CGU (CEIS/CNEP/Leniência) | CSV download | Não |
-| TSE (doações/despesas) | CSV download | Não |
+| CGU (CEIS/CNEP/Leniência) | API REST (httpx) | Não |
+| TSE (doações/despesas/órgãos partidários) | CSV/ZIP download | Não |
 | CVM (sanções) | CSV/ZIP download | Não |
-| RFB (CNPJ/sócios) | CSV download | Não |
-| DataJud | API Elasticsearch | Não |
+| RFB (CNPJ/sócios) | ZIP/CSV download | Não |
+| DataJud | API REST (httpx) | Não |
 | OAB/OAB-SP | HTTP/scraping | Não |
-| DEOAB | PDF extraction | Não |
+| DEOAB | PDF público (pdftotext) | Não |
 
 ## Dependências entre módulos
 
@@ -184,7 +184,7 @@ Documentadas em `docs/adr/`:
 - [ADR-001](adr/001-sqlite-serving-database.md) — SQLite como banco de serving materializado
 - [ADR-002](adr/002-independent-builders-jsonl.md) — Builders independentes com artefatos JSONL
 - [ADR-003](adr/003-ssr-only-frontend.md) — Frontend SSR-only com Server Components
-- [ADR-004](adr/004-get-only-read-only-api.md) — API GET-only read-only
+- [ADR-004](adr/004-get-only-read-only-api.md) — API read-only com exceção do endpoint POST de review
 - [ADR-005](adr/005-unified-fetch-manifest.md) — Manifesto unificado de fetch
 - [ADR-006](adr/006-graph-review-post-endpoint.md) — Endpoint POST para review de graph scoring
 <!-- END:auto:arch-adr-list -->

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import re
 import zipfile
 from pathlib import Path
@@ -355,6 +356,62 @@ class TestFetchDonationData:
         assert "ACME LTDA" in names
         assert years.count(2022) == 1  # no duplication
         assert years.count(2020) == 1  # preserved
+
+    @patch("atlas_stf.tse._runner._download_year_zip")
+    def test_force_refresh_preserves_invalid_and_non_object_jsonl_lines(
+        self,
+        mock_download_year_zip: MagicMock,
+        tmp_path: Path,
+        caplog,
+    ) -> None:
+        output_dir = tmp_path / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        _write_committed_manifest(output_dir, [2020, 2022])
+        raw_path = output_dir / "donations_raw.jsonl"
+        raw_path.write_text(
+            "\n".join(
+                [
+                    json.dumps({"donor_name": "KEEP_2020", "election_year": 2020}),
+                    "{",
+                    "[]",
+                    json.dumps({"donor_name": "OLD_2022", "election_year": 2022}),
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        csv_content = _make_receitas_csv_content()
+        zip_bytes = _make_zip_with_csv("receitas_candidatos_2022_BRASIL.csv", csv_content)
+        zip_path = output_dir / "tse_2022.zip"
+        zip_path.write_bytes(zip_bytes)
+        mock_download_year_zip.return_value = (zip_path, _FAKE_META)
+
+        config = TseFetchConfig(output_dir=output_dir, years=(2022,), force_refresh=True)
+        with caplog.at_level(logging.WARNING):
+            fetch_donation_data(config)
+
+        lines = [line for line in raw_path.read_text(encoding="utf-8").splitlines() if line]
+        assert "{" in lines
+        assert "[]" in lines
+        records = [json.loads(line) for line in lines if line not in {"{", "[]"}]
+        names = [r["donor_name"] for r in records]
+        years = [r["election_year"] for r in records]
+        assert "KEEP_2020" in names
+        assert "OLD_2022" not in names
+        assert "ACME LTDA" in names
+        assert years.count(2020) == 1
+        assert years.count(2022) == 1
+
+        manifest = load_manifest("tse_donations", output_dir)
+        assert manifest is not None
+        for year in (2020, 2022):
+            uid = build_unit_id("tse_donations", str(year))
+            assert manifest.units[uid].status == "committed"
+
+        assert sum("Preserved 1 invalid JSONL line(s)" in r.message for r in caplog.records) == 1
+        assert sum("Preserved 1 non-object JSONL line(s)" in r.message for r in caplog.records) == 1
 
     @patch("atlas_stf.tse._runner._download_year_zip")
     def test_record_hash_deterministic(self, mock_download_year_zip: MagicMock, tmp_path: Path) -> None:

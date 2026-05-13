@@ -321,7 +321,7 @@ def _download_and_extract_csv(
                     if total > _CGU_MAX_DOWNLOAD_BYTES:
                         raise ValueError(f"download exceeded max bytes ({total} > {_CGU_MAX_DOWNLOAD_BYTES})")
                     fh.write(chunk)
-    except (ValueError, httpx.HTTPStatusError) as exc:
+    except (ValueError, httpx.HTTPStatusError, httpx.RequestError) as exc:
         logger.warning("Failed to download %s: %s", dataset, exc)
         zip_path.unlink(missing_ok=True)
         return None
@@ -368,8 +368,8 @@ def _download_and_extract_csv(
             encoding="utf-8",
         )
         write_manifest(manifest, output_dir)
-    except Exception:
-        logger.warning("Failed to capture manifest for %s — continuing", dataset)
+    except Exception as exc:
+        logger.warning("Failed to capture manifest for %s: %s — continuing", dataset, exc)
 
     return csv_path
 

@@ -32,12 +32,21 @@ def _date_extremes(path: Path) -> tuple[str | None, str | None]:
     first: str | None = None
     last: str | None = None
     with open(path, encoding="utf-8") as f:
-        for line in f:
+        for line_number, line in enumerate(f, start=1):
             try:
                 doc = json.loads(line)
             except json.JSONDecodeError:
+                logger.warning("Skipping malformed JSONL line in %s:%d", path, line_number)
                 continue
-            val = doc.get("publicacao_data")
+            if not isinstance(doc, dict):
+                logger.warning("Skipping non-object JSONL line in %s:%d", path, line_number)
+                continue
+            if "publicacao_data" not in doc or doc["publicacao_data"] is None:
+                continue
+            val = doc["publicacao_data"]
+            if not isinstance(val, str):
+                logger.warning("Skipping non-string publicacao_data in %s:%d", path, line_number)
+                continue
             if val:
                 if first is None:
                     first = val

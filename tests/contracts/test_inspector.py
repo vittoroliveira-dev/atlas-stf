@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -565,6 +566,48 @@ class TestCountLinesFast:
         p = tmp_path / "empty.txt"
         p.write_bytes(b"")
         result = _count_lines_fast(p)
+        assert result == 0
+
+    def test_falls_back_when_wc_is_unavailable(self, tmp_path: Path) -> None:
+        p = tmp_path / "fallback.txt"
+        p.write_text("a\nb\nc\n", encoding="utf-8")
+        with patch("atlas_stf.contracts._inspector.subprocess.run", side_effect=FileNotFoundError("wc missing")):
+            result = _count_lines_fast(p)
+        assert result == 3
+
+    def test_falls_back_on_os_error_from_subprocess(self, tmp_path: Path) -> None:
+        p = tmp_path / "fallback-oserror.txt"
+        p.write_text("a\nb\nc\n", encoding="utf-8")
+        with patch("atlas_stf.contracts._inspector.subprocess.run", side_effect=PermissionError("wc blocked")):
+            result = _count_lines_fast(p)
+        assert result == 3
+
+    def test_falls_back_on_subprocess_error(self, tmp_path: Path) -> None:
+        p = tmp_path / "fallback-subprocess.txt"
+        p.write_text("a\nb\nc\n", encoding="utf-8")
+        error = subprocess.CalledProcessError(returncode=1, cmd=["wc", "-l", str(p)])
+        with patch("atlas_stf.contracts._inspector.subprocess.run", side_effect=error):
+            result = _count_lines_fast(p)
+        assert result == 3
+
+    def test_falls_back_on_unparseable_wc_output(self, tmp_path: Path) -> None:
+        p = tmp_path / "fallback-bad-output.txt"
+        p.write_text("a\nb\nc\n", encoding="utf-8")
+        bad_result = subprocess.CompletedProcess(
+            args=["wc", "-l", str(p)],
+            returncode=0,
+            stdout="not-a-count",
+            stderr="",
+        )
+        with patch("atlas_stf.contracts._inspector.subprocess.run", return_value=bad_result):
+            result = _count_lines_fast(p)
+        assert result == 3
+
+    def test_fallback_preserves_wc_semantics_without_trailing_newline(self, tmp_path: Path) -> None:
+        p = tmp_path / "fallback-no-trailing-newline.txt"
+        p.write_text("only one line", encoding="utf-8")
+        with patch("atlas_stf.contracts._inspector.subprocess.run", side_effect=FileNotFoundError("wc missing")):
+            result = _count_lines_fast(p)
         assert result == 0
 
 

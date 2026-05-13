@@ -1,5 +1,6 @@
 import { Gavel, Network, Users } from "lucide-react";
 import { AppShell } from "@/components/dashboard/app-shell";
+import { pickLatestUpdate } from "@/lib/data-freshness";
 import { EntityIndexGrid } from "@/components/dashboard/entity-pages";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { PaginationControls } from "@/components/dashboard/pagination-controls";
@@ -47,6 +48,7 @@ export default async function CounselsPage({
   return (
     <AppShell
       currentPath="/advogados"
+      lastUpdate={pickLatestUpdate(data.sourceFiles)}
       filterContext={filterContext}
       heroState={
         data.filteredEntityCount === 0

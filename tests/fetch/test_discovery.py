@@ -75,3 +75,27 @@ class TestDiscoverUnknownSource:
     def test_raises(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="Unknown source"):
             list(discover_units("nonexistent", output_dir=tmp_path))
+
+
+class TestDiscoverDatajud:
+    def test_invalid_process_jsonl_reports_file_and_line(self, tmp_path: Path) -> None:
+        process_path = tmp_path / "process.jsonl"
+        process_path.write_text(
+            '{"origin_court_or_body": "STJ", "origin_description": "TJSP"}\n{bad-json}\n',
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match=r".*process\.jsonl:2 contains invalid JSON"):
+            list(discover_units("datajud", output_dir=tmp_path, process_path=process_path))
+
+    def test_valid_process_jsonl_keeps_nominal_discovery(self, tmp_path: Path) -> None:
+        process_path = tmp_path / "process.jsonl"
+        process_path.write_text(
+            '{"origin_court_or_body": "STJ", "origin_description": "Superior Tribunal de Justiça"}\n',
+            encoding="utf-8",
+        )
+
+        units = list(discover_units("datajud", output_dir=tmp_path, process_path=process_path))
+
+        assert units
+        assert all(unit.source == "datajud" for unit in units)

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from atlas_stf.oab_sp._checkpoint import OabSpCheckpoint, load_checkpoint, save_checkpoint
 from atlas_stf.oab_sp._config import OabSpLawyerLookupConfig
@@ -93,7 +96,7 @@ _MULTI_MATCH_HTML = """
 # ---------------------------------------------------------------------------
 
 
-def _make_config(tmp_path: Path, **kwargs: object) -> OabSpLawyerLookupConfig:
+def _make_config(tmp_path: Path, **kwargs: Any) -> OabSpLawyerLookupConfig:
     output_dir = tmp_path / "oab_sp"
     curated_dir = tmp_path / "curated"
     deoab_dir = tmp_path / "deoab"
@@ -257,3 +260,23 @@ def test_resume_from_checkpoint(tmp_path: Path) -> None:
     # 1 from pre-populated + 1 from this run
     assert checkpoint.stats["completed"] >= 2
     assert checkpoint.stats["not_found"] >= 1
+
+
+def test_lawyer_lookup_invalid_curated_jsonl_fails_with_context(tmp_path: Path) -> None:
+    config = _make_config(tmp_path)
+    _write_cities(config.output_dir)
+    path = config.curated_dir / "lawyer_entity.jsonl"
+    path.write_text('{"oab_state": "SP", "oab_number": "12345"}\n{bad-json}\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r".*lawyer_entity\.jsonl:2 contains invalid JSON"):
+        run_lawyer_lookup(config)
+
+
+def test_lawyer_lookup_non_object_curated_jsonl_fails_with_context(tmp_path: Path) -> None:
+    config = _make_config(tmp_path)
+    _write_cities(config.output_dir)
+    path = config.curated_dir / "lawyer_entity.jsonl"
+    path.write_text('{"oab_state": "SP", "oab_number": "12345"}\n[]\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r".*lawyer_entity\.jsonl:2 must contain a JSON object"):
+        run_lawyer_lookup(config)

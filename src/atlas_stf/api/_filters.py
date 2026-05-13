@@ -62,13 +62,20 @@ def _normalized_like(column, value: str):
       accented spelling from court records, and the frontend sends exact
       values from dropdowns — accent-folding is unnecessary.
     - **Substring**: wraps the value in ``%…%`` for LIKE matching.
+    - **Backend oficial**: o serving DB suportado pelo projeto é SQLite; a UDF
+      ``py_lower`` faz parte desse contrato operacional.
 
     This function is the **single source of truth** for textual search
     semantics across all API endpoints.
     """
     escaped = value.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     lowered = f"%{escaped}%"
-    return func.py_lower(func.coalesce(column, "")).like(lowered, escape="\\")
+    return _normalized_sql_text(column).like(lowered, escape="\\")
+
+
+def _normalized_sql_text(column):
+    """Return the canonical SQL expression used for case-insensitive matching."""
+    return func.py_lower(func.coalesce(column, ""))
 
 
 def _apply_case_filters(stmt: Select, filters: QueryFilters) -> Select:

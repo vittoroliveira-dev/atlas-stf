@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import re
 import zipfile
 from pathlib import Path
@@ -361,6 +362,62 @@ class TestFetchExpenseData:
         assert "KEEP_2002" in names
         assert "OLD_2022" not in names
         assert "GRAFICA ABC LTDA" in names
+
+    @patch("atlas_stf.tse._runner_expenses._download_year_zip_base")
+    def test_force_refresh_preserves_invalid_and_non_object_jsonl_lines(
+        self,
+        mock_download: MagicMock,
+        tmp_path: Path,
+        caplog,
+    ) -> None:
+        output_dir = tmp_path / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        _write_committed_manifest(output_dir, [2002, 2022])
+        raw_path = output_dir / "campaign_expenses_raw.jsonl"
+        raw_path.write_text(
+            "\n".join(
+                [
+                    json.dumps({"supplier_name": "KEEP_2002", "election_year": 2002}),
+                    "{",
+                    "[]",
+                    json.dumps({"supplier_name": "OLD_2022", "election_year": 2022}),
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        csv_content = _make_gen6_csv_content()
+        zip_bytes = _make_zip_with_csv("despesas_contratadas_candidatos_2022_BRASIL.csv", csv_content)
+        zip_path = output_dir / "tse_2022.zip"
+        zip_path.write_bytes(zip_bytes)
+        mock_download.return_value = (zip_path, _FAKE_META)
+
+        config = TseExpenseFetchConfig(output_dir=output_dir, years=(2022,), force_refresh=True)
+        with caplog.at_level(logging.WARNING):
+            fetch_expense_data(config)
+
+        lines = [line for line in raw_path.read_text(encoding="utf-8").splitlines() if line]
+        assert "{" in lines
+        assert "[]" in lines
+        records = [json.loads(line) for line in lines if line not in {"{", "[]"}]
+        names = [r["supplier_name"] for r in records]
+        years = [r["election_year"] for r in records]
+        assert "KEEP_2002" in names
+        assert "OLD_2022" not in names
+        assert "GRAFICA ABC LTDA" in names
+        assert years.count(2002) == 1
+        assert years.count(2022) == 1
+
+        manifest = load_manifest("tse_expenses", output_dir)
+        assert manifest is not None
+        for year in (2002, 2022):
+            uid = build_unit_id("tse_expenses", str(year))
+            assert manifest.units[uid].status == "committed"
+
+        assert sum("Preserved 1 invalid JSONL line(s)" in r.message for r in caplog.records) == 1
+        assert sum("Preserved 1 non-object JSONL line(s)" in r.message for r in caplog.records) == 1
 
     @patch("atlas_stf.tse._runner_expenses._download_year_zip_base")
     def test_unchanged_file_skipped(self, mock_download: MagicMock, tmp_path: Path) -> None:

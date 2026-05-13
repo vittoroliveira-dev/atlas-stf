@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info/
+.codex/
 
 # Tooling local de automação (não versionado)
 scripts/automation/
@@ -34,6 +35,7 @@ data/curated/*.jsonl
 data/curated/*.csv
 !data/curated/minister_bio.json
 data/analytics/
+data/benchmarks/
 data/evidence/
 data/serving/
 

@@ -12,7 +12,7 @@ from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -38,6 +38,22 @@ _RECEITAS_PATTERNS = (
     "receitas_{year}_BRASIL.csv",
     "consulta_cand_{year}_BRASIL.csv",
 )
+
+
+def _should_exclude_existing_jsonl_line(
+    line: str,
+    path: Path,
+    line_number: int,
+    years_being_replaced: set[int],
+) -> tuple[bool, Literal["invalid_json", "non_object"] | None]:
+    """Return exclusion decision and structural issue for an existing JSONL line."""
+    try:
+        record = json.loads(line)
+    except json.JSONDecodeError:
+        return False, "invalid_json"
+    if not isinstance(record, dict):
+        return False, "non_object"
+    return record.get("election_year") in years_being_replaced, None
 
 
 def _build_zip_urls(year: int) -> list[str]:
@@ -339,19 +355,26 @@ def _fetch_donation_data_locked(
             if output_path.exists() and committed_years:
                 existing_count = 0
                 excluded_count = 0
+                invalid_json_count = 0
+                non_object_count = 0
                 with output_path.open("r", encoding="utf-8") as fh:
-                    for line in fh:
+                    for line_number, line in enumerate(fh, start=1):
                         line = line.strip()
                         if not line:
                             continue
-                        if years_being_replaced:
-                            try:
-                                record = json.loads(line)
-                                if record.get("election_year") in years_being_replaced:
-                                    excluded_count += 1
-                                    continue
-                            except json.JSONDecodeError:
-                                pass
+                        should_exclude, issue = _should_exclude_existing_jsonl_line(
+                            line,
+                            output_path,
+                            line_number,
+                            years_being_replaced,
+                        )
+                        if issue == "invalid_json":
+                            invalid_json_count += 1
+                        elif issue == "non_object":
+                            non_object_count += 1
+                        if years_being_replaced and should_exclude:
+                            excluded_count += 1
+                            continue
                         out.write(line + "\n")
                         existing_count += 1
                 total_record_count += existing_count
@@ -361,6 +384,18 @@ def _fetch_donation_data_locked(
                     len(committed_years),
                     excluded_count,
                 )
+                if invalid_json_count:
+                    logger.warning(
+                        "Preserved %d invalid JSONL line(s) while refreshing %s; year filter was skipped",
+                        invalid_json_count,
+                        output_path,
+                    )
+                if non_object_count:
+                    logger.warning(
+                        "Preserved %d non-object JSONL line(s) while refreshing %s; year filter was skipped",
+                        non_object_count,
+                        output_path,
+                    )
 
             manifest_pending: list[tuple[int, dict[str, Any]]] = []
             for year in config.years:

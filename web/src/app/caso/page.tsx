@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, FileSearch, Sparkles, TableProperties } from "lucide-react";
+import { ArrowRight, Calendar, FileSearch, TableProperties } from "lucide-react";
 import { AppShell } from "@/components/dashboard/app-shell";
+import { pickLatestUpdate } from "@/lib/data-freshness";
 import { CaseTable } from "@/components/dashboard/case-table";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -36,6 +37,7 @@ export default async function CaseIndexPage({
   return (
     <AppShell
       currentPath="/caso"
+      lastUpdate={pickLatestUpdate(data.sourceFiles)}
       filterContext={filterContext}
       heroState={
         flow.status === "empty"
@@ -88,12 +90,12 @@ export default async function CaseIndexPage({
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard icon={FileSearch} label="Casos nesta lista" value={String(data.caseRows.length)} help="Quantidade de casos encontrados com os filtros atuais." />
         <StatCard icon={TableProperties} label="Ministro analisado" value={data.selectedSnapshot.minister} help="Nome usado como base para esta leitura." />
-        <StatCard icon={Sparkles} label="Período analisado" value={data.selectedSnapshot.period} help="Período usado para montar a lista atual de casos." />
+        <StatCard icon={Calendar} label="Período analisado" value={data.selectedSnapshot.period} help="Período usado para montar a lista atual de casos." />
       </section>
 
       {data.caseRows[0] ? (
-        <section className="rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">Atalho rápido</p>
+        <section className="rounded-card border border-slate-200 bg-white p-6 shadow-elevation-1">
+          <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Atalho rápido</p>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">Abrir o primeiro caso da lista</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             Se quiser começar imediatamente, use este botão. A lista logo abaixo também permite abrir qualquer outro caso.
@@ -103,7 +105,7 @@ export default async function CaseIndexPage({
             className="mt-5 inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             Abrir caso
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
           </Link>
         </section>
       ) : null}

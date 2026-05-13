@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from atlas_stf.oab_sp._name_extractor import build_lookup_candidates, extract_lawyer_name_from_firm
 
 # ---------------------------------------------------------------------------
@@ -91,3 +93,23 @@ def test_build_candidates_filters_non_individual(tmp_path: Path) -> None:
     assert "11111" in regs
     assert "33333" in regs
     assert "22222" not in regs
+
+
+def test_build_candidates_invalid_json_reports_file_and_line(tmp_path: Path) -> None:
+    oab_sp_dir = tmp_path / "oab_sp"
+    oab_sp_dir.mkdir()
+    path = oab_sp_dir / "sociedade_detalhe.jsonl"
+    path.write_text('{"registration_number": "11111", "society_type": "individual"}\n{bad-json}\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r".*sociedade_detalhe\.jsonl:2 contains invalid JSON"):
+        build_lookup_candidates(oab_sp_dir, {})
+
+
+def test_build_candidates_non_object_json_reports_file_and_line(tmp_path: Path) -> None:
+    oab_sp_dir = tmp_path / "oab_sp"
+    oab_sp_dir.mkdir()
+    path = oab_sp_dir / "sociedade_detalhe.jsonl"
+    path.write_text('{"registration_number": "11111", "society_type": "individual"}\n[]\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r".*sociedade_detalhe\.jsonl:2 must contain a JSON object"):
+        build_lookup_candidates(oab_sp_dir, {})

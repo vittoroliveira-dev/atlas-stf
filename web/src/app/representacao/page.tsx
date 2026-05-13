@@ -40,7 +40,7 @@ export default async function RepresentacaoPage({
         ],
       }}
     >
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Users} label="Advogados" value={String(data.summary.total_lawyers)} help="Total de advogados identificados." />
         <StatCard icon={Building2} label="Escritorios" value={String(data.summary.total_firms)} help="Total de escritorios identificados." />
         <StatCard icon={Network} label="Vinculos" value={String(data.summary.total_edges)} help="Total de arestas de representacao." />

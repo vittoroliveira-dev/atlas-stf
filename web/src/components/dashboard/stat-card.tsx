@@ -12,7 +12,7 @@ export function StatCard({
   help: string;
 }) {
   return (
-    <article className="rounded-[28px] border border-white/70 bg-white/80 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+    <article className="rounded-card border border-white/70 bg-white p-5 shadow-elevation-1">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-slate-500">{label}</p>

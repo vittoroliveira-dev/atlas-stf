@@ -70,8 +70,16 @@ BRANCH="$(git branch --show-current)"
 [[ "$BRANCH" != "main" ]] && error "Releases devem ser a partir de 'main'. Atual: '${BRANCH}'"
 info "Branch: main"
 
-if [[ -n "$(git status --porcelain)" ]]; then
-    error "Working tree suja. A preparação deve ter commitado tudo antes de publicar."
+DIRTY="$(git status --porcelain)"
+if [[ -n "$DIRTY" ]]; then
+    echo -e "${RED}[xx]${NC} Working tree suja. Itens pendentes:" >&2
+    echo "$DIRTY" | while IFS= read -r line; do
+        echo -e "  ${YELLOW}${line}${NC}" >&2
+    done
+    echo "" >&2
+    echo "Cada item deve ser: commitado (código) ou adicionado ao .gitignore (tooling local)." >&2
+    echo "Corrija e rode o release novamente." >&2
+    exit 1
 fi
 info "Working tree limpa"
 

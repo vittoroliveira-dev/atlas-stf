@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from atlas_stf.cgu._config import CguFetchConfig
@@ -37,6 +38,23 @@ class _FakeHttpxStream:
         return chunks
 
     def __enter__(self) -> _FakeHttpxStream:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        pass
+
+
+class _BrokenHttpxStream:
+    """Fake streaming response that fails while yielding bytes."""
+
+    def raise_for_status(self) -> None:
+        pass
+
+    def iter_bytes(self, chunk_size: int = 8192):
+        yield b"partial"
+        raise httpx.RequestError("stream interrupted")
+
+    def __enter__(self) -> _BrokenHttpxStream:
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -101,6 +119,41 @@ class TestFetchSanctionsData:
 
         assert _download_and_extract_csv("ceis", "20260306", tmp_path) is None
         assert not (tmp_path / "ceis.zip").exists()
+
+    @patch("atlas_stf.cgu._runner_csv.httpx.stream")
+    def test_download_and_extract_csv_returns_none_on_stream_request_error(
+        self,
+        mock_stream: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        mock_stream.return_value = _BrokenHttpxStream()
+
+        assert _download_and_extract_csv("ceis", "20260306", tmp_path) is None
+        assert not (tmp_path / "ceis.zip").exists()
+
+    @patch("atlas_stf.cgu._runner_csv.write_manifest", side_effect=OSError("disk full"))
+    @patch("atlas_stf.cgu._runner_csv.httpx.stream")
+    def test_download_and_extract_csv_keeps_csv_when_manifest_write_fails(
+        self,
+        mock_stream: MagicMock,
+        mock_write_manifest: MagicMock,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        csv_content = _make_ceis_csv(
+            [["CEIS", "100", "J", "12", "ACME", "", "", "", "", "", "", "", "", "", "", "", "", "CGU"]]
+        )
+        mock_stream.return_value = _FakeHttpxStream(_make_csv_zip(csv_content))
+
+        csv_path = _download_and_extract_csv("ceis", "20260306", tmp_path)
+
+        if csv_path is None:
+            raise AssertionError("Expected extracted CSV path")
+        assert csv_path == tmp_path / "ceis.csv"
+        assert csv_path.exists()
+        expected_log = "Failed to capture manifest for ceis: disk full — continuing"
+        assert any(expected_log in message for message in caplog.messages)
+        mock_write_manifest.assert_called_once()
 
     def test_dry_run(self, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"

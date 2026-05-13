@@ -30,8 +30,8 @@ function SearchPanel({
 }) {
   return (
     <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-      <div className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
-        <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">
+      <div className="rounded-card border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">
           Recorte temporal
         </p>
         <h2 className="mt-3 text-2xl font-semibold text-slate-950">
@@ -47,7 +47,7 @@ function SearchPanel({
             name="minister"
             defaultValue={selectedMinister}
             placeholder="Ex.: TESTE"
-            className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-verde-600 focus:ring-2 focus:ring-verde-100"
+            className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus-visible:border-verde-600 focus-visible:ring-2 focus-visible:ring-verde-100"
           />
           <button
             type="submit"
@@ -57,8 +57,8 @@ function SearchPanel({
           </button>
         </form>
       </div>
-      <div className="rounded-[28px] border border-slate-200/80 bg-white/90 p-6 shadow-sm">
-        <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">
+      <div className="rounded-card border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">
           Atalhos
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -127,7 +127,7 @@ export default async function TemporalPage({
         ],
       }}
     >
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={Clock3}
           label="Registros temporais"

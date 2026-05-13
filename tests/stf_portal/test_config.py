@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from atlas_stf.stf_portal._config import StfPortalConfig
 
 
@@ -33,9 +35,14 @@ def test_concurrency_defaults(tmp_path: Path):
 
 
 def test_proxy_config(tmp_path: Path):
-    proxies = ["socks5://localhost:1080", "socks5://localhost:1081"]
+    proxies = ["http://localhost:8080", "https://proxy.example:8443"]
     config = StfPortalConfig(output_dir=tmp_path / "portal", proxies=proxies)
     assert config.proxies == proxies
+
+
+def test_socks_proxy_config_rejected(tmp_path: Path):
+    with pytest.raises(ValueError, match="SOCKS proxies are not supported"):
+        StfPortalConfig(output_dir=tmp_path / "portal", proxies=["socks5://localhost:1080"])
 
 
 def test_empty_proxies_default(tmp_path: Path):

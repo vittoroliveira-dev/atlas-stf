@@ -32,6 +32,7 @@ from ._runner import (
     _build_zip_urls,
     _extract_zip,
     _record_content_hash,
+    _should_exclude_existing_jsonl_line,
 )
 from ._runner import (
     _download_year_zip as _download_year_zip_base,
@@ -244,19 +245,26 @@ def _fetch_expense_data_locked(
             if output_path.exists() and committed_years:
                 existing_count = 0
                 excluded_count = 0
+                invalid_json_count = 0
+                non_object_count = 0
                 with output_path.open("r", encoding="utf-8") as fh:
-                    for line in fh:
+                    for line_number, line in enumerate(fh, start=1):
                         line = line.strip()
                         if not line:
                             continue
-                        if years_being_replaced:
-                            try:
-                                record = json.loads(line)
-                                if record.get("election_year") in years_being_replaced:
-                                    excluded_count += 1
-                                    continue
-                            except json.JSONDecodeError:
-                                pass
+                        should_exclude, issue = _should_exclude_existing_jsonl_line(
+                            line,
+                            output_path,
+                            line_number,
+                            years_being_replaced,
+                        )
+                        if issue == "invalid_json":
+                            invalid_json_count += 1
+                        elif issue == "non_object":
+                            non_object_count += 1
+                        if years_being_replaced and should_exclude:
+                            excluded_count += 1
+                            continue
                         out.write(line + "\n")
                         existing_count += 1
                 total_record_count += existing_count
@@ -265,6 +273,18 @@ def _fetch_expense_data_locked(
                     existing_count,
                     excluded_count,
                 )
+                if invalid_json_count:
+                    logger.warning(
+                        "Preserved %d invalid JSONL line(s) while refreshing %s; year filter was skipped",
+                        invalid_json_count,
+                        output_path,
+                    )
+                if non_object_count:
+                    logger.warning(
+                        "Preserved %d non-object JSONL line(s) while refreshing %s; year filter was skipped",
+                        non_object_count,
+                        output_path,
+                    )
 
             manifest_pending: list[tuple[int, dict[str, Any]]] = []
             for year in years:

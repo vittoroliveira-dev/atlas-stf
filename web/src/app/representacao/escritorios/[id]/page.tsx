@@ -21,7 +21,7 @@ export default async function FirmDetailPage({
         description="O identificador informado nao corresponde a nenhum escritorio registrado."
       >
         <Link href="/representacao?tab=escritorios" className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-verde-600">
-          Voltar para escritorios <ArrowRight className="h-4 w-4" />
+          Voltar para escritorios <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
         </Link>
       </AppShell>
     );
@@ -48,7 +48,7 @@ export default async function FirmDetailPage({
       </section>
 
       <Link href="/representacao?tab=escritorios" className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-verde-600">
-        Voltar para escritorios <ArrowRight className="h-4 w-4" />
+        Voltar para escritorios <ArrowRight className="h-4 w-4" aria-hidden="true" focusable="false" />
       </Link>
 
       {data.lawyers.length > 0 ? (

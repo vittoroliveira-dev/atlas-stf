@@ -52,7 +52,7 @@ export default async function RedistribuicaoPage({
       }}
     >
       {/* KPI cards */}
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Mudanças detectadas</p>
           <p className="mt-1 text-3xl font-semibold text-slate-900">{data.total}</p>
@@ -109,7 +109,7 @@ export default async function RedistribuicaoPage({
 
       {data.items.length === 0 ? (
         <section className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" focusable="false" />
           <p className="text-sm text-amber-800">{emptyStateMessage("redistribution")}</p>
         </section>
       ) : (
@@ -141,11 +141,11 @@ export default async function RedistribuicaoPage({
                 <div className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Data da mudança</p>
+                      <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">Data da mudança</p>
                       <p className="mt-1 text-sm text-slate-900">{c.change_date ?? "---"}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      <p className="text-xs font-semibold tracking-[0.02em] text-slate-500">
                         Decisões pós-mudança
                       </p>
                       <p className="mt-1 text-sm text-slate-900">{c.post_change_decision_count}</p>
@@ -157,7 +157,7 @@ export default async function RedistribuicaoPage({
 
                   {(c.post_change_favorable_rate != null || c.new_rapporteur_baseline_rate != null) && (
                     <div>
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      <p className="mb-1 text-xs font-semibold tracking-[0.02em] text-slate-500">
                         Taxa favorável pós-mudança vs. baseline do novo relator
                       </p>
                       <RateComparisonBar

@@ -9,6 +9,7 @@ import pytest
 
 from atlas_stf.api import _routes_core as routes_core
 from atlas_stf.api import create_app
+from atlas_stf.api.app import _register_py_lower_function
 
 
 @asynccontextmanager
@@ -45,6 +46,26 @@ async def test_openapi_metadata_exposes_consistent_api_version(serving_db: str):
     from importlib.metadata import version as pkg_version
 
     assert payload["info"]["version"] == pkg_version("atlas-stf")
+
+
+def test_register_py_lower_function_is_noop_for_non_sqlite_connections():
+    class _NonSqliteConnection:
+        pass
+
+    _register_py_lower_function(_NonSqliteConnection())
+
+
+def test_register_py_lower_function_registers_sqlite_udf():
+    calls: list[tuple[str, int]] = []
+
+    class _SqliteLikeConnection:
+        def create_function(self, name: str, arity: int, func) -> None:
+            calls.append((name, arity))
+            assert func("ABC") == "abc"
+            assert func(None) is None
+
+    _register_py_lower_function(_SqliteLikeConnection())
+    assert calls == [("py_lower", 1)]
 
 
 @pytest.mark.anyio

@@ -39,19 +39,35 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 # ---------------------------------------------------------------------------
 
 
+def _load_jsonl_objects(path: Path) -> list[dict[str, Any]]:
+    """Load JSONL from *path* requiring one JSON object per non-empty line."""
+    records: list[dict[str, Any]] = []
+    with path.open(encoding="utf-8") as f:
+        for line_number, line in enumerate(f, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise json.JSONDecodeError(
+                    f"Invalid JSONL record at {path}:{line_number}: {exc.msg}",
+                    exc.doc,
+                    exc.pos,
+                ) from exc
+            if not isinstance(record, dict):
+                raise ValueError(f"Expected JSON object at {path}:{line_number}")
+            records.append(record)
+    return records
+
+
 def _load_process_list(curated_dir: Path) -> list[dict[str, Any]]:
     """Load process records from curated process.jsonl."""
     path = curated_dir / "process.jsonl"
     if not path.exists():
         logger.warning("No process.jsonl found at %s", path)
         return []
-    records: list[dict[str, Any]] = []
-    with path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                records.append(json.loads(line))
-    return records
+    return _load_jsonl_objects(path)
 
 
 def _load_alert_process_ids(analytics_dir: Path) -> set[str]:
@@ -60,14 +76,10 @@ def _load_alert_process_ids(analytics_dir: Path) -> set[str]:
     if not path.exists():
         return set()
     ids: set[str] = set()
-    with path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                record = json.loads(line)
-                pid = record.get("process_id")
-                if isinstance(pid, str):
-                    ids.add(pid)
+    for record in _load_jsonl_objects(path):
+        pid = record.get("process_id")
+        if isinstance(pid, str):
+            ids.add(pid)
     return ids
 
 
@@ -173,14 +185,13 @@ def run_extraction(
             step += 1
             continue
 
-        # Skip completed (unless stale)
-        output_path = config.output_dir / f"{_sanitize_filename(process_number)}.json"
+        # Checkpoint completion is the incremental contract: completed processes
+        # are not re-enqueued on resume.
         if checkpoint.is_completed(process_number):
-            if not _should_refetch(output_path, config.refetch_after_days):
-                step += 1
-                if on_progress:
-                    on_progress(step, total, f"STF Portal: {process_number} (cache)")
-                continue
+            step += 1
+            if on_progress:
+                on_progress(step, total, f"STF Portal: {process_number} (cache)")
+            continue
 
         # Skip permanent failures (no partial dir = was permanent)
         if checkpoint.is_failed(process_number) and not partial_cache.has_partial(process_number):

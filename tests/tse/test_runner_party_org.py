@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import re
 import zipfile
 from pathlib import Path
@@ -405,6 +406,60 @@ class TestFetchPartyOrgData:
         # 2 new records (revenue + expense), no old ones
         assert len(records) == 2
         assert all(r["counterparty_name"] != "OLD" for r in records)
+
+    @patch("atlas_stf.tse._runner_party_org._download_year_zip")
+    def test_force_refresh_preserves_invalid_and_non_object_jsonl_lines(
+        self,
+        mock_download: MagicMock,
+        tmp_path: Path,
+        caplog,
+    ) -> None:
+        output_dir = tmp_path / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        _write_committed_manifest(output_dir, [2022, 2024])
+        raw_path = output_dir / "party_org_finance_raw.jsonl"
+        raw_path.write_text(
+            "\n".join(
+                [
+                    json.dumps({"counterparty_name": "KEEP_2022", "election_year": 2022}),
+                    "{",
+                    "[]",
+                    json.dumps({"counterparty_name": "OLD_2024", "election_year": 2024}),
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        zip_bytes = _make_zip_with_party_org(2024)
+        zip_path = output_dir / "tse_party_org_2024.zip"
+        zip_path.write_bytes(zip_bytes)
+        mock_download.return_value = (zip_path, _FAKE_META)
+
+        config = TsePartyOrgFetchConfig(output_dir=output_dir, years=(2024,), force_refresh=True)
+        with caplog.at_level(logging.WARNING):
+            fetch_party_org_data(config)
+
+        lines = [line for line in raw_path.read_text(encoding="utf-8").splitlines() if line]
+        assert "{" in lines
+        assert "[]" in lines
+        records = [json.loads(line) for line in lines if line not in {"{", "[]"}]
+        names = [r["counterparty_name"] for r in records]
+        years = [r["election_year"] for r in records]
+        assert "KEEP_2022" in names
+        assert "OLD_2024" not in names
+        assert years.count(2022) == 1
+        assert years.count(2024) == 2
+
+        manifest = load_manifest("tse_party_org", output_dir)
+        assert manifest is not None
+        for year in (2022, 2024):
+            uid = build_unit_id("tse_party_org", str(year))
+            assert manifest.units[uid].status == "committed"
+
+        assert sum("Preserved 1 invalid JSONL line(s)" in r.message for r in caplog.records) == 1
+        assert sum("Preserved 1 non-object JSONL line(s)" in r.message for r in caplog.records) == 1
 
     @patch("atlas_stf.tse._runner_party_org._download_year_zip")
     def test_record_kind_only_revenue_or_expense(self, mock_download: MagicMock, tmp_path: Path) -> None:

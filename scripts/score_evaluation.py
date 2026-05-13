@@ -19,6 +19,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+JsonRecord = dict[str, Any]
+ScoreKey = tuple[str, ...]
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -45,14 +48,14 @@ ML_WEIGHT = 0.30
 # Data loading helpers
 # ---------------------------------------------------------------------------
 
-def _load_jsonl(path: Path, fields: set[str] | None = None) -> list[dict[str, Any]]:
+def _load_jsonl(path: Path, fields: set[str] | None = None) -> list[JsonRecord]:
     """Load a JSONL file into a list of dicts.
 
     If *fields* is given, only keep those keys (saves memory on large files).
     """
     if not path.exists():
         return []
-    records: list[dict[str, Any]] = []
+    records: list[JsonRecord] = []
     with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -64,9 +67,9 @@ def _load_jsonl(path: Path, fields: set[str] | None = None) -> list[dict[str, An
     return records
 
 
-def _index_by(records: list[dict[str, Any]], key: str) -> dict[str, dict[str, Any]]:
+def _index_by(records: list[JsonRecord], key: str) -> dict[str, JsonRecord]:
     """Index records by a single key (first match wins)."""
-    idx: dict[str, dict[str, Any]] = {}
+    idx: dict[str, JsonRecord] = {}
     for rec in records:
         k = rec.get(key)
         if k is not None and k not in idx:
@@ -75,22 +78,29 @@ def _index_by(records: list[dict[str, Any]], key: str) -> dict[str, dict[str, An
 
 
 def _index_by_composite(
-    records: list[dict[str, Any]], keys: tuple[str, ...]
-) -> dict[tuple[str, ...], dict[str, Any]]:
+    records: list[JsonRecord], keys: tuple[str, ...]
+) -> dict[ScoreKey, JsonRecord]:
     """Index by composite key (first match wins)."""
-    idx: dict[tuple[str, ...], dict[str, Any]] = {}
+    idx: dict[ScoreKey, JsonRecord] = {}
     for rec in records:
-        vals = tuple(rec.get(k) for k in keys)
-        if None not in vals and vals not in idx:
-            idx[vals] = rec
+        vals: list[str] = []
+        for key in keys:
+            value = rec.get(key)
+            if value is None:
+                break
+            vals.append(str(value))
+        else:
+            composite_key = tuple(vals)
+            if composite_key not in idx:
+                idx[composite_key] = rec
     return idx
 
 
 def _group_by(
-    records: list[dict[str, Any]], key: str
-) -> dict[str, list[dict[str, Any]]]:
+    records: list[JsonRecord], key: str
+) -> dict[str, list[JsonRecord]]:
     """Group records by a key."""
-    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    groups: dict[str, list[JsonRecord]] = defaultdict(list)
     for rec in records:
         k = rec.get(key)
         if k is not None:
@@ -313,7 +323,7 @@ def _precision_at_k(scores: list[float], labels: list[bool], k: int) -> float:
 
 def _auroc(scores: list[float], labels: list[bool]) -> float:
     """AUROC via sort-based Mann-Whitney U statistic — O(n log n)."""
-    n_pos = sum(1 for l in labels if l)
+    n_pos = sum(1 for label in labels if label)
     n_neg = len(labels) - n_pos
     if n_pos == 0 or n_neg == 0:
         return 0.5
@@ -332,15 +342,15 @@ def _auroc(scores: list[float], labels: list[bool]) -> float:
             ranks[k] = avg_rank
         i = j
     # Sum of ranks for positives
-    rank_sum_pos = sum(r for r, (_, l) in zip(ranks, paired) if l)
+    rank_sum_pos = sum(rank for rank, (_, label) in zip(ranks, paired) if label)
     u = rank_sum_pos - n_pos * (n_pos + 1) / 2
     return u / (n_pos * n_neg)
 
 
 def _separation(scores: list[float], labels: list[bool]) -> float:
     """Mean(score | label=True) - Mean(score | label=False)."""
-    pos = [s for s, l in zip(scores, labels) if l]
-    neg = [s for s, l in zip(scores, labels) if not l]
+    pos = [score for score, label in zip(scores, labels) if label]
+    neg = [score for score, label in zip(scores, labels) if not label]
     if not pos or not neg:
         return 0.0
     return sum(pos) / len(pos) - sum(neg) / len(neg)
@@ -353,7 +363,7 @@ def _gini_concentration(scores: list[float], labels: list[bool]) -> float:
     Random = 0.0.
     """
     n = len(scores)
-    n_pos = sum(1 for l in labels if l)
+    n_pos = sum(1 for label in labels if label)
     if n_pos == 0 or n_pos == n:
         return 0.0
     paired = sorted(zip(scores, labels), key=lambda x: -x[0])
@@ -390,7 +400,7 @@ def _wilcoxon_signed_rank(diffs: list[float]) -> tuple[float, float]:
     nonzero.sort(key=lambda x: x[0])
     # Assign ranks
     n = len(nonzero)
-    ranks = list(range(1, n + 1))
+    ranks: list[float] = [float(rank) for rank in range(1, n + 1)]
     # Handle ties (average rank)
     i = 0
     while i < n:
@@ -620,13 +630,13 @@ def main() -> None:
 
         # Attach rapporteur_profile.deviation_flag
         if rapporteur and process_class and decision_year is not None:
-            rp = rapp_profiles.get((rapporteur, process_class, decision_year))
+            rp = rapp_profiles.get((rapporteur, process_class, str(decision_year)))
             if rp:
                 ea.deviation_flag = bool(rp.get("deviation_flag"))
 
         # Attach sequential_analysis.sequential_bias_flag
         if rapporteur and decision_year is not None:
-            sq = seq_index.get((rapporteur, decision_year))
+            sq = seq_index.get((rapporteur, str(decision_year)))
             if sq:
                 ea.sequential_bias_flag = bool(sq.get("sequential_bias_flag"))
 
@@ -789,9 +799,6 @@ def main() -> None:
         gini_val = _gini_concentration(scores, labels)
         prec_k = {k: _precision_at_k(scores, labels, k) for k in TOP_K_VALUES}
         return auroc_val, auroc_lo, auroc_hi, sep, prec_k, gini_val
-
-    # Pre-extract M0 scores for Wilcoxon tests
-    m0_scores_all = [a.scores["M0"] for a in enriched]
 
     for mi, method in enumerate(method_names):
         print(f"  [{mi+1}/{len(method_names)}] {method}...", end="", flush=True)
@@ -982,9 +989,6 @@ def main() -> None:
     print(f"  Melhoria vs M0 atual: {best_auroc - m0_auroc:+.4f}")
     print(f"  Volume ≥0.75:  M0={results['M0'].volume_075}  →  {best_method}={best_mr.volume_075}")
 
-    # Threshold calibration for best method
-    best_scores = sorted([a.scores[best_method] for a in enriched], reverse=True)
-    best_labels = [a.proxy_compound for a in enriched]
     # Find threshold that maximizes F1-like: precision * recall balance
     print(f"\n  Calibração de threshold para {best_method}:")
     for threshold in [0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60]:
@@ -992,7 +996,7 @@ def main() -> None:
         if not above:
             continue
         n_above = len(above)
-        n_pos_above = sum(1 for _, l in above if l)
+        n_pos_above = sum(1 for _, label in above if label)
         total_pos = sum(1 for a in enriched if a.proxy_compound)
         precision = n_pos_above / n_above if n_above > 0 else 0
         recall = n_pos_above / total_pos if total_pos > 0 else 0

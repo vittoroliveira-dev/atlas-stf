@@ -2,6 +2,19 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TypedDict
+
+
+class CorporateNetworkPaths(TypedDict):
+    rfb_dir: Path
+    minister_bio_path: Path
+    party_path: Path
+    counsel_path: Path
+    process_path: Path
+    decision_event_path: Path
+    process_party_link_path: Path
+    process_counsel_link_path: Path
+    output_dir: Path
 
 
 def make_decision_event(**overrides) -> dict:
@@ -43,7 +56,7 @@ def write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def corporate_network_setup(tmp_path: Path) -> dict[str, Path]:
+def corporate_network_setup(tmp_path: Path) -> CorporateNetworkPaths:
     """Create standard test data for corporate network tests."""
     rfb_dir = tmp_path / "rfb"
     curated_dir = tmp_path / "curated"

@@ -63,10 +63,10 @@ export default async function InvestigacaoPage({
               name="query"
               defaultValue={query}
               placeholder="Buscar entidade por nome, CPF, CNPJ..."
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm focus:border-marinho-400 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm focus-visible:border-marinho-400 focus-visible:outline-none"
             />
           </div>
-          <button type="submit" className="rounded-lg bg-marinho-600 px-4 py-2 text-sm font-medium text-white hover:bg-marinho-700">
+          <button type="submit" className="inline-flex h-11 items-center rounded-lg bg-marinho-600 px-4 text-sm font-medium text-white transition hover:bg-marinho-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marinho-400">
             Buscar
           </button>
         </div>
@@ -94,7 +94,7 @@ export default async function InvestigacaoPage({
                       </Link>
                     </td>
                     <td className="px-4 py-2 text-slate-500">{nodeTypeLabel(n.node_type)}</td>
-                    <td className="px-4 py-2 font-mono text-xs text-slate-400">{n.entity_identifier ?? "---"}</td>
+                    <td className="px-4 py-2 font-mono text-xs tabular-nums text-slate-400">{n.entity_identifier ?? "---"}</td>
                   </tr>
                 ))}
               </tbody>

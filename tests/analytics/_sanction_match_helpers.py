@@ -4,6 +4,18 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TypedDict
+
+
+class SanctionMatchPaths(TypedDict):
+    cgu_dir: Path
+    party_path: Path
+    counsel_path: Path
+    process_path: Path
+    decision_event_path: Path
+    process_party_link_path: Path
+    process_counsel_link_path: Path
+    output_dir: Path
 
 
 def _write_jsonl(path: Path, records: list[dict]) -> None:
@@ -13,7 +25,7 @@ def _write_jsonl(path: Path, records: list[dict]) -> None:
             fh.write(json.dumps(r) + "\n")
 
 
-def _setup_test_data(tmp_path: Path) -> dict[str, Path]:
+def _setup_test_data(tmp_path: Path) -> SanctionMatchPaths:
     cgu_dir = tmp_path / "cgu"
     curated_dir = tmp_path / "curated"
     analytics_dir = tmp_path / "analytics"

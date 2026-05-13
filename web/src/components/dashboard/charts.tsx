@@ -18,7 +18,7 @@ import {
 
 type Row = Record<string, number | string>;
 
-const PIE_COLORS = ["#007D30", "#946300", "#002776", "#7C3AED", "#CC9A00", "#009C3B"];
+const PIE_COLORS = ["#007D30", "#946300", "#002776", "#1A4FE6", "#CC9A00", "#009C3B"];
 
 function ChartFrame({ children }: { children: React.ReactNode }) {
   return <div className="h-72 min-h-[18rem] w-full min-w-0">{children}</div>;
@@ -57,7 +57,7 @@ function MeasuredChart({ render }: { render: (size: { width: number; height: num
       {hasSize ? (
         render(size)
       ) : (
-        <div className="h-full w-full rounded-[20px] bg-slate-100/70" aria-hidden="true" />
+        <div className="h-full w-full rounded-inset bg-slate-100/70" aria-hidden="true" />
       )}
     </div>
   );
@@ -65,10 +65,10 @@ function MeasuredChart({ render }: { render: (size: { width: number; height: num
 
 function CardFrame({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-[28px] border border-white/60 bg-white/80 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+    <section className="rounded-card border border-white/60 bg-white p-5 shadow-elevation-1">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-mono text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">{title}</h3>
+          <h3 className="text-sm font-semibold tracking-[0.02em] text-slate-500">{title}</h3>
           <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
         </div>
       </div>

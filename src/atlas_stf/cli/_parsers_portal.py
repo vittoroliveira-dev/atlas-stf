@@ -46,7 +46,7 @@ def _add_portal_parsers(subparsers: Any) -> None:
     stf_portal_fetch.add_argument(
         "--proxies",
         default=None,
-        help="Comma-separated SOCKS5 proxy URLs for IP rotation (e.g. socks5://localhost:1080,socks5://localhost:1081)",
+        help="Comma-separated HTTP(S) proxy URLs for IP rotation (e.g. http://localhost:8080,https://proxy.example:8443)",
     )
     stf_portal_fetch.add_argument("--dry-run", action="store_true", help="List processes without fetching")
     stf_portal_fetch.add_argument(

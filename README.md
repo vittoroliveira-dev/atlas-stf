@@ -14,7 +14,7 @@
   <a href="https://atlasstf.com.br/"><img src="https://img.shields.io/badge/🌐_website-atlasstf.com.br-0f6a42?style=flat-square" alt="Website"></a>
   <a href="https://github.com/vittoroliveira-dev/atlas-stf/actions"><img src="https://img.shields.io/github/actions/workflow/status/vittoroliveira-dev/atlas-stf/ci.yml?branch=main&style=flat-square&logo=github&label=CI&color=0f6a42" alt="CI"></a>
   <a href="https://github.com/vittoroliveira-dev/atlas-stf/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20NC%201.0-0b2458?style=flat-square" alt="PolyForm Noncommercial 1.0"></a>
-  <img src="https://img.shields.io/badge/python-3.14+-0b2458?style=flat-square&logo=python&logoColor=e8bf5b" alt="Python 3.14+">
+  <img src="https://img.shields.io/badge/python-3.14.5%2B-0b2458?style=flat-square&logo=python&logoColor=e8bf5b" alt="Python 3.14.5">
   <img src="https://img.shields.io/badge/fastapi-0.135.1-0f6a42?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI 0.135.1">
   <img src="https://img.shields.io/badge/next.js-16-08162d?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js 16">
   <img src="https://img.shields.io/badge/react-19-0b2458?style=flat-square&logo=react&logoColor=e8bf5b" alt="React 19">
@@ -79,7 +79,7 @@ O repositório combina quatro frentes operacionais:
 | Vínculos com doações eleitorais | 499.6 mil+ |
 | Conexões com sanções públicas | 3.6 mil+ |
 | Registros temporais | 10.9 mil+ |
-| Áreas de consulta no painel | 21 |
+| Áreas de consulta no painel | 19 |
 <!-- END:auto:scale -->
 
 ## Capacidades Atuais
@@ -155,7 +155,7 @@ flowchart LR
 <!-- BEGIN:auto:stack-table -->
 | Camada | Tecnologia |
 |---|---|
-| Backend analítico | Python 3.14+, pandas 3, scikit-learn, scipy |
+| Backend analítico | Python 3.14.5, pandas 3, scikit-learn, scipy |
 | API | FastAPI + SQLAlchemy 2.x |
 | Serving database | SQLite (48 tabelas) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind 4 + Recharts |
@@ -168,6 +168,7 @@ flowchart LR
 - O arquivo canônico do serving DB é `data/serving/atlas_stf.db`.
 - A URL canônica é `sqlite+pysqlite:///data/serving/atlas_stf.db`.
 - `ATLAS_STF_DATABASE_URL` deve apontar para essa URL em execução local e no `docker-compose`.
+- O backend oficialmente suportado pela API é SQLite; outros dialetos SQL não fazem parte do contrato operacional atual.
 - O serving DB é reconstruído a partir de `data/curated/` e `data/analytics/`; ele não é a fonte primária.
 
 ## Instalação
@@ -176,14 +177,14 @@ flowchart LR
 ### Via Docker (recomendado)
 
 ```bash
-docker pull ghcr.io/vittoroliveira-dev/atlas-stf:latest
-docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.5
+docker pull ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.6
+docker run -p 8000:8000 -v ./data:/app/data ghcr.io/vittoroliveira-dev/atlas-stf:v1.1.6
 ```
 
 ### Via wheel (release asset)
 
 ```bash
-pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.1.5-py3-none-any.whl
+pip install https://github.com/vittoroliveira-dev/atlas-stf/releases/latest/download/atlas_stf-1.1.6-py3-none-any.whl
 ```
 <!-- END:auto:install-version -->
 
@@ -197,7 +198,7 @@ atlas-stf --help
 
 ### Pré-requisitos
 
-- Python 3.14+
+- Python 3.14.5
 - `uv`
 - Node.js 24+ (LTS, pinado via `.nvmrc`)
 - `npm`
@@ -533,7 +534,7 @@ atlas-stf/
 │   ├── deoab/            # DEOAB sociedades de advocacia (pdftotext)
 │   ├── doc_extractor/    # Extração seletiva de PDFs
 │   ├── transparencia/    # Portal de transparência STF (Playwright)
-│   ├── fetch/            # Manifesto unificado de downloads (discovery, plan, execute)
+│   ├── fetch/            # Manifesto unificado de downloads (discovery, plan, execute, migrate)
 │   ├── contracts/        # Schema inspection e drift analysis por fonte
 │   └── validation/       # Integridade referencial cross-artefato
 ├── web/                  # Dashboard Next.js 16 + React 19 + TypeScript
@@ -560,7 +561,7 @@ make ci
 
 # Ou individualmente:
 make check           # Lint + typecheck + deadcode (Python)
-make test            # Testes (~2700, 83% cobertura mínima)
+make test            # Testes (~2842, 83% cobertura mínima)
 make format          # Formata código (ruff format)
 make format-check    # Verifica formatação sem alterar (para CI)
 make lint-fix        # Corrige problemas de lint auto-fixáveis
